@@ -48,4 +48,30 @@ public class TransacoesController : ControllerBase
             Saldo = totalEntrada - totalSaida
         });
     }
+
+
+    // GET: api/Transacoes/mensal?negocioId=1&mes=1&ano=2026
+    [HttpGet("mensal")]
+    public async Task<IActionResult> GetMensal(int negocioId, int mes, int ano)
+    {
+        var transacoes = await _context.Transacoes
+            .Where(t => t.NegocioId == negocioId &&
+                        t.Data.Month == mes &&
+                        t.Data.Year == ano)
+            .OrderBy(t => t.Data)
+            .ToListAsync();
+
+        var totais = new
+        {
+            TotalEntrada = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor),
+            TotalSaida = transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
+            SaldoMes = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor) -
+                       transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
+            Itens = transacoes
+        };
+
+        return Ok(totais);
+    }
+
+
 }
