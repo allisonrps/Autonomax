@@ -1,0 +1,6 @@
+@Autonomax_HostAddress = http://localhost:5203
+
+GET {{Autonomax_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
