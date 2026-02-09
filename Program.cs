@@ -113,4 +113,21 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+
+
+
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<AppDbContext>();
+    
+    // Roda as migrations automaticamente (opcional, mas recomendado)
+    context.Database.EnsureCreated(); 
+    
+    // Chama o nosso Seeder
+    Autonomax.Data.DbSeeder.Seed(context);
+}
+
+
 app.Run();
