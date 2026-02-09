@@ -11,7 +11,7 @@ public static class TokenService
     public static string GerarToken(Usuario usuario)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        // A chave deve ser a mesma que você colocou no Program.cs
+//chave
         var chave = Encoding.ASCII.GetBytes("Sua_Chave_Super_Secreta_De_32_Caracteres_Minimo");
 
         var tokenDescriptor = new SecurityTokenDescriptor

@@ -4,6 +4,7 @@ using Autonomax.Data;
 using Autonomax.Models;
 using Autonomax.DTOs;
 using Autonomax.Services;
+using Microsoft.AspNetCore.RateLimiting;
 using BCrypt.Net;
 
 namespace Autonomax.Controllers;
@@ -19,6 +20,7 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
+    [EnableRateLimiting("login_policy")]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto login)
     {
@@ -35,9 +37,9 @@ public class AuthController : ControllerBase
             Token = token,
             Usuario = new { usuario.Id, usuario.Nome, usuario.Email }
         });
-    } // <-- ESSA CHAVE FECHA O LOGIN
+    }
 
-    [HttpPost("register")] // AGORA O REGISTER ESTÁ NO LUGAR CERTO
+    [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] Usuario usuario)
     {
         if (await _context.Usuarios.AnyAsync(u => u.Email == usuario.Email))
@@ -50,4 +52,4 @@ public class AuthController : ControllerBase
 
         return Ok(new { message = "Usuário criado com sucesso!" });
     }
-} 
+}

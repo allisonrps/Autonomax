@@ -23,8 +23,9 @@ public class NegociosController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Negocio>>> GetMeusNegocios()
     {
-        // Extrai o ID do usuário guardado no Token (Claim "id" que criamos no TokenService)
-        var usuarioId = int.Parse(User.FindFirst("id")?.Value);
+    var usuarioIdClaim = User.FindFirst("id")?.Value;
+    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+    var usuarioId = int.Parse(usuarioIdStr);
 
         return await _context.Negocios
             .Where(n => n.UsuarioId == usuarioId)
@@ -35,7 +36,8 @@ public class NegociosController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Negocio>> GetNegocio(int id)
     {
-        var usuarioId = int.Parse(User.FindFirst("id")?.Value);
+        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+        var usuarioId = int.Parse(usuarioIdStr);
 
         var negocio = await _context.Negocios
             .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
@@ -49,7 +51,8 @@ public class NegociosController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Negocio>> PostNegocio(Negocio negocio)
     {
-        var usuarioId = int.Parse(User.FindFirst("id")?.Value);
+    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+    var usuarioId = int.Parse(usuarioIdStr);
 
         // Forçamos o ID do usuário logado para evitar que ele cadastre para outra pessoa
         negocio.UsuarioId = usuarioId;
@@ -64,7 +67,8 @@ public class NegociosController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteNegocio(int id)
     {
-        var usuarioId = int.Parse(User.FindFirst("id")?.Value);
+    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+    var usuarioId = int.Parse(usuarioIdStr);
 
         var negocio = await _context.Negocios
             .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);

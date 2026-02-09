@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
-var builder = WebApplication.CreateBuilder(args); // PRIMEIRO: Criamos o builder
+var builder = WebApplication.CreateBuilder(args);
 
-// --- CONFIGURAÇÃO DE SEGURANÇA ---
+// --- CONFIGURAÃ‡ÃƒO DE SEGURANÃ‡A (JWT) ---
 var chave = Encoding.ASCII.GetBytes("Sua_Chave_Super_Secreta_De_32_Caracteres_Minimo");
 
 builder.Services.AddAuthentication(x =>
@@ -27,8 +29,8 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
-
-
+// --- CONFIGURAÃ‡ÃƒO DO SWAGGER COM CADEADO ---
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -56,21 +58,34 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// --- CONFIGURAÃ‡ÃƒO DE RATE LIMITING ---
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("login_policy", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 0;
+    });
 
+    options.AddFixedWindowLimiter("fixed", opt =>
+    {
+        opt.PermitLimit = 100;
+        opt.Window = TimeSpan.FromMinutes(1);
+    });
 
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
 
-// --- SERVIÇOS PADRÃO ---
+// --- SERVIÃ‡OS PADRÃƒO E BANCO ---
 builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// --- BANCO DE DADOS ---
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-var app = builder.Build(); // SEGUNDO: Buildamos a aplicação
+var app = builder.Build();
 
-// --- PIPELINE DE EXECUÇÃO (A ordem aqui também é vital) ---
+// --- PIPELINE DE EXECUÃ‡ÃƒO ---
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -79,7 +94,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// ESSA ORDEM É OBRIGATÓRIA: Primeiro Autentica (quem é você), depois Autoriza (o que você pode fazer)
+// ORDEM IMPORTANTE: RateLimiter -> Auth -> Authorization
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

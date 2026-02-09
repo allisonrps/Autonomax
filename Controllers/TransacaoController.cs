@@ -2,9 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Data;
 using Autonomax.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Autonomax.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class TransacoesController : ControllerBase
@@ -16,11 +18,11 @@ public class TransacoesController : ControllerBase
         _context = context;
     }
 
-    // POST: api/Transacoes (Registrar Entrada ou Saída)
+    // 1. REGISTRAR uma nova transação (Venda ou Despesa)
     [HttpPost]
     public async Task<ActionResult<Transacao>> PostTransacao(Transacao transacao)
     {
-        // Define a data atual caso venha vazia
+        // Se a data não for enviada, usamos a data e hora atual
         if (transacao.Data == DateTime.MinValue)
             transacao.Data = DateTime.Now;
 
@@ -30,48 +32,38 @@ public class TransacoesController : ControllerBase
         return Ok(transacao);
     }
 
-    // GET: api/Transacoes/resumo/1 (Total de entradas e saídas do negócio ID 1)
-    [HttpGet("resumo/{negocioId}")]
-    public async Task<IActionResult> GetResumo(int negocioId)
-    {
-        var transacoes = await _context.Transacoes
-            .Where(t => t.NegocioId == negocioId)
-            .ToListAsync();
-
-        var totalEntrada = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor);
-        var totalSaida = transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor);
-
-        return Ok(new
-        {
-            Entradas = totalEntrada,
-            Saidas = totalSaida,
-            Saldo = totalEntrada - totalSaida
-        });
-    }
-
-
-    // GET: api/Transacoes/mensal?negocioId=1&mes=1&ano=2026
+    // 2. LISTAR histórico mensal para a sua "Tela Mês a Mês"
     [HttpGet("mensal")]
     public async Task<IActionResult> GetMensal(int negocioId, int mes, int ano)
     {
         var transacoes = await _context.Transacoes
-            .Where(t => t.NegocioId == negocioId &&
-                        t.Data.Month == mes &&
+            .Where(t => t.NegocioId == negocioId && 
+                        t.Data.Month == mes && 
                         t.Data.Year == ano)
-            .OrderBy(t => t.Data)
+            .OrderByDescending(t => t.Data) // Mais recentes primeiro
             .ToListAsync();
 
-        var totais = new
-        {
-            TotalEntrada = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor),
-            TotalSaida = transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
-            SaldoMes = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor) -
-                       transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
-            Itens = transacoes
+        var resumo = new {
+            Entradas = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor),
+            Saidas = transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
+            Saldo = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor) - 
+                    transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
+            Lista = transacoes
         };
 
-        return Ok(totais);
+        return Ok(resumo);
     }
 
+    // 3. DELETAR uma transação (caso o usuário erre o valor)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteTransacao(int id)
+    {
+        var transacao = await _context.Transacoes.FindAsync(id);
+        if (transacao == null) return NotFound();
 
+        _context.Transacoes.Remove(transacao);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }

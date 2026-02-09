@@ -2,9 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Data;
 using Autonomax.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Autonomax.Controllers;
 
+[Authorize] // Somente usuários logados podem gerenciar clientes
 [ApiController]
 [Route("api/[controller]")]
 public class ClientesController : ControllerBase
@@ -16,23 +18,26 @@ public class ClientesController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Clientes (Lista todos os clientes)
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Cliente>>> GetClientes()
+    // GET: api/Clientes/por-negocio/1
+    // Ajustamos para listar clientes de um negócio específico
+    [HttpGet("por-negocio/{negocioId}")]
+    public async Task<ActionResult<IEnumerable<Cliente>>> GetClientes(int negocioId)
     {
-        return await _context.Clientes.ToListAsync();
+        return await _context.Clientes
+            .Where(c => c.NegocioId == negocioId)
+            .ToListAsync();
     }
 
-    // POST: api/Clientes (Cadastra um novo cliente)
+    // POST: api/Clientes
     [HttpPost]
     public async Task<ActionResult<Cliente>> PostCliente(Cliente cliente)
     {
         _context.Clientes.Add(cliente);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetClientes), new { id = cliente.Id }, cliente);
+        // Ajustado para retornar o objeto criado corretamente
+        return CreatedAtAction(nameof(GetClientes), new { negocioId = cliente.NegocioId }, cliente);
     }
-
 
     // GET: api/Clientes/ranking/1
     [HttpGet("ranking/{negocioId}")]
@@ -43,16 +48,14 @@ public class ClientesController : ControllerBase
             .GroupBy(t => t.ClienteId)
             .Select(grupo => new {
                 ClienteId = grupo.Key,
-                // Aqui buscamos o nome do cliente para o ranking ficar bonito
-                NomeCliente = _context.Clientes.FirstOrDefault(c => c.Id == grupo.Key).Nome,
+                // O ?. e ?? "Desconhecido" resolvem o Warning CS8602
+                NomeCliente = _context.Clientes.FirstOrDefault(c => c.Id == grupo.Key)!.Nome ?? "Desconhecido",
                 TotalGasto = grupo.Sum(t => t.Valor)
             })
             .OrderByDescending(x => x.TotalGasto)
-            .Take(10) // Pega os 10 melhores
+            .Take(10) 
             .ToListAsync();
 
         return Ok(ranking);
     }
-
-
 }
