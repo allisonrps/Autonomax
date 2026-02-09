@@ -83,6 +83,22 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
+
+// --- POLÍTICA DE CORS  ---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // URL React/Vite
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+
+
+
 var app = builder.Build();
 
 
@@ -98,6 +114,8 @@ if (app.Environment.IsDevelopment())
 
 
 // --- PIPELINE DE EXECUÇÃO ---
+app.UseCors("FrontendPolicy");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
