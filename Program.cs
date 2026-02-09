@@ -85,6 +85,18 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 var app = builder.Build();
 
+
+// ATIVAR MIDDLEWARE DE ERRO
+app.UseMiddleware<Autonomax.Middleware.ErrorHandlingMiddleware>();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+
+
 // --- PIPELINE DE EXECUÇÃO ---
 if (app.Environment.IsDevelopment())
 {
@@ -94,7 +106,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// ORDEM IMPORTANTE: RateLimiter -> Auth -> Authorization
+// ORDEM RateLimiter -> Auth -> Authorization
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

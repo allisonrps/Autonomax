@@ -39,17 +39,23 @@ public class AuthController : ControllerBase
         });
     }
 
-    [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] Usuario usuario)
+[HttpPost("register")]
+public async Task<IActionResult> Register([FromBody] RegisterDto dto)
+{
+    if (await _context.Usuarios.AnyAsync(u => u.Email == dto.Email))
+        return BadRequest("Este e-mail já está cadastrado.");
+
+    var usuario = new Usuario
     {
-        if (await _context.Usuarios.AnyAsync(u => u.Email == usuario.Email))
-            return BadRequest("Este e-mail já está cadastrado.");
+        Nome = dto.Nome,
+        Email = dto.Email,
+        // Aqui fazemos a "ponte": a Senha do DTO vira o Hash do Model
+        SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha)
+    };
 
-        usuario.SenhaHash = BCrypt.Net.BCrypt.HashPassword(usuario.SenhaHash);
+    _context.Usuarios.Add(usuario);
+    await _context.SaveChangesAsync();
 
-        _context.Usuarios.Add(usuario);
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Usuário criado com sucesso!" });
-    }
+    return Ok(new { message = "Usuário criado com sucesso!" });
+}
 }

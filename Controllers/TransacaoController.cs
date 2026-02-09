@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Data;
 using Autonomax.Models;
+using Autonomax.DTOs;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Autonomax.Controllers;
@@ -20,19 +21,26 @@ public class TransacoesController : ControllerBase
 
     // 1. REGISTRAR uma nova transação (Venda ou Despesa)
     [HttpPost]
-    public async Task<ActionResult<Transacao>> PostTransacao(Transacao transacao)
+public async Task<ActionResult<Transacao>> PostTransacao([FromBody] TransacaoCreateDto dto)
+{
+    // Criamos o objeto do Banco (Model) a partir dos dados do DTO
+    var transacao = new Transacao
     {
-        // Se a data não for enviada, usamos a data e hora atual
-        if (transacao.Data == DateTime.MinValue)
-            transacao.Data = DateTime.Now;
+        Descricao = dto.Descricao,
+        Valor = dto.Valor,
+        Tipo = dto.Tipo,
+        NegocioId = dto.NegocioId,
+        ClienteId = dto.ClienteId,
+        Data = DateTime.Now // Definimos a data automaticamente no servidor
+    };
 
-        _context.Transacoes.Add(transacao);
-        await _context.SaveChangesAsync();
+    _context.Transacoes.Add(transacao);
+    await _context.SaveChangesAsync();
 
-        return Ok(transacao);
-    }
+    return Ok(new { message = "Transação registrada com sucesso!", id = transacao.Id });
+}
 
-    // 2. LISTAR histórico mensal para a sua "Tela Mês a Mês"
+    // 2. LISTAR histórico mensal para "Tela Mês a Mês"
     [HttpGet("mensal")]
     public async Task<IActionResult> GetMensal(int negocioId, int mes, int ano)
     {

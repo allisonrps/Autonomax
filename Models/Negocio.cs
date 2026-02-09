@@ -1,6 +1,13 @@
-﻿public class Negocio
+﻿using System.ComponentModel.DataAnnotations;
+
+public class Negocio
 {
-    public int Id { get; set; }
+public int Id { get; set; }
+
+    [Required(ErrorMessage = "O nome do negócio é obrigatório.")]
+    [StringLength(50, ErrorMessage = "O nome do negócio não pode ultrapassar 50 caracteres.")]
     public string Nome { get; set; } = string.Empty;
-    public int UsuarioId { get; set; } // O dono deste negócio
+
+    [Required]
+    public int UsuarioId { get; set; }
 }
