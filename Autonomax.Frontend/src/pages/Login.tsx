@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { LogIn, User, Lock } from 'lucide-react';
+import logoImg from '../assets/logo.png';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -16,12 +17,11 @@ export function Login() {
     try {
       const response = await api.post('/Auth/login', { email, senha });
       
-      // Salva os dados no navegador
       localStorage.setItem('@Autonomax:token', response.data.token);
       localStorage.setItem('@Autonomax:user', JSON.stringify(response.data.usuario));
 
       alert('Login realizado com sucesso!');
-      window.location.href = '/dashboard'; // Redireciona
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setErro(err.response?.data?.message || 'Falha ao conectar no servidor.');
     } finally {
@@ -32,12 +32,21 @@ export function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+        
+        {/* Cabeçalho com Logo e Texto */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600">Autonomax</h1>
+          <div className="flex flex-col items-center justify-center mb-4">
+            <img 
+              src={logoImg} 
+              alt="Autonomax Logo" 
+              className="h-30 w-auto mb-2" 
+            />
+          </div>
           <p className="text-gray-500">Gestão simplificada para autônomos</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
+          {/* Campo E-mail */}
           <div>
             <label className="block text-sm font-medium text-gray-700">E-mail</label>
             <div className="mt-1 relative">
@@ -53,6 +62,7 @@ export function Login() {
             </div>
           </div>
 
+          {/* Campo Senha */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Senha</label>
             <div className="mt-1 relative">
@@ -77,6 +87,17 @@ export function Login() {
           >
             {loading ? 'Entrando...' : <><LogIn size={20} /> Entrar</>}
           </button>
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Não tem uma conta?{' '}
+            <button 
+              type="button"
+              onClick={() => window.location.href = '/register'}
+              className="text-blue-600 hover:underline font-medium"
+            >
+              Cadastre-se
+            </button>
+          </p>
         </form>
       </div>
     </div>

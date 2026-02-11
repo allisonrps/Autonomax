@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="998"
+   height="731"
+   viewBox="0 0 998 731"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="g1">
+    <path
+       style="opacity:1;fill:#000000;stroke:none;stroke-width:13.6937;stroke-dasharray:none;stroke-opacity:1"
+       d="M 723.24854,571.15 869.5368,594.91674 645.19751,52.583863 H 545.98214 L 295.02565,594.40306 461.73123,572.67348 596.0012,79.09154 C 647.77313,259.48229 679.0935,411.02106 723.24854,571.15 Z"
+       id="path11" />
+    <text
+       xml:space="preserve"
+       style="font-size:145.91px;font-family:'Cascadia Mono';-inkscape-font-specification:'Cascadia Mono';writing-mode:lr-tb;direction:ltr;white-space:pre;inline-size:571.5;display:inline;opacity:1;fill:#008000;stroke:#ffffff;stroke-width:0.327835;stroke-dasharray:none"
+       x="211.54283"
+       y="948.60944"
+       id="text1-5"
+       transform="matrix(1.0729189,0,0,0.75392458,42.188362,-32.039995)"><tspan
+         x="211.54283"
+         y="948.60944"
+         id="tspan4"><tspan
+           style="font-weight:bold;font-stretch:condensed;font-family:Bahnschrift;-inkscape-font-specification:'Bahnschrift Bold Condensed'"
+           id="tspan3">AUTONOMAX</tspan></tspan></text>
+    <path
+       style="display:none;opacity:1;fill:#008000;stroke:#ffffff;stroke-width:10.3209;stroke-dasharray:none;stroke-opacity:1"
+       d="m 875.90922,694.02074 c 25.90993,75.47489 59.3442,-67.70203 70.91714,24.02438 0,0 -444.20932,-1387.11099 -831.24836,49.94825 -29.610896,109.94404 361.43355,-1235.95006 760.33122,-73.97263 z"
+       id="path8" />
+    <path
+       style="opacity:1;fill:#008000;stroke:#ffffff;stroke-width:13.988;stroke-dasharray:none;stroke-opacity:1"
+       d="M 26.849511,610.75246 114.9609,693.07459 392.85065,332.12384 636.85134,550.59401 894.40767,252.968 962.18572,294.12901 955.40785,116.81991 785.96296,170.64588 833.40752,208.6407 636.85134,439.77582 396.23952,227.63811 Z"
+       id="path7" />
+  </g>
+</svg>

@@ -8,8 +8,8 @@ export default {
     extend: {
       colors: {
         // Cores personalizadas para o Autonomax (opcional)
-        primary: "#2563eb",
-        secondary: "#64748b",
+        primary: "#000000",
+        secondary: "#6fcaff",
       }
     },
   },
