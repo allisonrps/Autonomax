@@ -1,4 +1,3 @@
 <Solution>
   <Project Path="Autonomax.csproj" />
-  <Project Path="Autonomax.Tests/Autonomax.Tests.csproj" />
 </Solution>

@@ -24,4 +24,6 @@ public class Transacao
     public int NegocioId { get; set; }
 
     public int? ClienteId { get; set; } // Opcional, pois Saídas podem não ter cliente
+
+    public Cliente? Cliente { get; set; }
 }

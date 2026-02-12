@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Data;
 using Autonomax.Models;
-using Autonomax.DTOs;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Autonomax.Controllers;
@@ -19,50 +18,84 @@ public class TransacoesController : ControllerBase
         _context = context;
     }
 
-    // 1. REGISTRAR uma nova transação (Venda ou Despesa)
-    [HttpPost]
-public async Task<ActionResult<Transacao>> PostTransacao([FromBody] TransacaoCreateDto dto)
-{
-    // Criamos o objeto do Banco (Model) a partir dos dados do DTO
-    var transacao = new Transacao
+    // GET: api/Transacoes/por-negocio/1
+ [HttpGet("por-negocio/{negocioId:int}")] 
+public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoes(int negocioId)
     {
-        Descricao = dto.Descricao,
-        Valor = dto.Valor,
-        Tipo = dto.Tipo,
-        NegocioId = dto.NegocioId,
-        ClienteId = dto.ClienteId,
-        Data = DateTime.Now // Definimos a data automaticamente no servidor
-    };
-
-    _context.Transacoes.Add(transacao);
-    await _context.SaveChangesAsync();
-
-    return Ok(new { message = "Transação registrada com sucesso!", id = transacao.Id });
-}
-
-    // 2. LISTAR histórico mensal para "Tela Mês a Mês"
-    [HttpGet("mensal")]
-    public async Task<IActionResult> GetMensal(int negocioId, int mes, int ano)
-    {
-        var transacoes = await _context.Transacoes
-            .Where(t => t.NegocioId == negocioId && 
-                        t.Data.Month == mes && 
-                        t.Data.Year == ano)
-            .OrderByDescending(t => t.Data) // Mais recentes primeiro
+        return await _context.Transacoes
+            .Include(t => t.Cliente) 
+            .Where(t => t.NegocioId == negocioId)
+            .OrderByDescending(t => t.Data)
             .ToListAsync();
-
-        var resumo = new {
-            Entradas = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor),
-            Saidas = transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
-            Saldo = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor) - 
-                    transacoes.Where(t => t.Tipo == "Saida").Sum(t => t.Valor),
-            Lista = transacoes
-        };
-
-        return Ok(resumo);
     }
 
-    // 3. DELETAR uma transação (caso o usuário erre o valor)
+    // POST: api/Transacoes
+    [HttpPost]
+    public async Task<ActionResult<Transacao>> PostTransacao(Transacao transacao)
+    {
+        // 1. Garante que a data não venha zerada
+        if (transacao.Data == DateTime.MinValue) transacao.Data = DateTime.Now;
+
+        // 2. Importante: Limpa a propriedade de navegação do Cliente para evitar que o EF 
+        // tente criar um novo cliente ou validar um existente que já está no banco.
+        transacao.Cliente = null; 
+
+        _context.Transacoes.Add(transacao);
+        await _context.SaveChangesAsync();
+
+        // 3. Busca a transação novamente para incluir os dados do Cliente no retorno (para o Frontend atualizar a lista)
+        var transacaoCriada = await _context.Transacoes
+            .Include(t => t.Cliente)
+            .FirstOrDefaultAsync(t => t.Id == transacao.Id);
+
+        return Ok(transacaoCriada); // Retornar Ok com o objeto completo é mais seguro para o seu Dashboard atual
+    }
+
+    // PUT: api/Transacoes/5
+    [HttpPut("{id}")]
+    public async Task<IActionResult> PutTransacao(int id, Transacao transacao)
+    {
+        if (id != transacao.Id) return BadRequest();
+
+        // Garante que o Cliente não seja processado como um novo objeto na edição
+        transacao.Cliente = null;
+
+        _context.Entry(transacao).State = EntityState.Modified;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!_context.Transacoes.Any(e => e.Id == id)) return NotFound();
+            else throw;
+        }
+
+        return NoContent();
+    }
+
+// GET: api/Transacoes/por-periodo/1?mes=2&ano=2026
+[HttpGet("por-periodo/{negocioId}")]
+public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoesPorPeriodo(
+    [FromRoute] int negocioId, 
+    [FromQuery] int mes, 
+    [FromQuery] int ano)
+{
+    // log no terminal do VS Code para vermos se a chamada chega aqui
+    Console.WriteLine($"Chamada recebida: Negocio={negocioId}, Mes={mes}, Ano={ano}");
+
+    var transacoes = await _context.Transacoes
+        .Include(t => t.Cliente)
+        .Where(t => t.NegocioId == negocioId && t.Data.Month == mes && t.Data.Year == ano)
+        .OrderByDescending(t => t.Data)
+        .ToListAsync();
+
+    return Ok(transacoes);
+}
+
+
+    // DELETE: api/Transacoes/5
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteTransacao(int id)
     {
@@ -71,7 +104,6 @@ public async Task<ActionResult<Transacao>> PostTransacao([FromBody] TransacaoCre
 
         _context.Transacoes.Remove(transacao);
         await _context.SaveChangesAsync();
-
         return NoContent();
     }
 }

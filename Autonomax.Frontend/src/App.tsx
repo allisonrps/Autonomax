@@ -14,6 +14,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/perfil" element={<Perfil />} />
         <Route path="/clientes" element={<Clientes />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard/:mes/:ano" element={<Dashboard />} />
       </Routes>
     </BrowserRouter>
   );

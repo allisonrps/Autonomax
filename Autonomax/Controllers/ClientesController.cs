@@ -18,15 +18,13 @@ public class ClientesController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Clientes/por-negocio/1
-    // Ajustamos para listar clientes de um negócio específico
-    [HttpGet("por-negocio/{negocioId}")]
-    public async Task<ActionResult<IEnumerable<Cliente>>> GetClientes(int negocioId)
-    {
-        return await _context.Clientes
-            .Where(c => c.NegocioId == negocioId)
-            .ToListAsync();
-    }
+[HttpGet("por-negocio/{negocioId}")]
+public async Task<ActionResult<IEnumerable<Cliente>>> GetClientes(int negocioId)
+{
+    return await _context.Clientes
+        .Where(c => c.NegocioId == negocioId)
+        .ToListAsync();
+}
 
     // POST: api/Clientes
     [HttpPost]

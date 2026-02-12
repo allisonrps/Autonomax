@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// Adicionado 'Users' no import abaixo
+// 1. Importe o Link e o useNavigate
+import { Link, useNavigate } from 'react-router-dom'; 
 import { LogOut, User, LayoutDashboard, Calendar, ChevronDown, Check, Users } from 'lucide-react';
 import logoHorizontalImg from '../assets/logo-horizontal.png';
 import api from '../services/api';
@@ -14,6 +15,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
+  const navigate = useNavigate(); // Hook para navegação programática
   const [isMonthOpen, setIsMonthOpen] = useState(false);
   const [isNegocioOpen, setIsNegocioOpen] = useState(false);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
@@ -51,14 +53,15 @@ export function Layout({ children }: LayoutProps) {
     setNegocioAtivo(negocio);
     localStorage.setItem('@Autonomax:selectedNegocioId', negocio.id.toString());
     setIsNegocioOpen(false);
-    // Opcional: window.location.reload(); 
+    // Em vez de reload, o useEffect do Dashboard vai detectar a mudança se o ID estiver no localStorage
+    window.location.reload(); 
   };
 
   const handleLogout = () => {
     localStorage.removeItem('@Autonomax:token');
     localStorage.removeItem('@Autonomax:user');
     localStorage.removeItem('@Autonomax:selectedNegocioId');
-    window.location.href = '/';
+    navigate('/');
   };
 
   return (
@@ -67,12 +70,13 @@ export function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           
           <div className="flex items-center gap-8">
-            <div className="flex items-center cursor-pointer" onClick={() => window.location.href = '/dashboard'}>
+            {/* Logo usando Link para não recarregar */}
+            <Link to="/dashboard" className="flex items-center">
               <img src={logoHorizontalImg} alt="Autonomax" className="h-8 w-auto object-contain" />
-            </div>
+            </Link>
             
             <nav className="hidden md:flex items-center gap-6">
-              {/* Menu Dashboard */}
+              {/* Menu Negócios */}
               <div className="relative">
                 <button 
                   onClick={() => setIsNegocioOpen(!isNegocioOpen)}
@@ -86,9 +90,6 @@ export function Layout({ children }: LayoutProps) {
                 {isNegocioOpen && (
                   <div className="absolute top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-[60]">
                     <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Meus Negócios</p>
-                    {negocios.length === 0 && (
-                      <p className="px-4 py-2 text-sm text-gray-500 italic">Nenhum cadastrado</p>
-                    )}
                     {negocios.map(negocio => (
                       <button 
                         key={negocio.id}
@@ -100,47 +101,48 @@ export function Layout({ children }: LayoutProps) {
                       </button>
                     ))}
                     <div className="border-t border-gray-100 mt-2 pt-2">
-                      <button 
-                        onClick={() => window.location.href = '/perfil'}
-                        className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 font-medium"
-                      >
+                      <Link to="/perfil" className="w-full block text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 font-medium">
                         + Gerenciar Negócios
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Menu Ano/Meses */}
+              {/* Menu Meses - CORRIGIDO COM LINK */}
               <div className="relative">
                 <button onClick={() => setIsMonthOpen(!isMonthOpen)} className="flex items-center gap-1 text-gray-600 hover:text-blue-600 font-medium transition-colors">
                   <Calendar size={18} />
                   2026 <ChevronDown size={14} />
                 </button>
                 {isMonthOpen && (
-                  <div className="absolute top-full mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-2 h-64 overflow-y-auto z-[60]">
-                    {meses.map(mes => (
-                      <button key={mes} className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50">{mes}</button>
+                  <div className="absolute top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 h-64 overflow-y-auto z-[60]">
+                    <p className="px-4 py-2 text-xs font-bold text-gray-400 uppercase">Selecionar Mês</p>
+                    {meses.map((mes, index) => (
+                      <Link 
+                        key={mes} 
+                        to={`/dashboard/${index + 1}/2026`}
+                        onClick={() => setIsMonthOpen(false)} // Fecha o menu ao clicar
+                        className="block px-4 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      >
+                        {mes}
+                      </Link>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Botão Clientes */}
-              <button 
-                onClick={() => window.location.href = '/clientes'}
-                className="flex items-center gap-1 text-gray-600 hover:text-blue-600 font-medium transition-colors"
-              >
+              <Link to="/clientes" className="flex items-center gap-1 text-gray-600 hover:text-blue-600 font-medium transition-colors">
                 <Users size={18} />
                 Clientes
-              </button>
+              </Link>
             </nav>
           </div>
 
           <div className="flex items-center gap-4">
-            <button onClick={() => window.location.href = '/perfil'} className="flex items-center gap-1 text-gray-600 hover:text-blue-600 font-medium">
+            <Link to="/perfil" className="flex items-center gap-1 text-gray-600 hover:text-blue-600 font-medium">
               <User size={18} /> Perfil
-            </button>
+            </Link>
             <button onClick={handleLogout} className="flex items-center gap-1 text-red-500 hover:text-red-600 font-medium">
               <LogOut size={18} /> Sair
             </button>

@@ -22,7 +22,7 @@ export function Register() {
     }
 
     try {
-      // Endpoint que criamos no seu AuthController
+      // Endpoint no AuthController
       await api.post('/Auth/register', { nome, email, senha });
       
       alert('Conta criada com sucesso! Agora você pode fazer login.');
