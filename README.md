@@ -39,7 +39,7 @@ O sistema permite o controle de múltiplos negócios, gestão de clientes e lan�
 ## **CONFIGURANDO O BACKEND**
 ### 1. Acesse a pasta do servidor:
    ```bash
-   cd Autonomax/Backend
+   cd Autonomax
    ```
    
 ### 2. Atualize a Connection String no arquivo appsettings.json.
@@ -61,7 +61,7 @@ A API estará rodando em: http://localhost:5203
 ### 1. Acesse a pasta do cliente:
 
    ```bash
-cd Autonomax/Frontend
+cd Autonomax.Frontend
    ```
    
 ### 2. Instale as dependências:
@@ -86,7 +86,7 @@ O App estará rodando em: http://localhost:5173
 │   ├── Data/           # Contexto do Entity Framework
 │   └── Properties/     # Configurações de inicialização
 │
-└── Frontend (React)
+└── Autonomax.Frontend (React)
     ├── src/
     │   ├── components/ # Componentes reutilizáveis (Layout, Header...)
     │   ├── pages/      # Páginas (Dashboard, Clientes, Login...)
