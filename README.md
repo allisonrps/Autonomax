@@ -78,19 +78,20 @@ npm run dev
 O App estará rodando em: http://localhost:5173
 
 ## 📂 Estrutura de Pastas Principal
-Plaintext
+```text
 /
 ├── Autonomax (Backend)
-│   ├── Controllers/    # Endpoints da API (Clientes, Transações, etc)
+│   ├── Controllers/    # Endpoints da API (Clientes, Transações...)
 │   ├── Models/         # Entidades do Banco de Dados
 │   ├── Data/           # Contexto do Entity Framework
 │   └── Properties/     # Configurações de inicialização
 │
 └── Frontend (React)
     ├── src/
-    │   ├── components/ # Componentes reutilizáveis (Layout, Header)
-    │   ├── pages/      # Páginas (Dashboard, Clientes, Login)
+    │   ├── components/ # Componentes reutilizáveis (Layout, Header...)
+    │   ├── pages/      # Páginas (Dashboard, Clientes, Login...)
     │   └── services/   # Configuração do Axios (API)
-    
+```
+
 ### 👤 Autor
-# Allison - Desenvolvedor Full Stack
+## Allison - Desenvolvedor Full Stack
