@@ -36,49 +36,49 @@ O sistema permite o controle de múltiplos negócios, gestão de clientes e lan�
 * Node.js instalado (versão 18 ou superior).
 * Um banco de dados configurado (PostgreSQL ou SQL Server).
 
-### **CONFIGURANDO O BACKEND**
-# 1. Acesse a pasta do servidor:
+## **CONFIGURANDO O BACKEND**
+### 1. Acesse a pasta do servidor:
    ```bash
    cd Autonomax/Backend
    ```
    
-# 2. Atualize a Connection String no arquivo appsettings.json.
+### 2. Atualize a Connection String no arquivo appsettings.json.
 
-# 3. Execute as migrations para criar o banco de dados:
+### 3. Execute as migrations para criar o banco de dados:
 
    ```bash
 dotnet ef database update
    ```
    
-# 4. Inicie o servidor:
+### 4. Inicie o servidor:
 
    ```bash
 dotnet run
    ```
 A API estará rodando em: http://localhost:5203
 
-### 3. CONFIGURANDO O FRONTEND
-# 1. Acesse a pasta do cliente:
+## **CONFIGURANDO O FRONTEND**
+### 1. Acesse a pasta do cliente:
 
    ```bash
 cd Autonomax/Frontend
    ```
    
-# 2. Instale as dependências:
+### 2. Instale as dependências:
 
    ```bash
 npm install
    ```
    
-# 3. Inicie a aplicação:
+### 3. Inicie a aplicação:
 
    ```bash
 npm run dev
    ```
 O App estará rodando em: http://localhost:5173
 
-### 📂 Estrutura de Pastas Principal
-
+## 📂 Estrutura de Pastas Principal
+Plaintext
 /
 ├── Autonomax (Backend)
 │   ├── Controllers/    # Endpoints da API (Clientes, Transações, etc)
