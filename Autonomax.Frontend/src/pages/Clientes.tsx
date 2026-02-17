@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
-import { Plus, Trash2, Edit3, Save, X, Users, MapPin, Phone, User } from 'lucide-react';
+// 1. Importe o Link do react-router-dom, não do lucide-react
+import { Link } from 'react-router-dom'; 
+import { Plus, Trash2, Edit3, Save, X, Users, MapPin, Phone, User, Eye } from 'lucide-react';
 import api from '../services/api';
 
 interface Cliente {
@@ -8,7 +10,7 @@ interface Cliente {
   nome: string;
   celular: string;
   endereco: string;
-  negocioId: number; // Campo obrigatório conforme seu Controller
+  negocioId: number;
 }
 
 export function Clientes() {
@@ -17,29 +19,25 @@ export function Clientes() {
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [clienteEdicao, setClienteEdicao] = useState<Cliente | null>(null);
 
-  // Pegamos o ID do negócio que está selecionado no Header
   const currentNegocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
 
   useEffect(() => {
     carregarClientes();
-  }, [currentNegocioId]); // Recarrega se o usuário trocar de negócio no header
+  }, [currentNegocioId]);
 
   async function carregarClientes() {
     if (!currentNegocioId) return;
     try {
-      // Ajustado para a sua rota: api/Clientes/por-negocio/{id}
       const response = await api.get(`/Clientes/por-negocio/${currentNegocioId}`);
       setClientes(response.data);
     } catch (err) {
-      console.error("Erro ao buscar clientes. Verifique a rota no Backend.");
+      console.error("Erro ao buscar clientes.");
     }
   }
 
   async function handleAddCliente() {
     if (!novoCliente.nome.trim() || !currentNegocioId) return;
-    
     try {
-      // Enviamos o objeto Cliente completo, incluindo o NegocioId
       await api.post('/Clientes', { 
         ...novoCliente, 
         negocioId: Number(currentNegocioId) 
@@ -47,47 +45,35 @@ export function Clientes() {
       setNovoCliente({ nome: '', celular: '', endereco: '' });
       carregarClientes();
     } catch (err) {
-      alert("Erro ao cadastrar. Verifique se o banco de dados está rodando.");
+      alert("Erro ao cadastrar.");
     }
   }
 
   async function handleUpdateCliente(id: number) {
-  if (!clienteEdicao || !currentNegocioId) return;
-
-  try {
-    // Garantimos que o objeto enviado tem o ID e o NegocioId corretos
-    const clienteParaEnviar = {
-      ...clienteEdicao,
-      id: id,
-      negocioId: Number(currentNegocioId)
-    };
-
-    console.log("Enviando para edição:", clienteParaEnviar);
-
-    await api.put(`/Clientes/${id}`, clienteParaEnviar);
-    
-    setEditandoId(null);
-    carregarClientes();
-    alert("Cliente atualizado!");
-  } catch (err: any) {
-    console.error("Erro no PUT:", err.response?.data);
-    alert(`Erro ao atualizar: ${err.response?.data?.title || "Verifique os dados"}`);
+    if (!clienteEdicao || !currentNegocioId) return;
+    try {
+      const clienteParaEnviar = {
+        ...clienteEdicao,
+        id: id,
+        negocioId: Number(currentNegocioId)
+      };
+      await api.put(`/Clientes/${id}`, clienteParaEnviar);
+      setEditandoId(null);
+      carregarClientes();
+    } catch (err: any) {
+      alert("Erro ao atualizar.");
+    }
   }
-}
 
-async function handleDeleteCliente(id: number) {
-  if (!confirm("Tem certeza que deseja excluir este cliente?")) return;
-
-  try {
-
-    await api.delete(`Clientes/${id}`);
-    
-    carregarClientes();
-  } catch (err: any) {
-    console.error("Erro no DELETE:", err.response?.data);
-    alert("Erro ao excluir. Verifique se este cliente possui transações vinculadas.");
+  async function handleDeleteCliente(id: number) {
+    if (!confirm("Tem certeza que deseja excluir este cliente?")) return;
+    try {
+      await api.delete(`Clientes/${id}`);
+      carregarClientes();
+    } catch (err: any) {
+      alert("Erro ao excluir. Verifique se existem transações vinculadas.");
+    }
   }
-}
 
   return (
     <Layout>
@@ -149,7 +135,7 @@ async function handleDeleteCliente(id: number) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {clientes.map(cliente => (
-                <tr key={cliente.id}>
+                <tr key={cliente.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     {editandoId === cliente.id ? (
                       <input 
@@ -183,19 +169,33 @@ async function handleDeleteCliente(id: number) {
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      {editandoId === cliente.id ? (
-                        <>
-                          <button onClick={() => handleUpdateCliente(cliente.id)} className="text-green-600"><Save size={20}/></button>
-                          <button onClick={() => setEditandoId(null)} className="text-gray-400"><X size={20}/></button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => { setEditandoId(cliente.id); setClienteEdicao(cliente); }} className="text-blue-500"><Edit3 size={18}/></button>
-                          <button onClick={() => handleDeleteCliente(cliente.id)} className="text-red-400"><Trash2 size={18}/></button>
-                        </>
-                      )}
-                    </div>
+<div className="flex justify-end gap-3">
+  {editandoId === cliente.id ? (
+    <>
+      <button onClick={() => handleUpdateCliente(cliente.id)} className="text-green-600"><Save size={20}/></button>
+      <button onClick={() => setEditandoId(null)} className="text-gray-400"><X size={20}/></button>
+    </>
+  ) : (
+    <>
+      {/* ÍCONE DE VISUALIZAR (OLHO) QUE REDIRECIONA */}
+      <Link 
+        to={`/clientes/${cliente.id}`} 
+        className="text-gray-400 hover:text-blue-600 transition-colors"
+        title="Ver detalhes"
+      >
+        <Eye size={20} />
+      </Link>
+
+      <button onClick={() => { setEditandoId(cliente.id); setClienteEdicao(cliente); }} className="text-gray-400 hover:text-blue-500">
+        <Edit3 size={18}/>
+      </button>
+      
+      <button onClick={() => handleDeleteCliente(cliente.id)} className="text-gray-400 hover:text-red-500">
+        <Trash2 size={18}/>
+      </button>
+    </>
+  )}
+</div>
                   </td>
                 </tr>
               ))}

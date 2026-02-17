@@ -12,7 +12,6 @@ namespace Autonomax.Controllers;
 public class TransacoesController : ControllerBase
 {
     private readonly AppDbContext _context;
-
     public TransacoesController(AppDbContext context)
     {
         _context = context;
@@ -35,11 +34,7 @@ public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoes(int negoci
     {
         // 1. Garante que a data não venha zerada
         if (transacao.Data == DateTime.MinValue) transacao.Data = DateTime.Now;
-
-        // 2. Importante: Limpa a propriedade de navegação do Cliente para evitar que o EF 
-        // tente criar um novo cliente ou validar um existente que já está no banco.
-        transacao.Cliente = null; 
-
+        transacao.Cliente = null; // Evita problemas de referência circular
         _context.Transacoes.Add(transacao);
         await _context.SaveChangesAsync();
 
@@ -56,12 +51,8 @@ public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoes(int negoci
     public async Task<IActionResult> PutTransacao(int id, Transacao transacao)
     {
         if (id != transacao.Id) return BadRequest();
-
-        // Garante que o Cliente não seja processado como um novo objeto na edição
         transacao.Cliente = null;
-
         _context.Entry(transacao).State = EntityState.Modified;
-
         try
         {
             await _context.SaveChangesAsync();
@@ -75,6 +66,32 @@ public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoes(int negoci
         return NoContent();
     }
 
+
+// GET: api/Transacoes/por-cliente/5?negocioId=2
+[AllowAnonymous]
+[HttpGet("por-cliente/{clienteId}")] 
+public async Task<IActionResult> GetPorCliente(int clienteId, [FromQuery] int negocioId)
+{
+    // Log para conferir no terminal
+ Console.WriteLine($"CHEGOU NO CONTROLLER: Cliente {clienteId}, Negocio {negocioId}");
+
+    var cliente = await _context.Clientes
+        .AsNoTracking() 
+        .FirstOrDefaultAsync(c => c.Id == clienteId);
+
+    if (cliente == null) {
+        return NotFound(new { mensagem = $"Cliente {clienteId} não encontrado." });
+    }
+
+    var transacoes = await _context.Transacoes
+        .Where(t => t.ClienteId == clienteId && t.NegocioId == negocioId)
+        .OrderByDescending(t => t.Data)
+        .ToListAsync();
+
+    return Ok(new { cliente, transacoes });
+}
+
+
 // GET: api/Transacoes/por-periodo/1?mes=2&ano=2026
 [HttpGet("por-periodo/{negocioId}")]
 public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoesPorPeriodo(
@@ -82,7 +99,7 @@ public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoesPorPeriodo(
     [FromQuery] int mes, 
     [FromQuery] int ano)
 {
-    // log no terminal do VS Code para vermos se a chamada chega aqui
+    // log no terminal
     Console.WriteLine($"Chamada recebida: Negocio={negocioId}, Mes={mes}, Ano={ano}");
 
     var transacoes = await _context.Transacoes
