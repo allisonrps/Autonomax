@@ -81,13 +81,18 @@ O App estará rodando em: http://localhost:5173
 ```text
 /
 ├── Autonomax (Backend)
-│   ├── Controllers/    # Endpoints da API (Clientes, Transações...)
-│   ├── Models/         # Entidades do Banco de Dados
-│   ├── Data/           # Contexto do Entity Framework
-│   └── Properties/     # Configurações de inicialização
+│   ├── Controllers/    # Endpoints da API que gerenciam a lógica de entrada/saída para Clientes, Transações e Negócios.
+│   ├── Data/           # Contém o AppDbContext do Entity Framework Core e configurações de mapeamento (Fluent API).
+│   ├── DTOs/           # (Data Transfer Objects): Classes para entrada e saída de dados da API, evitando a exposição direta das Models e resolvendo problemas de referência cíclica (como nos Itens da Transação).
+│   ├── Middleware/     # Filtros personalizados, como tratamento global de exceções ou logs de requisições.
+│   ├── Migrations/     # Histórico de versões do banco de dados gerado pelo EF Core (incluindo as novas colunas de Cidade, UF e Observações).
+│   ├── Models/         # Entidades que representam as tabelas do banco de dados (Cliente, Transacao, ItemTransacao, Negocio).
+│   ├── Properties/     # Arquivos como launchSettings.json que definem as portas (HTTP/HTTPS) e perfis de execução.
+│   └── Services/       # Camada de lógica de negócio para isolar cálculos complexos (como o processamento de faturamento e rankings) dos Controllers.
 │
 └── Autonomax.Frontend (React)
     ├── src/
+    │   ├── assets/     # Imagens 
     │   ├── components/ # Componentes reutilizáveis (Layout, Header...)
     │   ├── pages/      # Páginas (Dashboard, Clientes, Login...)
     │   └── services/   # Configuração do Axios (API)
