@@ -26,4 +26,7 @@ public class Transacao
     public int? ClienteId { get; set; } // Opcional, pois Saídas podem não ter cliente
 
     public Cliente? Cliente { get; set; }
+
+    // Relacionamento: Uma transação tem muitos itens
+    public List<ItemTransacao> Itens { get; set; } = new List<ItemTransacao>();
 }

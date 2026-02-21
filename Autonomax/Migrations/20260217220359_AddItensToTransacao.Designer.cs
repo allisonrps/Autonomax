@@ -4,6 +4,7 @@ using Autonomax.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Autonomax.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260217220359_AddItensToTransacao")]
+    partial class AddItensToTransacao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -33,15 +36,7 @@ namespace Autonomax.Migrations
                     b.Property<string>("Celular")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Cidade")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Endereco")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("NegocioId")
@@ -49,9 +44,6 @@ namespace Autonomax.Migrations
 
                     b.Property<string>("Nome")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Observacoes")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");

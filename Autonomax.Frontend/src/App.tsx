@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Perfil } from './pages/Perfil';
 import { Clientes } from './pages/Clientes';
 import { DetalhesCliente } from './pages/DetalhesCliente';
+import { Relatorios } from './pages/Relatorios';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/dashboard/:mes/:ano" element={<Dashboard />} />
         <Route path="/clientes/:id" element={<DetalhesCliente />} />
+        <Route path="/relatorios" element={<Relatorios />} />
       </Routes>
     </BrowserRouter>
   );

@@ -12,4 +12,5 @@ public class AppDbContext : DbContext
     public DbSet<Transacao> Transacoes { get; set; }
     public DbSet<ProdutoServico> ProdutosServicos { get; set; }
     public DbSet<Usuario> Usuarios { get; set; }
+    public DbSet<ItemTransacao> ItensTransacao { get; set; }
 }
