@@ -81,14 +81,14 @@ O App estará rodando em: http://localhost:5173
 ```text
 /
 ├── Autonomax (Backend)
-│   ├── Controllers/    # Endpoints da API que gerenciam a lógica de entrada/saída para Clientes, Transações e Negócios.
-│   ├── Data/           # Contém o AppDbContext do Entity Framework Core e configurações de mapeamento (Fluent API).
-│   ├── DTOs/           # (Data Transfer Objects): Classes para entrada e saída de dados da API, evitando a exposição direta das Models e resolvendo problemas de referência cíclica (como nos Itens da Transação).
+│   ├── Controllers/    # Endpoints da API que gerenciam a lógica de entrada/saída para Clientes, Transações e Negócios...
+│   ├── Data/           # Contém o AppDbContext do Entity Framework Core e configurações de mapeamento.
+│   ├── DTOs/           # Classes para entrada e saída de dados da API, evitando a exposição direta das Models e resolvendo problemas de referência cíclica.
 │   ├── Middleware/     # Filtros personalizados, como tratamento global de exceções ou logs de requisições.
-│   ├── Migrations/     # Histórico de versões do banco de dados gerado pelo EF Core (incluindo as novas colunas de Cidade, UF e Observações).
-│   ├── Models/         # Entidades que representam as tabelas do banco de dados (Cliente, Transacao, ItemTransacao, Negocio).
+│   ├── Migrations/     # Histórico de versões do banco de dados gerado pelo EF Core.
+│   ├── Models/         # Entidades que representam as tabelas do banco de dados.
 │   ├── Properties/     # Arquivos como launchSettings.json que definem as portas (HTTP/HTTPS) e perfis de execução.
-│   └── Services/       # Camada de lógica de negócio para isolar cálculos complexos (como o processamento de faturamento e rankings) dos Controllers.
+│   └── Services/       # Camada de lógica de negócio.
 │
 └── Autonomax.Frontend (React)
     ├── src/
