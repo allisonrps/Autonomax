@@ -1,13 +1,13 @@
 
-using Autonomax.Controllers;
-using Autonomax.Data;
-using Autonomax.DTOs;
-using Autonomax.Models;
+using Autonomax.Backend.Controllers;
+using Autonomax.Backend.Data;
+using Autonomax.Backend.DTOs;
+using Autonomax.Backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
-namespace Autonomax.Tests;
+namespace Autonomax.Backend.Tests;
 
 public class AuthTests
 {

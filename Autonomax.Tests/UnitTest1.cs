@@ -1,4 +1,4 @@
-﻿namespace Autonomax.Tests;
+﻿namespace Autonomax.Backend.Tests;
 
 public class UnitTest1
 {

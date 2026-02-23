@@ -1,0 +1,30 @@
+services:
+  # 1. Banco de Dados SQL Server
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: autonomax_db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=SuaSenhaForte123!
+    ports:
+      - "1433:1433"
+
+  # 2. API Backend (.NET 9)
+  api:
+    build: ./Autonomax.Backend
+    container_name: autonomax_api
+    depends_on:
+      - db
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=db;Database=AutonomaxDB;User Id=sa;Password=SuaSenhaForte123!;TrustServerCertificate=True
+    ports:
+      - "5000:80"
+
+  # 3. Web Frontend (React + Vite + Nginx)
+  web:
+    build: ./Autonomax.Frontend
+    container_name: autonomax_web
+    depends_on:
+      - api
+    ports:
+      - "80:80"

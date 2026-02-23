@@ -8,7 +8,7 @@ import {
 import api from '../services/api';
 
 // IMPORTAÇÃO DO LOGO
-import logoImg from '../assets/logo.png';
+import logoImg from '../assets/logo-horizontal-white.png';
 
 interface Negocio {
   id: number;
@@ -81,7 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     navigate(`/dashboard/${novoMes}/${novoAno}`);
     setIsMonthOpen(false);
     setIsYearOpen(false);
-    setIsMenuOpen(false); // Fecha o menu mobile ao navegar
+    setIsMenuOpen(false);
   };
 
   return (
