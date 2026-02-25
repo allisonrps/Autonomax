@@ -133,7 +133,10 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
     
-    // O Seeder agora roda com a conexão validada do Postgres [cite: 2026-02-25]
+    // Cria as tabelas no Supabase caso não existam
+    context.Database.EnsureCreated(); 
+    
+    // O Seeder roda com as tabelas já garantidas no banco
     Autonomax.Backend.Data.DbSeeder.Seed(context);
 }
 
