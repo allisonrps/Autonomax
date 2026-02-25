@@ -85,10 +85,13 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
-    
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// SQL SERVER    
+// builder.Services.AddDbContext<AppDbContext>(options =>
+//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// PostgreSQL (Npgsql)
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 
 // --- POLÍTICA DE CORS  ---
@@ -147,7 +150,7 @@ using (var scope = app.Services.CreateScope())
     var context = services.GetRequiredService<AppDbContext>();
     
     // Roda as migrations automaticamente (opcional, mas recomendado)
-    context.Database.EnsureCreated(); 
+    // context.Database.EnsureCreated(); 
     
     // Chama o nosso Seeder
     Autonomax.Backend.Data.DbSeeder.Seed(context);

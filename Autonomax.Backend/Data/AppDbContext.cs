@@ -13,4 +13,16 @@ public class AppDbContext : DbContext
     public DbSet<ProdutoServico> ProdutosServicos { get; set; }
     public DbSet<Usuario> Usuarios { get; set; }
     public DbSet<ItemTransacao> ItensTransacao { get; set; }
+
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.Entity<Transacao>()
+        .Property(t => t.Valor)
+        .HasPrecision(18, 2);
+
+    modelBuilder.Entity<ProdutoServico>()
+        .Property(p => p.Preco)
+        .HasPrecision(18, 2);
+}
+
 }
