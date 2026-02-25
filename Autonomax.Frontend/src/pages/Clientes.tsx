@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Link } from 'react-router-dom'; 
-import { 
-  Plus, Trash2, Edit3, Save, X, Users, 
-  MapPin, Phone, Search, Contact2, Eye, 
+import { Trash2, Edit3, Save, X, Users, 
+  Phone, Search, Contact2, Eye, 
   CheckCircle2, ChevronDown, ChevronUp 
 } from 'lucide-react';
 import api from '../services/api';

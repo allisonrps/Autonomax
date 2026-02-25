@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
   BarChart3, Package, ArrowUpRight, ArrowDownLeft, 
   Wallet, ChevronLeft, ChevronRight, Calendar,
-  TrendingUp, Award, ChevronDown, ChevronUp, PieChart, Users
+  TrendingUp, ChevronDown, ChevronUp, PieChart, Users
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 

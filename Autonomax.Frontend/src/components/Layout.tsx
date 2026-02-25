@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, 
   LayoutDashboard, Users, BarChart3, LogOut,
-  Briefcase, Building2, Calendar
+  Briefcase, Building2,
 } from 'lucide-react';
 import api from '../services/api';
 
