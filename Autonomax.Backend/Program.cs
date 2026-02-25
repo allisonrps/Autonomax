@@ -133,10 +133,10 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
     
-    // Cria as tabelas no Supabase caso não existam
+    // Cria as tabelas no Supabase antes de tentar usá-las
     context.Database.EnsureCreated(); 
     
-    // O Seeder roda com as tabelas já garantidas no banco
+    // Seeder não vai mais falhar ao procurar a tabela
     Autonomax.Backend.Data.DbSeeder.Seed(context);
 }
 
