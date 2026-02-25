@@ -1,0 +1,46 @@
+name: CI Autonomax Fullstack
+
+on:
+  push:
+    branches: [ "master" ] # Dispara o workflow no push para a master
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  # JOB 1: Validar Backend (.NET)
+  backend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x' 
+
+      - name: Restaurar Dependências
+        run: dotnet restore Autonomax.Backend/Autonomax.Backend.csproj
+
+      - name: Build do Backend
+        run: dotnet build Autonomax.Backend/Autonomax.Backend.csproj --configuration Release --no-restore
+
+  # JOB 2: Validar Frontend (React + Vite)
+  frontend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20 
+
+      - name: Instalar Dependências
+        run: |
+          cd Autonomax.Frontend
+          npm install
+
+      - name: Build do Frontend
+        run: |
+          cd Autonomax.Frontend
+          npm run build
