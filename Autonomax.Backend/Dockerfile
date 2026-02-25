@@ -8,7 +8,7 @@ RUN dotnet restore
 
 # Copia o restante e publica
 COPY . ./
-RUN dotnet publish -c Release -o out
+RUN dotnet publish Autonomax.Backend.csproj -c Release -o out
 
 # Estágio de Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:9.0
