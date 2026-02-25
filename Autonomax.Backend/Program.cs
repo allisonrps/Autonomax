@@ -9,14 +9,17 @@ using System.Threading.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 // --- CONFIGURAÇÃO DA STRING DE CONEXÃO (RAILWAY + SUPABASE) ---
-// Prioriza a variável de ambiente do Railway para evitar erro de LocalDB [cite: 2026-02-25]
+// Prioriza a variável de ambiente do Railway para evitar erro de LocalDB
+// Tenta ler de três formas diferentes para garantir a captura no Railway
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+                      ?? Environment.GetEnvironmentVariable("DefaultConnection")
                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // Lança exceção clara se a configuração estiver faltando no Railway [cite: 2026-02-25]
-    throw new Exception("ERRO: A Connection String não foi encontrada. Verifique as variáveis no Railway.");
+    // nome do ambiente no erro para debug
+    var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Não definido";
+    throw new Exception($"ERRO: Connection String vazia. Ambiente: {env}");
 }
 
 // --- SERVIÇOS DE BANCO DE DADOS (POSTGRESQL) ---
