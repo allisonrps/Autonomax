@@ -5,11 +5,25 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- CONFIGURAÇÃO DE SEGURANÇA (JWT) ---
+// --- CONFIGURAÇÃO DA STRING DE CONEXÃO (RAILWAY + SUPABASE) ---
+// Prioriza a variável de ambiente do Railway para evitar erro de LocalDB [cite: 2026-02-25]
+var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    // Lança exceção clara se a configuração estiver faltando no Railway [cite: 2026-02-25]
+    throw new Exception("ERRO: A Connection String não foi encontrada. Verifique as variáveis no Railway.");
+}
+
+// --- SERVIÇOS DE BANCO DE DADOS (POSTGRESQL) ---
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// --- SEGURANÇA (JWT) ---
 var chave = Encoding.ASCII.GetBytes("Sua_Chave_Super_Secreta_De_32_Caracteres_Minimo");
 
 builder.Services.AddAuthentication(x =>
@@ -30,7 +44,7 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
-// --- CONFIGURAÇÃO DO SWAGGER COM CADEADO ---
+// --- SWAGGER ---
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -59,7 +73,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// --- CONFIGURAÇÃO DE RATE LIMITING ---
+// --- RATE LIMITING ---
 builder.Services.AddRateLimiter(options =>
 {
     options.AddFixedWindowLimiter("login_policy", opt =>
@@ -79,83 +93,45 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
-// --- SERVIÇOS PADRÃO E BANCO ---
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    });
-
-// SQL SERVER    
-// builder.Services.AddDbContext<AppDbContext>(options =>
-//    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// PostgreSQL (Npgsql)
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-
-// --- POLÍTICA DE CORS  ---
+// --- POLÍTICA DE CORS (IMPORTANTE PARA VERCEL) ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") // URL React/Vite
+        policy.WithOrigins("http://localhost:5173", "https://autonomax.vercel.app") // Adicione sua URL da Vercel aqui [cite: 2026-02-25]
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 
-
-
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
-
-// ATIVAR MIDDLEWARE DE ERRO
+// --- MIDDLEWARE E PIPELINE ---
 app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Swagger habilitado em produção para facilitar seus testes iniciais
+app.UseSwagger();
+app.UseSwaggerUI();
 
-
-
-// --- PIPELINE DE EXECUÇÃO ---
 app.UseCors("FrontendPolicy");
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 app.UseHttpsRedirection();
-
-// ORDEM RateLimiter -> Auth -> Authorization
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-
-
-
-
+// --- INICIALIZAÇÃO DE DADOS (SEEDER) ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
     
-    // Roda as migrations automaticamente (opcional, mas recomendado)
-    // context.Database.EnsureCreated(); 
-    
-    // Chama o nosso Seeder
+    // O Seeder agora roda com a conexão validada do Postgres [cite: 2026-02-25]
     Autonomax.Backend.Data.DbSeeder.Seed(context);
 }
-
 
 app.Run();
