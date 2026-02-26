@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // AJUSTE: Use a porta que aparece no terminal do seu dotnet run (ex: 5000 ou 7xxx)
-  baseURL: 'http://localhost:5203/api', 
+  // Se existir VITE_API_URL no ambiente (Vercel), usa ela. 
+  // Caso contrário (local), usa o seu localhost padrão.
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5203/api', 
 });
 
 // Anexa o token automaticamente em todas as futuras requisições
