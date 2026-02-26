@@ -5,19 +5,17 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using System.Text.Json.Serialization; //IgnoreCycles
 
 var builder = WebApplication.CreateBuilder(args);
 
 // --- CONFIGURAÇÃO DA STRING DE CONEXÃO (RAILWAY + SUPABASE) ---
-// Prioriza a variável de ambiente do Railway para evitar erro de LocalDB
-// Tenta ler de três formas diferentes para garantir a captura no Railway
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
                       ?? Environment.GetEnvironmentVariable("DefaultConnection")
                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (string.IsNullOrEmpty(connectionString))
 {
-    // nome do ambiente no erro para debug
     var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Não definido";
     throw new Exception($"ERRO: Connection String vazia. Ambiente: {env}");
 }
@@ -102,25 +100,32 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
-// --- POLÍTICA DE CORS (IMPORTANTE PARA VERCEL) ---
+// --- POLÍTICA DE CORS ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "https://autonomax.vercel.app") // Adicione sua URL da Vercel aqui [cite: 2026-02-25]
+        policy.WithOrigins("http://localhost:5173", "https://autonomax.vercel.app")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
 });
 
-builder.Services.AddControllers();
+// --- CONFIGURAÇÃO DE CONTROLLERS ---
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        
+        // Remove campos nulos do JSON para evitar erros no frontend 
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+    });
 
 var app = builder.Build();
 
 // --- MIDDLEWARE E PIPELINE ---
 app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
 
-// Swagger habilitado em produção para facilitar seus testes iniciais
 app.UseSwagger();
 app.UseSwaggerUI();
 
@@ -133,16 +138,15 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// --- INICIALIZAÇÃO DE DADOS (SEEDER) ---
+// --- INICIALIZAÇÃO DE DADOS ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
     
-    // Cria as tabelas no Supabase antes de tentar usá-las
+    // Garante que o esquema do Supabase esteja atualizado
     context.Database.EnsureCreated(); 
     
-    // Seeder não vai mais falhar ao procurar a tabela
     Autonomax.Backend.Data.DbSeeder.Seed(context);
 }
 
