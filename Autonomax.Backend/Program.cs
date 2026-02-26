@@ -111,14 +111,18 @@ builder.Services.AddCors(options =>
     });
 });
 
-// --- CONFIGURAÇÃO DE CONTROLLERS ---
+// --- CONFIGURAÇÃO DE CONTROLLERS (RESOLVE ERRO 400 E 500) ---
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        // Aceita 'email' vindo do front mesmo que no DTO seja 'Email'
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true; 
         
-        // Remove campos nulos do JSON para evitar erros no frontend 
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        // Evita loops infinitos em relacionamentos
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        
+        // Opcional: Ignora campos nulos para deixar o JSON mais limpo
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
 var app = builder.Build();

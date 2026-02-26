@@ -22,11 +22,20 @@ export function Register() {
     }
 
     try {
-      await api.post('/Auth/register', { nome, email, senha });
+      // CORREÇÃO: Mapeamos a chave que o C# espera (Maiúsculo) 
+      // para o valor que está no estado do React (minúsculo)
+      await api.post('/Auth/register', { 
+        Nome: nome, 
+        Email: email, 
+        Senha: senha 
+      });
+
       alert('Conta criada com sucesso! Agora você pode fazer login.');
       window.location.href = '/';
     } catch (err: any) {
-      setErro(err.response?.data?.message || 'Erro ao criar conta. Tente outro e-mail.');
+      // Captura a mensagem de erro vinda do seu AuthController [cite: 2026-02-26]
+      const mensagemServidor = err.response?.data?.message || err.response?.data || 'Erro ao criar conta. Tente outro e-mail.';
+      setErro(typeof mensagemServidor === 'string' ? mensagemServidor : 'Erro na validação dos dados.');
     } finally {
       setLoading(false);
     }
