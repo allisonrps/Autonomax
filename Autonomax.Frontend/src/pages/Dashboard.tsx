@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
-  Plus, Trash2, Wallet, CalendarDays, X, Receipt,
-  ArrowUpRight, ArrowDownLeft, ChevronLeft, 
+  Plus, Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, PackagePlus, Target, CheckCircle2, 
   Clock, ChevronDown, ChevronUp, Edit3, Save, Tag,
   BarChart3, User, DollarSign, HandCoins
