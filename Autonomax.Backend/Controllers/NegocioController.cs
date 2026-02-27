@@ -7,7 +7,7 @@ using System.Security.Claims;
 
 namespace Autonomax.Backend.Controllers;
 
-[Authorize] // Bloqueia todo o controller: só acessa com Token JWT
+[Authorize] 
 [ApiController]
 [Route("api/[controller]")]
 public class NegociosController : ControllerBase
@@ -23,16 +23,15 @@ public class NegociosController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Negocio>>> GetMeusNegocios()
     {
-    var usuarioIdClaim = User.FindFirst("id")?.Value;
-    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-    var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+        var usuarioId = int.Parse(usuarioIdStr);
 
         return await _context.Negocios
             .Where(n => n.UsuarioId == usuarioId)
             .ToListAsync();
     }
 
-    // 2. BUSCAR um negócio específico (garantindo que pertence ao usuário)
+    // 2. BUSCAR um negócio específico
     [HttpGet("{id}")]
     public async Task<ActionResult<Negocio>> GetNegocio(int id)
     {
@@ -42,19 +41,18 @@ public class NegociosController : ControllerBase
         var negocio = await _context.Negocios
             .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
 
-        if (negocio == null) return NotFound("Negócio não encontrado ou você não tem permissão.");
+        if (negocio == null) return NotFound("Negócio não encontrado.");
 
         return negocio;
     }
 
-    // 3. CADASTRAR um novo negócio vinculado ao usuário logado
+    // 3. CADASTRAR novo negócio
     [HttpPost]
     public async Task<ActionResult<Negocio>> PostNegocio(Negocio negocio)
     {
-    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-    var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+        var usuarioId = int.Parse(usuarioIdStr);
 
-        // Forçamos o ID do usuário logado para evitar que ele cadastre para outra pessoa
         negocio.UsuarioId = usuarioId;
 
         _context.Negocios.Add(negocio);
@@ -63,12 +61,36 @@ public class NegociosController : ControllerBase
         return CreatedAtAction(nameof(GetNegocio), new { id = negocio.Id }, negocio);
     }
 
-    // 4. DELETAR um negócio
+    // 4. ATUALIZAR um negócio
+    [HttpPut("{id}")]
+    public async Task<IActionResult> PutNegocio(int id, Negocio negocio)
+    {
+    // O ID da URL deve ser o mesmo do objeto enviado
+    if (id != negocio.Id) return BadRequest("IDs não coincidem.");
+
+    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+    var usuarioId = int.Parse(usuarioIdStr);
+
+    // Segurança: Garante que o usuário só edite o que é dele
+    var negocioOriginal = await _context.Negocios
+        .AsNoTracking()
+        .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
+
+    if (negocioOriginal == null) return NotFound("Permissão negada.");
+
+    negocio.UsuarioId = usuarioId;
+    _context.Entry(negocio).State = EntityState.Modified;
+
+    await _context.SaveChangesAsync();
+    return NoContent();
+}
+
+    // 5. DELETAR um negócio
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteNegocio(int id)
     {
-    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-    var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
+        var usuarioId = int.Parse(usuarioIdStr);
 
         var negocio = await _context.Negocios
             .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
@@ -79,5 +101,10 @@ public class NegociosController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private bool NegocioExists(int id)
+    {
+        return _context.Negocios.Any(e => e.Id == id);
     }
 }

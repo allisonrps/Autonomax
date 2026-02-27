@@ -127,7 +127,7 @@ export function Relatorios() {
           </button>
           {graficoAberto && (
             <div className="p-8 animate-in slide-in-from-top duration-300">
-              <div className="h-[350px] w-full">
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />

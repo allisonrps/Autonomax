@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, 
   LayoutDashboard, Users, BarChart3, LogOut,
-  Briefcase, Building2,
+  Briefcase, Building2, User
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -173,10 +173,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/relatorios" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('relatorios') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
               <BarChart3 size={14} /> Análise Geral
             </Link>
+            <Link to="/perfil" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('perfil') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
+              <User size={14} /> Meu Perfil
+            </Link>
           </div>
         </div>
 
-        {/* MENU MOBILE EXPANSÍVEL (O CORRIGIDO) */}
+        {/* MENU MOBILE EXPANSÍVEL */}
         {isMenuOpen && (
           <div className="md:hidden bg-emerald-900 border-t border-emerald-800 animate-in slide-in-from-top duration-300">
             <div className="p-4 space-y-2">
@@ -188,6 +191,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
               <Link to="/relatorios" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-4 bg-emerald-950/50 rounded-2xl text-white font-bold text-sm">
                 <BarChart3 size={18} className="text-emerald-400" /> Análise Geral
+              </Link>
+              <Link to="/perfil" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-4 bg-emerald-950/50 rounded-2xl text-white font-bold text-sm">
+                <User size={18} className="text-emerald-400" /> Meu Perfil
               </Link>
               
               <div className="h-px bg-emerald-800 my-4" />
@@ -220,7 +226,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6 text-center">
           <img src={logoImg} alt="Autonomax" className="h-8 w-auto grayscale opacity-40" />
           <p className="text-emerald-600 text-[10px] font-black uppercase tracking-widest">
-            © 2026 Autonomax - Gestão de Sucesso
+            © 2026 Autonomax - Gestão de Sucesso [cite: 2026-02-27]
           </p>
         </div>
       </footer>
