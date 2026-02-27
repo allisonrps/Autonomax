@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
   Plus, Trash2, Edit3, Building2, 
-  ArrowRight, Save, X, AlertTriangle,
+  ArrowRight, AlertTriangle,
   LayoutGrid, Rocket, ChevronDown, ChevronUp
 } from 'lucide-react';
 import api from '../services/api';
@@ -48,7 +48,6 @@ export function Perfil() {
   async function handleUpdateNegocio(id: number) {
     if (!nomeEdicao.trim()) return;
     try {
-      // Ajustado para garantir que o objeto enviado coincida com o esperado pelo C# [cite: 2026-02-26]
       await api.put(`/Negocios/${id}`, { id: id, nome: nomeEdicao });
       setEditandoId(null);
       carregarNegocios();
@@ -128,7 +127,7 @@ export function Perfil() {
           {negocios.map(negocio => (
             <div key={negocio.id} className="group bg-white rounded-[32px] border border-gray-200 shadow-sm hover:shadow-2xl transition-all overflow-hidden flex flex-col relative">
               
-              {/* BOTÕES DE AÇÃO SEMPRE VISÍVEIS [cite: 2026-02-27] */}
+              {/* BOTÕES DE AÇÃO SEMPRE VISÍVEIS */}
               {!editandoId && (
                 <div className="flex gap-1 absolute top-6 right-6 bg-white shadow-lg p-1.5 rounded-2xl border border-gray-100 z-10">
                   <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-400 hover:text-emerald-600 transition-colors bg-transparent border-none cursor-pointer">
@@ -181,7 +180,7 @@ export function Perfil() {
         </div>
       </div>
 
-      {/* MODAL DE EXCLUSÃO [cite: 2026-02-27] */}
+      {/* MODAL DE EXCLUSÃO */}
       {confirmarExclusao && (
         <div className="fixed inset-0 bg-emerald-950/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center space-y-6">
