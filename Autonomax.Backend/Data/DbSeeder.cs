@@ -37,10 +37,10 @@ public static class DbSeeder
 
         // 5. Criar Transações (Entradas e Saídas) para o Ranking funcionar
         context.Transacoes.AddRange(
-            new Transacao { Descricao = "Formatação PC", Valor = 150.00m, Tipo = "Entrada", Data = DateTime.Now.AddDays(-2), NegocioId = negocio.Id, ClienteId = cliente1.Id },
-            new Transacao { Descricao = "Limpeza de Console", Valor = 200.00m, Tipo = "Entrada", Data = DateTime.Now.AddDays(-1), NegocioId = negocio.Id, ClienteId = cliente2.Id },
-            new Transacao { Descricao = "Venda Mouse Pad", Valor = 50.00m, Tipo = "Entrada", Data = DateTime.Now, NegocioId = negocio.Id, ClienteId = cliente1.Id },
-            new Transacao { Descricao = "Compra de Cabos", Valor = 80.00m, Tipo = "Saida", Data = DateTime.Now.AddDays(-3), NegocioId = negocio.Id }
+            new Transacao { Descricao = "Formatação PC", Valor = 150.00m, Tipo = "Entrada", Data = DateTime.UtcNow.AddDays(-2), NegocioId = negocio.Id, ClienteId = cliente1.Id },
+            new Transacao { Descricao = "Limpeza de Console", Valor = 200.00m, Tipo = "Entrada", Data = DateTime.UtcNow.AddDays(-1), NegocioId = negocio.Id, ClienteId = cliente2.Id },
+            new Transacao { Descricao = "Venda Mouse Pad", Valor = 50.00m, Tipo = "Entrada", Data = DateTime.UtcNow, NegocioId = negocio.Id, ClienteId = cliente1.Id },
+            new Transacao { Descricao = "Compra de Cabos", Valor = 80.00m, Tipo = "Saida", Data = DateTime.UtcNow.AddDays(-3), NegocioId = negocio.Id }
         );
         
         context.SaveChanges();
