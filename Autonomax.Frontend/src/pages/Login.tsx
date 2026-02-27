@@ -123,8 +123,9 @@ export function Login() {
         </div>
         
         {/* Rodapé do Login */}
-        <p className="mt-8 text-center text-[10px] text-emerald-600/40 font-black uppercase tracking-[0.4em]">
+        <p className="mt-8 text-center text-[10px] text-emerald-600/80 font-black uppercase tracking-[0.6em]">
           Autonomax © 2026
+Desenvolvido por Allison Rodrigues
         </p>
       </div>
     </div>
