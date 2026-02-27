@@ -140,6 +140,8 @@ app.UseSwaggerUI();
 
 app.UseCors("FrontendPolicy");
 
+app.UseMiddleware<Autonomax.Backend.Middleware.AuditMiddleware>();
+
 app.UseHttpsRedirection();
 app.UseRateLimiter();
 app.UseAuthentication();

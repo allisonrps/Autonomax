@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
   Plus, Trash2, Edit3, Building2, 
-  ArrowRight, AlertTriangle,
+  ArrowRight, AlertTriangle, ShieldCheck, // Adicionado ShieldCheck
   LayoutGrid, Rocket, ChevronDown, ChevronUp
 } from 'lucide-react';
 import api from '../services/api';
@@ -12,8 +12,18 @@ interface Negocio {
   nome: string;
 }
 
+// Interface para tipar os logs [cite: 2026-02-27]
+interface Log {
+  id: number;
+  evento: string;
+  descricao: string;
+  ipOrigem: string;
+  data: string;
+}
+
 export function Perfil() {
   const [negocios, setNegocios] = useState<Negocio[]>([]);
+  const [logs, setLogs] = useState<Log[]>([]); // Estado para os logs
   const [formAberto, setFormAberto] = useState(false);
   const [novoNegocio, setNovoNegocio] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -22,6 +32,7 @@ export function Perfil() {
 
   useEffect(() => {
     carregarNegocios();
+    carregarLogs(); // Chama os logs ao carregar a página [cite: 2026-02-27]
   }, []);
 
   async function carregarNegocios() {
@@ -30,6 +41,15 @@ export function Perfil() {
       setNegocios(response.data);
     } catch (err) {
       console.error("Erro ao buscar negócios.");
+    }
+  }
+
+  async function carregarLogs() {
+    try {
+      const response = await api.get('/LogsSeguranca'); 
+      setLogs(response.data);
+    } catch (err) {
+      console.error("Erro ao carregar trilha de auditoria.");
     }
   }
 
@@ -52,7 +72,7 @@ export function Perfil() {
       setEditandoId(null);
       carregarNegocios();
     } catch (err) {
-      alert("Erro ao atualizar. Verifique se o ID na URL e no corpo são iguais.");
+      alert("Erro ao atualizar.");
     }
   }
 
@@ -84,7 +104,7 @@ export function Perfil() {
             </div>
             <div>
               <h2 className="text-3xl font-black text-gray-800 tracking-tight uppercase">Meus Negócios</h2>
-              <p className="text-sm text-gray-500 font-medium">Gerencie suas unidades de trabalho</p>
+              <p className="text-sm text-gray-500 font-medium">Gerencie suas unidades de trabalho [cite: 2026-02-27]</p>
             </div>
           </div>
         </div>
@@ -126,8 +146,6 @@ export function Perfil() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {negocios.map(negocio => (
             <div key={negocio.id} className="group bg-white rounded-[32px] border border-gray-200 shadow-sm hover:shadow-2xl transition-all overflow-hidden flex flex-col relative">
-              
-              {/* BOTÕES DE AÇÃO SEMPRE VISÍVEIS */}
               {!editandoId && (
                 <div className="flex gap-1 absolute top-6 right-6 bg-white shadow-lg p-1.5 rounded-2xl border border-gray-100 z-10">
                   <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-400 hover:text-emerald-600 transition-colors bg-transparent border-none cursor-pointer">
@@ -143,11 +161,10 @@ export function Perfil() {
                 <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xl mb-6">
                   {negocio.nome.charAt(0).toUpperCase()}
                 </div>
-
                 {editandoId === negocio.id ? (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     <input 
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold outline-none focus:border-emerald-500"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold outline-none focus:border-emerald-500"
                       value={nomeEdicao}
                       onChange={e => setNomeEdicao(e.target.value)}
                       autoFocus
@@ -166,7 +183,6 @@ export function Perfil() {
                   </>
                 )}
               </div>
-
               {!editandoId && (
                 <button 
                   onClick={() => selecionarNegocio(negocio.id)}
@@ -177,6 +193,52 @@ export function Perfil() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* SEÇÃO DE AUDITORIA E SEGURANÇA [cite: 2026-02-27] */}
+        <div className="bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden mt-12">
+          <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ShieldCheck size={20} className="text-emerald-600" />
+              <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest">Atividades de Segurança</h3>
+            </div>
+            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-black uppercase">Audit Trail Ativo</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-gray-50">
+                  <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase">Evento</th>
+                  <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase">Descrição</th>
+                  <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase">IP de Origem</th>
+                  <th className="px-8 py-4 text-[10px] font-black text-gray-400 uppercase">Data</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {logs.length > 0 ? logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-8 py-4">
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase ${
+                        log.evento.includes('FALHO') ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                      }`}>
+                        {log.evento.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-8 py-4 text-xs font-bold text-gray-600">{log.descricao}</td>
+                    <td className="px-8 py-4 text-xs font-mono text-gray-400">{log.ipOrigem || 'Sistema'}</td>
+                    <td className="px-8 py-4 text-xs text-gray-500">
+                      {new Date(log.data).toLocaleString('pt-BR')}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={4} className="px-8 py-8 text-center text-gray-400 text-xs font-bold italic">Nenhuma atividade registrada ainda.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -189,7 +251,7 @@ export function Perfil() {
             </div>
             <div>
               <h3 className="text-xl font-black text-gray-800 uppercase">Excluir Perfil?</h3>
-              <p className="text-sm text-gray-500 mt-2">Isso apagará todos os dados desta unidade permanentemente.</p>
+              <p className="text-sm text-gray-500 mt-2">Isso apagará todos os dados desta unidade permanentemente [cite: 2026-02-27].</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button onClick={() => setConfirmarExclusao(null)} className="py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs uppercase border-none cursor-pointer">Não</button>
