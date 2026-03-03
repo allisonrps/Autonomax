@@ -20,24 +20,39 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
-    [EnableRateLimiting("login_policy")]
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginDto login)
+   [EnableRateLimiting("login_policy")]
+[HttpPost("login")]
+public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+{
+    var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
+
+    // Se o usuário não existe ou a senha está errada
+    if (usuario == null || !BCrypt.Net.BCrypt.Verify(loginDto.Senha, usuario.SenhaHash))
     {
-        var usuario = await _context.Usuarios
-            .FirstOrDefaultAsync(u => u.Email == login.Email);
+        // REGISTRO DE SEGURANÇA (AUDITORIA)
+        var log = new LogSeguranca {
+            Evento = "LOGIN_FALHO",
+            Descricao = $"Tentativa de login inválida para o e-mail: {loginDto.Email}",
+            EmailAlvo = loginDto.Email,
+            IpOrigem = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Data = DateTime.UtcNow 
+        };
+        
+        _context.LogsSeguranca.Add(log);
+        await _context.SaveChangesAsync();
 
-        if (usuario == null || !BCrypt.Net.BCrypt.Verify(login.Senha, usuario.SenhaHash))
-            return Unauthorized(new { message = "E-mail ou senha inválidos" });
-
-        var token = TokenService.GerarToken(usuario);
-
-        return Ok(new
-        {
-            Token = token,
-            Usuario = new { usuario.Id, usuario.Nome, usuario.Email }
-        });
+        return Unauthorized("E-mail ou senha incorretos.");
     }
+
+    // LOGIN COM SUCESSO
+    var token = TokenService.GerarToken(usuario);
+
+    return Ok(new
+    {
+        Token = token,
+        Usuario = new { usuario.Id, usuario.Nome, usuario.Email }
+    });
+}
 
 [HttpPost("register")]
 public async Task<IActionResult> Register([FromBody] RegisterDto dto)

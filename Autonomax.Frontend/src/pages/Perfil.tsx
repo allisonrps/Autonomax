@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
   Plus, Trash2, Edit3, Building2, 
-  ArrowRight, AlertTriangle, ShieldCheck, // Adicionado ShieldCheck
+  ArrowRight, AlertTriangle, ShieldCheck,
   LayoutGrid, Rocket, ChevronDown, ChevronUp
 } from 'lucide-react';
 import api from '../services/api';
@@ -12,7 +12,7 @@ interface Negocio {
   nome: string;
 }
 
-// Interface para tipar os logs [cite: 2026-02-27]
+// Interface para tipar os logs
 interface Log {
   id: number;
   evento: string;
@@ -32,7 +32,7 @@ export function Perfil() {
 
   useEffect(() => {
     carregarNegocios();
-    carregarLogs(); // Chama os logs ao carregar a página [cite: 2026-02-27]
+    carregarLogs(); // Chama os logs ao carregar a página
   }, []);
 
   async function carregarNegocios() {
@@ -195,7 +195,7 @@ export function Perfil() {
           ))}
         </div>
 
-        {/* SEÇÃO DE AUDITORIA E SEGURANÇA [cite: 2026-02-27] */}
+        {/* SEÇÃO DE AUDITORIA E SEGURANÇA*/}
         <div className="bg-white rounded-[32px] border border-gray-200 shadow-sm overflow-hidden mt-12">
           <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -251,7 +251,7 @@ export function Perfil() {
             </div>
             <div>
               <h3 className="text-xl font-black text-gray-800 uppercase">Excluir Perfil?</h3>
-              <p className="text-sm text-gray-500 mt-2">Isso apagará todos os dados desta unidade permanentemente [cite: 2026-02-27].</p>
+              <p className="text-sm text-gray-500 mt-2">Isso apagará todos os dados desta unidade permanentemente.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button onClick={() => setConfirmarExclusao(null)} className="py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs uppercase border-none cursor-pointer">Não</button>
