@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, 
   LayoutDashboard, Users, BarChart3, LogOut,
-  Briefcase, Building2, User
+  Briefcase, Building2, User,
+  Truck
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -129,6 +130,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+
+
             {/* GESTÃO DO NEGÓCIO (DESKTOP) */}
             <div className="relative hidden md:block">
               <button onClick={() => setIsNegocioOpen(!isNegocioOpen)} className="flex items-center gap-2 px-4 py-2 bg-emerald-900 border border-emerald-800 text-white rounded-xl text-xs font-bold hover:bg-emerald-800 transition-all shadow-md">
@@ -169,6 +172,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
             <Link to="/clientes" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('clientes') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
               <Users size={14} /> Meus Clientes
+            </Link>
+            <Link to="/fornecedores" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('fornecedores') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
+              <BarChart3 size={14} /> Fornecedores
             </Link>
             <Link to="/relatorios" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('relatorios') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
               <BarChart3 size={14} /> Análise Geral
@@ -226,7 +232,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-6 text-center">
           <img src={logoImg} alt="Autonomax" className="h-8 w-auto grayscale opacity-40" />
           <p className="text-emerald-600 text-[10px] font-black uppercase tracking-widest">
-            © 2026 Autonomax - Gestão de Sucesso [cite: 2026-02-27]
+            © 2026 Autonomax - Gestão de Sucesso para Autônomos. Todos os direitos reservados.
           </p>
         </div>
       </footer>

@@ -30,4 +30,7 @@ public class Transacao
 public string MetodoPagamento { get; set; } = "Pix";
     // Relacionamento: Uma transação tem muitos itens
     public List<ItemTransacao> Itens { get; set; } = new List<ItemTransacao>();
+public int? FornecedorId { get; set; }
+public Fornecedor? Fornecedor { get; set; }
+
 }

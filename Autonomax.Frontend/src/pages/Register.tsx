@@ -33,7 +33,7 @@ export function Register() {
       alert('Conta criada com sucesso! Agora você pode fazer login.');
       window.location.href = '/';
     } catch (err: any) {
-      // Captura a mensagem de erro vinda do seu AuthController [cite: 2026-02-26]
+      // Captura a mensagem de erro vinda do seu AuthController
       const mensagemServidor = err.response?.data?.message || err.response?.data || 'Erro ao criar conta. Tente outro e-mail.';
       setErro(typeof mensagemServidor === 'string' ? mensagemServidor : 'Erro na validação dos dados.');
     } finally {

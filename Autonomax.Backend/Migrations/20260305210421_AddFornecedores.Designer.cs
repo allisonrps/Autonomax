@@ -3,6 +3,7 @@ using System;
 using Autonomax.Backend.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Autonomax.Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260305210421_AddFornecedores")]
+    partial class AddFornecedores
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -196,9 +199,6 @@ namespace Autonomax.Backend.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<int?>("FornecedorId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("MetodoPagamento")
                         .IsRequired()
                         .HasColumnType("text");
@@ -221,8 +221,6 @@ namespace Autonomax.Backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClienteId");
-
-                    b.HasIndex("FornecedorId");
 
                     b.ToTable("Transacoes");
                 });
@@ -293,13 +291,7 @@ namespace Autonomax.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("ClienteId");
 
-                    b.HasOne("Autonomax.Backend.Models.Fornecedor", "Fornecedor")
-                        .WithMany()
-                        .HasForeignKey("FornecedorId");
-
                     b.Navigation("Cliente");
-
-                    b.Navigation("Fornecedor");
                 });
 
             modelBuilder.Entity("Negocio", b =>

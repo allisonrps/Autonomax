@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Usuario> Usuarios { get; set; }
     public DbSet<ItemTransacao> ItensTransacao { get; set; }
     public DbSet<LogSeguranca> LogsSeguranca { get; set; }
+    public DbSet<Fornecedor> Fornecedores { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
