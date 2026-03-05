@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import {  useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   Plus, Trash2, CalendarDays, X, Receipt, ChevronLeft, 
@@ -12,7 +12,6 @@ import api from '../services/api';
 interface Item { nome: string; quantidade: number; }
 interface Cliente { id: number; nome: string; }
 interface Fornecedor { id: number; nome: string; }
-
 
 interface Transacao {
   id: number;
@@ -44,6 +43,7 @@ export function Dashboard() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
+  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
 
   const [itensTemporarios, setItensTemporarios] = useState<{ item: string, qtd: number }[]>([]);
   const [novoItem, setNovoItem] = useState({ nome: '', qtd: 1 });
@@ -70,8 +70,9 @@ export function Dashboard() {
         api.get(`/Fornecedores/por-negocio/${negocioId}`)
       ]);
       
+      // Ordenação: Lançamentos mais recentes primeiro 
       const ordenadas = resTrans.data.sort((a: Transacao, b: Transacao) => 
-        new Date(a.data).getTime() - new Date(b.data).getTime()
+        new Date(b.data).getTime() - new Date(a.data).getTime()
       );
       
       setTransacoes(ordenadas);
@@ -192,7 +193,7 @@ export function Dashboard() {
                 <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Pendentes</p>
                 <p className="text-xl font-black text-amber-700 mt-1">R$ {totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
-              <div className={`p-5 rounded-2xl shadow-inner text-white ${saldo >= 0 ? 'bg-emerald-950' : 'bg-red-950'}`}>
+              <div className={`p-5 rounded-2xl shadow-inner text-white ${saldo >= 0 ? 'bg-emerald-950' : 'bg-red-900'}`}>
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Saldo Mensal</p>
                 <p className="text-xl font-black mt-1">R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
               </div>
@@ -283,7 +284,7 @@ export function Dashboard() {
                       </span>
                     </div>
                     
-                    {/* LÓGICA DE NOME */}
+                    {/* Exibição de Nome Dinâmica: Cliente ou Parceiro */}
                     <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none">
                       {t.tipo === 'Entrada' 
                         ? (t.cliente?.nome || "Venda Avulsa") 
@@ -293,7 +294,12 @@ export function Dashboard() {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <span className={`text-lg font-black tracking-tight ${t.tipo === 'Entrada' ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {/* Sinalização de Pendente em Amarelo */}
+                    <span className={`text-lg font-black tracking-tight ${
+                      t.status === 'Pendente' 
+                        ? 'text-amber-600' 
+                        : t.tipo === 'Entrada' ? 'text-emerald-600' : 'text-red-500'
+                    }`}>
                       {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
                     {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
@@ -318,8 +324,12 @@ export function Dashboard() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditando({ ...t, clienteId: t.clienteId || null, fornecedorId: t.fornecedorId || null })} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl border-none cursor-pointer"><Edit3 size={18}/></button>
-                        <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer"><Trash2 size={18}/></button>
+                        <button onClick={() => setEditando({ ...t, clienteId: t.clienteId || null, fornecedorId: t.fornecedorId || null })} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl border-none cursor-pointer hover:bg-emerald-100 transition-colors">
+                          <Edit3 size={18}/>
+                        </button>
+                        <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-colors">
+                          <Trash2 size={18}/>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -330,15 +340,37 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO */}
+      {/* MODAL DE EDIÇÃO RESPONSIVO  */}
       {editando && (
         <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="bg-white w-full max-w-xl h-[90vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
-            <div className="bg-gray-50 px-6 md:px-10 py-6 flex justify-between items-center border-b border-gray-100">
+          <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
+            
+            <div className="bg-gray-50 px-6 md:px-10 py-6 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2"><Edit3 size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Ajustar Transação</h3></div>
-              <button onClick={() => setEditando(null)} className="text-gray-300 hover:text-red-500 bg-transparent border-none cursor-pointer"><X size={24}/></button>
+              <button onClick={() => setEditando(null)} className="text-gray-300 hover:text-red-500 bg-transparent border-none cursor-pointer p-2"><X size={24}/></button>
             </div>
-            <div className="p-6 md:p-10 space-y-8 overflow-y-auto flex-1 pb-12">
+            
+            <div className="p-6 md:p-10 space-y-8 overflow-y-auto flex-1 pb-20 md:pb-10">
+              
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Itens da Transação</label>
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <input placeholder="Item..." className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none text-sm font-bold" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} />
+                    <input type="number" className="w-16 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Number(e.target.value)})} />
+                    <button onClick={() => { if(novoItemEdicao.nome) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-600 text-white px-5 rounded-2xl border-none cursor-pointer"><Plus size={20}/></button>
+                  </div>
+                  <div className="min-h-[80px] p-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100 flex flex-wrap gap-2">
+                    {editando.itens.map((it, idx) => (
+                      <div key={idx} className="flex items-center gap-2 bg-white border border-emerald-100 pl-3 pr-1.5 py-1.5 rounded-xl shadow-sm">
+                        <span className="text-emerald-600 font-black text-[10px]">{it.quantidade}x</span><span className="text-gray-600 text-[11px] font-bold">{it.nome}</span>
+                        <button onClick={() => setEditando({...editando, itens: editando.itens.filter((_, i) => i !== idx)})} className="text-gray-200 hover:text-red-500 bg-transparent border-none cursor-pointer"><X size={14}/></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><DollarSign size={10}/> Valor R$</label>
@@ -350,11 +382,21 @@ export function Dashboard() {
                     <option value="Pix">Pix</option><option value="A Vista">À Vista</option><option value="Cartão">Cartão</option>
                   </select>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CalendarDays size={10}/> Data</label>
+                  <input type="date" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.data.split('T')[0]} onChange={e => setEditando({...editando, data: e.target.value})} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CheckCircle2 size={10}/> Status</label>
+                  <select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.status} onChange={e => setEditando({...editando, status: e.target.value})}>
+                    <option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option>
+                  </select>
+                </div>
                 
                 <div className="space-y-1.5 md:col-span-2">
                   <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2">
                     {editando.tipo === 'Entrada' ? <User size={10}/> : <Truck size={10}/>} 
-                    {editando.tipo === 'Entrada' ? 'Cliente' : 'Parceiro'}
+                    {editando.tipo === 'Entrada' ? 'Cliente Atrelado' : 'Parceiro Atrelado'}
                   </label>
                   {editando.tipo === 'Entrada' ? (
                     <select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.clienteId || ''} onChange={e => setEditando({...editando, clienteId: e.target.value ? Number(e.target.value) : null})}>
@@ -369,7 +411,8 @@ export function Dashboard() {
                   )}
                 </div>
               </div>
-              <button onClick={handleUpdateTransacao} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-2 border-none cursor-pointer">
+
+              <button onClick={handleUpdateTransacao} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-2 border-none cursor-pointer active:scale-95 mb-6">
                 Salvar Alterações <Save size={18}/>
               </button>
             </div>
