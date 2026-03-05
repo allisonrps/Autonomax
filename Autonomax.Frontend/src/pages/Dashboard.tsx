@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import {  useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   Plus, Trash2, CalendarDays, X, Receipt, ChevronLeft, 
