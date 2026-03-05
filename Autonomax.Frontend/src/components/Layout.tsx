@@ -174,7 +174,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Users size={14} /> Meus Clientes
             </Link>
             <Link to="/fornecedores" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('fornecedores') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
-              <BarChart3 size={14} /> Fornecedores
+              <Truck size={14} /> Fornecedores
             </Link>
             <Link to="/relatorios" className={`py-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 border-b-2 transition-all ${location.pathname.includes('relatorios') ? 'border-white text-white' : 'border-transparent text-emerald-300 hover:text-white'}`}>
               <BarChart3 size={14} /> Análise Geral
@@ -194,6 +194,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
               <Link to="/clientes" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-4 bg-emerald-950/50 rounded-2xl text-white font-bold text-sm">
                 <Users size={18} className="text-emerald-400" /> Meus Clientes
+              </Link>
+              <Link to="/fornecedores" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-4 bg-emerald-950/50 rounded-2xl text-white font-bold text-sm">
+                <Truck size={18} className="text-emerald-400" /> Fornecedores
               </Link>
               <Link to="/relatorios" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-4 bg-emerald-950/50 rounded-2xl text-white font-bold text-sm">
                 <BarChart3 size={18} className="text-emerald-400" /> Análise Geral
