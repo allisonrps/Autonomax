@@ -44,7 +44,7 @@ export function Dashboard() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
-  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
+
   const [itensTemporarios, setItensTemporarios] = useState<{ item: string, qtd: number }[]>([]);
   const [novoItem, setNovoItem] = useState({ nome: '', qtd: 1 });
   const [novaTransacao, setNovaTransacao] = useState({
