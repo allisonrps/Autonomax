@@ -49,10 +49,18 @@ export function Dashboard() {
   const [novoItem, setNovoItem] = useState({ nome: '', qtd: 1 });
   const [novaTransacao, setNovaTransacao] = useState({
     valor: '', tipo: 'Entrada', status: 'Pendente', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
-    data: new Date().toISOString().split('T')[0]
+    data: new Date().toLocaleDateString('en-CA') // Garante data local no formato YYYY-MM-DD
   });
 
   const mesesNome = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  // formatar a data sem perda de fuso horário
+  const formatarDataLocal = (dataISO: string) => {
+    const data = new Date(dataISO);
+    // Adiciona o fuso horário para compensar a perda no UTC
+    data.setMinutes(data.getMinutes() + data.getTimezoneOffset());
+    return data;
+  };
 
   useEffect(() => {
     if (mes) setMesAtivo(Number(mes));
@@ -70,7 +78,6 @@ export function Dashboard() {
         api.get(`/Fornecedores/por-negocio/${negocioId}`)
       ]);
       
-      // Ordenação: Lançamentos mais recentes primeiro 
       const ordenadas = resTrans.data.sort((a: Transacao, b: Transacao) => 
         new Date(b.data).getTime() - new Date(a.data).getTime()
       );
@@ -98,6 +105,9 @@ export function Dashboard() {
     if (itensTemporarios.length === 0) return alert("Adicione pelo menos um item na lista (+).");
     if (!novaTransacao.valor) return alert("Informe o valor total do lançamento.");
     
+    // Converte a data local para meio-dia para evitar pulo de fuso horário no backend
+    const dataAjustada = new Date(novaTransacao.data + 'T12:00:00');
+
     const payload = {
       descricao: itensTemporarios.map(it => `${it.qtd}x ${it.item}`).join(', '),
       valor: Number(novaTransacao.valor), 
@@ -107,7 +117,7 @@ export function Dashboard() {
       negocioId: Number(negocioId), 
       clienteId: novaTransacao.tipo === 'Entrada' && novaTransacao.clienteId ? Number(novaTransacao.clienteId) : null,
       fornecedorId: novaTransacao.tipo === 'Saida' && novaTransacao.fornecedorId ? Number(novaTransacao.fornecedorId) : null,
-      data: new Date(novaTransacao.data).toISOString(),
+      data: dataAjustada.toISOString(),
       itens: itensTemporarios.map(it => ({ nome: it.item, quantidade: it.qtd }))
     };
 
@@ -122,13 +132,15 @@ export function Dashboard() {
 
   async function handleUpdateTransacao() {
     if (!editando) return;
+    const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
+
     const payload = {
       ...editando,
       descricao: editando.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
       negocioId: Number(negocioId),
       clienteId: editando.tipo === 'Entrada' ? (editando.clienteId ? Number(editando.clienteId) : null) : null,
       fornecedorId: editando.tipo === 'Saida' ? (editando.fornecedorId ? Number(editando.fornecedorId) : null) : null,
-      data: new Date(editando.data).toISOString()
+      data: dataAjustada.toISOString()
     };
     try {
       await api.put(`/Transacoes/${editando.id}`, payload);
@@ -280,11 +292,11 @@ export function Dashboard() {
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${t.tipo === 'Entrada' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                       <span className={`text-xs font-black ${t.tipo === 'Entrada' ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {new Date(t.data).getDate().toString().padStart(2, '0')}
+                        {/* Chamada da função de ajuste de data */}
+                        {formatarDataLocal(t.data).getDate().toString().padStart(2, '0')}
                       </span>
                     </div>
                     
-                    {/* Exibição de Nome Dinâmica: Cliente ou Parceiro */}
                     <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none">
                       {t.tipo === 'Entrada' 
                         ? (t.cliente?.nome || "Venda Avulsa") 
@@ -294,7 +306,6 @@ export function Dashboard() {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    {/* Sinalização de Pendente em Amarelo */}
                     <span className={`text-lg font-black tracking-tight ${
                       t.status === 'Pendente' 
                         ? 'text-amber-600' 
@@ -340,7 +351,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO RESPONSIVO  */}
+      {/* MODAL DE EDIÇÃO RESPONSIVO */}
       {editando && (
         <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
