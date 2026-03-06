@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
   BarChart3, Package, ArrowUpRight, ArrowDownLeft, 
-  Wallet, ChevronLeft, ChevronRight, Calendar,
+  ChevronLeft, ChevronRight, Calendar,
   TrendingUp, ChevronDown, ChevronUp, LineChart as LineChartIcon, Users
 } from 'lucide-react';
 import { 
