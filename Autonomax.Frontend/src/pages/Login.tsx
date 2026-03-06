@@ -36,7 +36,7 @@ export function Login() {
       <div className="hidden md:flex md:w-5/12 lg:w-1/2 bg-emerald-950 relative overflow-hidden flex-col justify-between p-12 lg:p-16">
         {/* Efeitos de Fundo (Blur) */}
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-800 rounded-full blur-[120px] opacity-30"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-500 rounded-full blur-[150px] opacity-20"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-300 rounded-full blur-[150px] opacity-30"></div>
 
         <div className="z-10">
            <img src={logoImg} alt="Autonomax" className="h-10 w-auto brightness-0 invert opacity-90 mb-12" />
@@ -97,7 +97,7 @@ export function Login() {
                <div className="p-3 bg-white/5 rounded-2xl text-emerald-400 h-fit"><Package size={22}/></div>
                <div>
                  <h4 className="text-white font-bold text-sm">Top Performance</h4>
-                 <p className="text-emerald-100/40 text-xs mt-1">Rankings automáticos de produtos, serviços e rentabilidade.</p>
+                 <p className="text-emerald-100/40 text-xs mt-1">Rankings automáticos de produtos/serviços e rentabilidade.</p>
                </div>
              </div>
            </div>
@@ -187,8 +187,10 @@ export function Login() {
             </div>
           </form>
 
-          <p className="text-center text-[9px] text-gray-600 font-black uppercase tracking-[0.4em]">
-            Autonomax © 2026 • Desenvolvido por Allison Rodrigues
+          <p className="text-center text-[9px] text-emerald-500 font-black uppercase tracking-[0.4em]">
+            Autonomax © 2026 
+            <br></br>
+            Desenvolvido por Allison Rodrigues
           </p>
         </div>
       </div>
