@@ -5,7 +5,7 @@ import {
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, 
   ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Clock
+  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target,
 } from 'lucide-react';
 import api from '../services/api';
 
