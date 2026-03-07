@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   Plus, Trash2, CalendarDays, X, Receipt, ChevronLeft, 
@@ -49,15 +49,13 @@ export function Dashboard() {
   const [novoItem, setNovoItem] = useState({ nome: '', qtd: 1 });
   const [novaTransacao, setNovaTransacao] = useState({
     valor: '', tipo: 'Entrada', status: 'Pendente', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
-    data: new Date().toLocaleDateString('en-CA') // Garante data local no formato YYYY-MM-DD
+    data: new Date().toLocaleDateString('en-CA') 
   });
 
   const mesesNome = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-  // formatar a data sem perda de fuso horário
   const formatarDataLocal = (dataISO: string) => {
     const data = new Date(dataISO);
-    // Adiciona o fuso horário para compensar a perda no UTC
     data.setMinutes(data.getMinutes() + data.getTimezoneOffset());
     return data;
   };
@@ -105,7 +103,6 @@ export function Dashboard() {
     if (itensTemporarios.length === 0) return alert("Adicione pelo menos um item na lista (+).");
     if (!novaTransacao.valor) return alert("Informe o valor total do lançamento.");
     
-    // Converte a data local para meio-dia para evitar pulo de fuso horário no backend
     const dataAjustada = new Date(novaTransacao.data + 'T12:00:00');
 
     const payload = {
@@ -125,7 +122,6 @@ export function Dashboard() {
       await api.post('/Transacoes', payload);
       setItensTemporarios([]);
       setNovaTransacao({ ...novaTransacao, valor: '', status: 'Pendente', clienteId: '', fornecedorId: '' });
-      setFormAberto(false);
       carregarDados();
     } catch (err) { alert("Erro ao salvar."); }
   }
@@ -180,8 +176,8 @@ export function Dashboard() {
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navegarPeriodo(-1)} className="p-3 hover:bg-emerald-50 rounded-2xl transition-all text-gray-400 hover:text-emerald-600 border-none cursor-pointer bg-transparent"><ChevronLeft size={28} /></button>
-            <button onClick={() => navegarPeriodo(1)} className="p-3 hover:bg-emerald-50 rounded-2xl transition-all text-gray-400 hover:text-emerald-600 border-none cursor-pointer bg-transparent"><ChevronRight size={28} /></button>
+            <button onClick={() => navegarPeriodo(-1)} className="p-3 hover:bg-emerald-50 rounded-2xl transition-all text-gray-400 border-none bg-transparent cursor-pointer"><ChevronLeft size={28} /></button>
+            <button onClick={() => navegarPeriodo(1)} className="p-3 hover:bg-emerald-50 rounded-2xl transition-all text-gray-400 border-none bg-transparent cursor-pointer"><ChevronRight size={28} /></button>
           </div>
         </div>
 
@@ -213,67 +209,6 @@ export function Dashboard() {
           )}
         </div>
 
-        {/* NOVO LANÇAMENTO */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden transition-all duration-300">
-          <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-emerald-50/50 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer">
-            <div className="flex items-center gap-3"><PackagePlus size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-emerald-900 uppercase tracking-[0.2em]">Novo Lançamento</h3></div>
-            {formAberto ? <ChevronUp size={20} className="text-emerald-600"/> : <ChevronDown size={20} className="text-emerald-600"/>}
-          </button>
-          {formAberto && (
-            <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12 animate-in slide-in-from-top duration-300">
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row gap-3">
-                  <input placeholder="Produto ou Serviço..." className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all" value={novoItem.nome} onChange={e => setNovoItem({...novoItem, nome: e.target.value})} />
-                  <div className="flex gap-2 w-full md:w-auto">
-                    <input type="number" className="flex-1 md:w-20 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItem.qtd} onChange={e => setNovoItem({...novoItem, qtd: Number(e.target.value)})} />
-                    <button onClick={handleAdicionarItem} className="flex-1 md:flex-none bg-emerald-600 text-white px-6 rounded-2xl active:scale-95 shadow-lg border-none cursor-pointer flex items-center justify-center transition-all"><Plus size={24} /></button>
-                  </div>
-                </div>
-                <div className="min-h-[100px] p-5 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2">
-                  {itensTemporarios.map((it, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-white border border-emerald-100 pl-4 pr-2 py-2 rounded-xl shadow-sm">
-                      <span className="text-emerald-600 font-black text-xs">{it.qtd}x</span><span className="text-gray-600 text-xs font-bold">{it.item}</span>
-                      <button onClick={() => setItensTemporarios(itensTemporarios.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-500 border-none bg-transparent cursor-pointer"><X size={14}/></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="number" placeholder="Valor R$" className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl font-black text-emerald-700 outline-none" value={novaTransacao.valor} onChange={e => setNovaTransacao({...novaTransacao, valor: e.target.value})} />
-                  <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={novaTransacao.status} onChange={e => setNovaTransacao({...novaTransacao, status: e.target.value})}>
-                    <option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={novaTransacao.metodoPagamento} onChange={e => setNovaTransacao({...novaTransacao, metodoPagamento: e.target.value})}>
-                    <option value="Pix">Pix</option><option value="A Vista">Dinheiro</option><option value="Cartão">Cartão</option>
-                  </select>
-                  <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={novaTransacao.tipo} onChange={e => setNovaTransacao({...novaTransacao, tipo: e.target.value})}>
-                    <option value="Entrada">Receita (+)</option><option value="Saida">Despesa (-)</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="date" className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold" value={novaTransacao.data} onChange={e => setNovaTransacao({...novaTransacao, data: e.target.value})} />
-                  
-                  {novaTransacao.tipo === 'Entrada' ? (
-                    <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold" value={novaTransacao.clienteId} onChange={e => setNovaTransacao({...novaTransacao, clienteId: e.target.value})}>
-                      <option value="">Venda Avulsa</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
-                  ) : (
-                    <select className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl font-bold outline-none" value={novaTransacao.fornecedorId} onChange={e => setNovaTransacao({...novaTransacao, fornecedorId: e.target.value})}>
-                      <option value="">Gasto Geral</option>
-                      {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                    </select>
-                  )}
-                </div>
-                <button onClick={handleAddTransacao} className="w-full bg-emerald-950 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-black transition-all border-none cursor-pointer">Salvar <Target size={16} className="inline ml-1" /></button>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* HISTÓRICO FINANCEIRO */}
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
@@ -292,24 +227,17 @@ export function Dashboard() {
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${t.tipo === 'Entrada' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                       <span className={`text-xs font-black ${t.tipo === 'Entrada' ? 'text-emerald-700' : 'text-red-700'}`}>
-                        {/* Chamada da função de ajuste de data */}
                         {formatarDataLocal(t.data).getDate().toString().padStart(2, '0')}
                       </span>
                     </div>
-                    
                     <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none">
-                      {t.tipo === 'Entrada' 
-                        ? (t.cliente?.nome || "Venda Avulsa") 
-                        : (t.fornecedor?.nome || "Gasto Geral")
-                      }
+                      {t.tipo === 'Entrada' ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-4">
                     <span className={`text-lg font-black tracking-tight ${
-                      t.status === 'Pendente' 
-                        ? 'text-amber-600' 
-                        : t.tipo === 'Entrada' ? 'text-emerald-600' : 'text-red-500'
+                      t.status === 'Pendente' ? 'text-amber-600' : t.tipo === 'Entrada' ? 'text-emerald-600' : 'text-red-500'
                     }`}>
                       {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
@@ -328,14 +256,33 @@ export function Dashboard() {
                         <div className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2">
                           <Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento}</span>
                         </div>
-                        {t.fornecedorId && (
-                           <div className="bg-red-50 px-4 py-2 rounded-xl flex items-center gap-2 border border-red-100">
-                           <Truck size={10} className="text-red-400"/><span className="text-[9px] font-black text-red-500 uppercase">Parceiro</span>
-                         </div>
-                        )}
                       </div>
+                      
+                      {/* ATALHOS DE NAVEGAÇÃO UNIFICADOS [cite: 2026-03-05, 2026-03-06] */}
                       <div className="flex gap-2">
-                        <button onClick={() => setEditando({ ...t, clienteId: t.clienteId || null, fornecedorId: t.fornecedorId || null })} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl border-none cursor-pointer hover:bg-emerald-100 transition-colors">
+                        {/* Redirecionamento para Cliente [cite: 2026-03-05] */}
+                        {t.clienteId && (
+                          <Link 
+                            to={`/clientes/${t.clienteId}`} 
+                            className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl hover:bg-emerald-100 transition-colors flex items-center justify-center"
+                            title="Ver Cliente"
+                          >
+                            <User size={18}/>
+                          </Link>
+                        )}
+
+                        {/* Redirecionamento para Parceiro/Fornecedor [cite: 2026-03-06] */}
+                        {t.fornecedorId && (
+                          <Link 
+                            to={`/fornecedores/${t.fornecedorId}`} 
+                            className="p-3 text-red-600 bg-red-50 rounded-2xl hover:bg-red-100 transition-colors flex items-center justify-center"
+                            title="Ver Parceiro"
+                          >
+                            <User size={18}/> {/* Ícone padronizado conforme solicitado [cite: 2026-03-06] */}
+                          </Link>
+                        )}
+                        
+                        <button onClick={() => setEditando({ ...t, clienteId: t.clienteId || null, fornecedorId: t.fornecedorId || null })} className="p-3 text-gray-400 bg-gray-50 rounded-2xl border-none cursor-pointer hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
                           <Edit3 size={18}/>
                         </button>
                         <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-colors">
@@ -355,33 +302,11 @@ export function Dashboard() {
       {editando && (
         <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
-            
             <div className="bg-gray-50 px-6 md:px-10 py-6 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2"><Edit3 size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Ajustar Transação</h3></div>
               <button onClick={() => setEditando(null)} className="text-gray-300 hover:text-red-500 bg-transparent border-none cursor-pointer p-2"><X size={24}/></button>
             </div>
-            
             <div className="p-6 md:p-10 space-y-8 overflow-y-auto flex-1 pb-20 md:pb-10">
-              
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Itens da Transação</label>
-                <div className="flex flex-col gap-3">
-                  <div className="flex gap-2">
-                    <input placeholder="Item..." className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none text-sm font-bold" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} />
-                    <input type="number" className="w-16 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Number(e.target.value)})} />
-                    <button onClick={() => { if(novoItemEdicao.nome) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-600 text-white px-5 rounded-2xl border-none cursor-pointer"><Plus size={20}/></button>
-                  </div>
-                  <div className="min-h-[80px] p-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100 flex flex-wrap gap-2">
-                    {editando.itens.map((it, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-white border border-emerald-100 pl-3 pr-1.5 py-1.5 rounded-xl shadow-sm">
-                        <span className="text-emerald-600 font-black text-[10px]">{it.quantidade}x</span><span className="text-gray-600 text-[11px] font-bold">{it.nome}</span>
-                        <button onClick={() => setEditando({...editando, itens: editando.itens.filter((_, i) => i !== idx)})} className="text-gray-200 hover:text-red-500 bg-transparent border-none cursor-pointer"><X size={14}/></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><DollarSign size={10}/> Valor R$</label>
@@ -403,26 +328,7 @@ export function Dashboard() {
                     <option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option>
                   </select>
                 </div>
-                
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2">
-                    {editando.tipo === 'Entrada' ? <User size={10}/> : <Truck size={10}/>} 
-                    {editando.tipo === 'Entrada' ? 'Cliente Atrelado' : 'Parceiro Atrelado'}
-                  </label>
-                  {editando.tipo === 'Entrada' ? (
-                    <select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.clienteId || ''} onChange={e => setEditando({...editando, clienteId: e.target.value ? Number(e.target.value) : null})}>
-                      <option value="">Venda Avulsa</option>
-                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
-                  ) : (
-                    <select className="w-full p-4 bg-red-50 border border-red-100 rounded-2xl font-bold text-red-700 outline-none" value={editando.fornecedorId || ''} onChange={e => setEditando({...editando, fornecedorId: e.target.value ? Number(e.target.value) : null})}>
-                      <option value="">Gasto Geral</option>
-                      {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                    </select>
-                  )}
-                </div>
               </div>
-
               <button onClick={handleUpdateTransacao} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-2 border-none cursor-pointer active:scale-95 mb-6">
                 Salvar Alterações <Save size={18}/>
               </button>
