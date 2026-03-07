@@ -23,7 +23,7 @@ export function Relatorios() {
   const [loading, setLoading] = useState(true);
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
-  // ESTADOS RETRÁTEIS: Todos iniciam fechados por padrão [cite: 2026-03-06]
+  // ESTADOS RETRÁTEIS: Todos iniciam fechados por padrão
   const [resumoAberto, setResumoAberto] = useState(false);
   const [graficoAberto, setGraficoAberto] = useState(false); 
   const [itensAberto, setItensAberto] = useState(false);
@@ -101,7 +101,7 @@ export function Relatorios() {
           </div>
         </div>
 
-        {/* 1. RESUMO FINANCEIRO RETRÁTIL [cite: 2026-03-06] */}
+        {/* 1. RESUMO FINANCEIRO RETRÁTIL */}
         <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
           <button onClick={() => setResumoAberto(!resumoAberto)} className="w-full bg-emerald-50/30 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer">
             <div className="flex items-center gap-3">

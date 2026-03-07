@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Autonomax.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b9a1d6d9e25312271d1138b4ab112af24fdb9341")]
 [assembly: System.Reflection.AssemblyProductAttribute("Autonomax.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Autonomax.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,9 +1,58 @@
-# 🚀 Autonomax — Gestão Financeira Inteligente para Autônomos
+<div align="center">
+  <img src="./Imagens/banner.png" alt="Autonomax Banner" width="100%">
 
-[![Deploy on Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?style=for-the-badge&logo=vercel)](https://autonomax.vercel.app)
-[![Deploy on Railway](https://img.shields.io/badge/Backend-Railway-0B0D0E?style=for-the-badge&logo=railway)](https://autonomax-production.up.railway.app/swagger)
+  <br />
 
-O **Autonomax** é uma solução Full Stack de alta performance projetada para profissionais autônomos que buscam controle rigoroso de fluxo de caixa. A plataforma utiliza uma arquitetura moderna para garantir escalabilidade e segurança no gerenciamento de múltiplos negócios e transações financeiras.
+  <h3>🌐 Acesse o Projeto: <a href="https://autonomax.vercel.app" target="_blank">www.autonomax.vercel.app</a></h3>
+
+  [![.NET 9](https://img.shields.io/badge/.NET-9.0-512bd4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+  [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+  [![Railway](https://img.shields.io/badge/Railway-131313?style=for-the-badge&logo=railway&logoColor=white)](https://railway.app/)
+  [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+  [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
+  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+</div>
+
+
+Markdown
+# 🚀 Autonomax - Gestão de Fluxo Inteligente para Autônomos
+
+O **Autonomax** é uma plataforma robusta desenvolvida para auxiliar profissionais autônomos na gestão financeira e controle de parceiros. Focado em simplicidade e eficiência, o sistema permite o acompanhamento em tempo real de receitas, despesas e métricas de retenção de clientes.
+
+---
+
+## 📸 Demonstração do Sistema
+
+### 💻 Interface Desktop
+Principais telas da aplicação web focadas em análise de dados e gestão centralizada.
+
+| Analítico Principal | Detalhes do Cliente | Histórico de Fluxo | Detalhes Financeiros |
+| :---: | :---: | :---: | :---: |
+| ![Analítico](./Imagens/Prints/Analitico.png) | ![Detalhes Cliente](./Imagens/Prints/Cliente_Detalhes.png) | ![Histórico](./Imagens/Prints/Fluxo_Historico.png) | ![Lançamento](./Imagens/Prints/Fluxo_CardLancamento.png) |
+
+| Login do Sistema | Gestão de Clientes | Gestão de Parceiros | Perfil do Usuário |
+| :---: | :---: | :---: | :---: |
+| ![Login](./Imagens/Prints/Login.png) | ![Clientes](./Imagens/Prints/Meu_Clientes.png) | ![Parceiros](./Imagens/Prints/Parceiros.png) | ![Perfil](./Imagens/Prints/Perfil.png) |
+
+---
+
+### 📱 Experiência Mobile
+Interface responsiva otimizada para o acompanhamento rápido no dia a dia, organizada para visualização ágil.
+
+| Login Inicial | Menu Lateral | Dashboard Total | Gráficos Analíticos |
+| :---: | :---: | :---: | :---: |
+| <img src="./Imagens/Mobile/LoginInicial.jpeg" width="180"> | <img src="./Imagens/Mobile/MenuSanduiche.jpeg" width="180"> | <img src="./Imagens/Mobile/Analitico_Total.jpeg" width="180"> | <img src="./Imagens/Mobile/Analitico_Graf.jpeg" width="180"> |
+
+| Top Desempenho | Histórico Geral | Lista de Clientes | Novo Lançamento |
+| :---: | :---: | :---: | :---: |
+| <img src="./Imagens/Mobile/Analitico_Top.jpeg" width="180"> | <img src="./Imagens/Mobile/Historico.jpeg" width="180"> | <img src="./Imagens/Mobile/Meus%20Clientes.jpeg" width="180"> | <img src="./Imagens/Mobile/Lancamento.jpeg" width="180"> |
+
+| Fluxo de Caixa | Meus Negócios | Perfil Profissional | Dados Pessoais |
+| :---: | :---: | :---: | :---: |
+| <img src="./Imagens/Mobile/Fluxo.jpeg" width="180"> | <img src="./Imagens/Mobile/Perfil_Negocios.jpeg" width="180"> | <img src="./Imagens/Mobile/PerfilPrestador.jpeg" width="180"> | <img src="./Imagens/Mobile/PerfilPrestador2.jpeg" width="180"> |
+
+---
+
 
 ## 💎 Diferenciais Técnicos
 
@@ -12,7 +61,11 @@ O **Autonomax** é uma solução Full Stack de alta performance projetada para p
 * **Persistência e Performance:** Uso de **Entity Framework Core 9** com PostgreSQL (via Supabase), utilizando índices e restrições de integridade referencial para garantir a consistência absoluta dos dados.
 * **UX/UI Reativa:** Frontend SPA desenvolvido com **React + Vite**, priorizando performance, consumo eficiente de APIs via **Axios Interceptors** e design responsivo com **Tailwind CSS**.
 
-
+## 🧪 Qualidade e Segurança
+* **Testes de Autenticação**: Validação de Login, Registro e prevenção de enumeração de usuários.
+* **Auditoria**: Logs de segurança para tentativas de acesso inválidas.
+* **Code Coverage**: Cobertura de código para garantir a integridade financeira.
+* **xUnit**: Camada de testes automatizados para autenticação e segurança
 
 ## 🛠️ Funcionalidades Atuais
 
