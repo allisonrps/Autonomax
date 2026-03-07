@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, 
-  Clock, ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus
+  ChevronDown, ChevronUp, Edit3, Save, Tag,
+  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Clock
 } from 'lucide-react';
 import api from '../services/api';
 
 interface Item { nome: string; quantidade: number; }
+interface Cliente { id: number; nome: string; }
+interface Fornecedor { id: number; nome: string; }
 
 interface Transacao {
   id: number;
@@ -33,12 +35,27 @@ export function Dashboard() {
 
   const [mesAtivo, setMesAtivo] = useState(Number(mes) || new Date().getMonth() + 1);
   const [anoAtivo, setAnoAtivo] = useState(Number(ano) || new Date().getFullYear());
-  const [resumoAberto, setResumoAberto] = useState(true);
+  
+  // ALTERAÇÃO: Resumo financeiro fechado por padrão
+  const [resumoAberto, setResumoAberto] = useState(false); 
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  
+  const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
   const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
+
+  const [itensTemporarios, setItensTemporarios] = useState<{ item: string, qtd: number }[]>([]);
+  const [novoItem, setNovoItem] = useState({ item: '', qtd: 1 });
+  
+  // ALTERAÇÃO: Status padrão agora é 'Pago'
+  const [novaTransacao, setNovaTransacao] = useState({
+    valor: '', tipo: 'Entrada', status: 'Pago', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
+    data: new Date().toLocaleDateString('en-CA')
+  });
 
   const mesesNome = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -48,24 +65,29 @@ export function Dashboard() {
     return data;
   };
 
+  const carregarDados = useCallback(async () => {
+    if (!negocioId) return;
+    try {
+      const [resTrans, resCli, resFor] = await Promise.all([
+        api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`),
+        api.get(`/Clientes/por-negocio/${negocioId}`),
+        api.get(`/Fornecedores/por-negocio/${negocioId}`)
+      ]);
+      const ordenadas = resTrans.data.sort((a: Transacao, b: Transacao) => 
+        new Date(b.data).getTime() - new Date(a.data).getTime()
+      );
+      setTransacoes(ordenadas);
+      setClientes(resCli.data || []);
+      setFornecedores(resFor.data || []);
+    } catch (err) { console.error(err); }
+  }, [negocioId, mesAtivo, anoAtivo]);
+
   useEffect(() => {
     if (mes) setMesAtivo(Number(mes));
     if (ano) setAnoAtivo(Number(ano));
   }, [mes, ano]);
 
-  useEffect(() => { 
-    async function carregarDados() {
-      if (!negocioId) return;
-      try {
-        const resTrans = await api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`);
-        const ordenadas = resTrans.data.sort((a: Transacao, b: Transacao) => 
-          new Date(b.data).getTime() - new Date(a.data).getTime()
-        );
-        setTransacoes(ordenadas);
-      } catch (err) { console.error(err); }
-    }
-    carregarDados(); 
-  }, [negocioId, mesAtivo, anoAtivo]);
+  useEffect(() => { carregarDados(); }, [carregarDados]);
 
   const navegarPeriodo = (direcao: number) => {
     let nMes = mesAtivo + direcao;
@@ -74,10 +96,40 @@ export function Dashboard() {
     navigate(`/dashboard/${nMes}/${nAno}`);
   };
 
+  const handleAdicionarItem = () => {
+    if (!novoItem.item.trim()) return;
+    setItensTemporarios([...itensTemporarios, { item: novoItem.item, qtd: novoItem.qtd }]);
+    setNovoItem({ item: '', qtd: 1 });
+  };
+
+  async function handleAddTransacao() {
+    if (itensTemporarios.length === 0) return alert("Adicione pelo menos um item na lista (+).");
+    if (!novaTransacao.valor) return alert("Informe o valor total do lançamento.");
+    const dataAjustada = new Date(novaTransacao.data + 'T12:00:00');
+    const payload = {
+      descricao: itensTemporarios.map(it => `${it.qtd}x ${it.item}`).join(', '),
+      valor: Number(novaTransacao.valor), 
+      tipo: novaTransacao.tipo,
+      status: novaTransacao.status, 
+      metodoPagamento: novaTransacao.metodoPagamento,
+      negocioId: Number(negocioId), 
+      clienteId: novaTransacao.tipo === 'Entrada' && novaTransacao.clienteId ? Number(novaTransacao.clienteId) : null,
+      fornecedorId: novaTransacao.tipo === 'Saida' && novaTransacao.fornecedorId ? Number(novaTransacao.fornecedorId) : null,
+      data: dataAjustada.toISOString(),
+      itens: itensTemporarios.map(it => ({ nome: it.item, quantidade: it.qtd }))
+    };
+    try {
+      await api.post('/Transacoes', payload);
+      setItensTemporarios([]);
+      setNovaTransacao({ ...novaTransacao, valor: '', status: 'Pago', clienteId: '', fornecedorId: '' });
+      setFormAberto(false);
+      carregarDados();
+    } catch (err) { alert("Erro ao salvar."); }
+  }
+
   async function handleUpdateTransacao() {
     if (!editando) return;
     const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
-
     const payload = {
       ...editando,
       descricao: editando.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
@@ -87,7 +139,7 @@ export function Dashboard() {
     try {
       await api.put(`/Transacoes/${editando.id}`, payload);
       setEditando(null);
-      window.location.reload();
+      carregarDados();
     } catch (err) { alert("Erro ao atualizar."); }
   }
 
@@ -95,13 +147,24 @@ export function Dashboard() {
     const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
     try {
       await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
-      window.location.reload();
+      carregarDados();
+    } catch (err) { console.error(err); }
+  }
+
+  // NOVA FUNÇÃO: Alternar método de pagamento sutilmente
+  async function handleAlternarMetodo(t: Transacao) {
+    const metodos = ['Pix', 'Dinheiro', 'Cartão'];
+    const proximoIndex = (metodos.indexOf(t.metodoPagamento) + 1) % metodos.length;
+    const novoMetodo = metodos[proximoIndex];
+    try {
+      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: novoMetodo, negocioId: Number(negocioId) });
+      carregarDados();
     } catch (err) { console.error(err); }
   }
 
   async function handleDelete(id: number) {
     if (!confirm("Excluir lançamento?")) return;
-    try { await api.delete(`/Transacoes/${id}`); window.location.reload(); } catch (err) { alert("Erro ao excluir"); }
+    try { await api.delete(`/Transacoes/${id}`); carregarDados(); } catch (err) { alert("Erro ao excluir"); }
   }
 
   const totalEntradas = transacoes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
@@ -111,7 +174,7 @@ export function Dashboard() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-6 pb-16 pt-8 px-4">
+      <div className="max-w-6xl mx-auto space-y-6 pb-16 pt-8 px-4 font-sans">
         
         {/* NAVEGAÇÃO */}
         <div className="flex items-center justify-between bg-white p-6 rounded-3xl border border-gray-200 shadow-xl shadow-emerald-50/20">
@@ -143,6 +206,66 @@ export function Dashboard() {
           )}
         </div>
 
+        {/* NOVO LANÇAMENTO */}
+        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden transition-all duration-300">
+          <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-emerald-50/50 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer">
+            <div className="flex items-center gap-3"><PackagePlus size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-emerald-900 uppercase tracking-[0.2em]">Novo Lançamento</h3></div>
+            {formAberto ? <ChevronUp size={20} className="text-emerald-600"/> : <ChevronDown size={20} className="text-emerald-600"/>}
+          </button>
+          {formAberto && (
+            <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12 animate-in slide-in-from-top duration-300">
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row gap-3">
+                  <input placeholder="Produto ou Serviço..." className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={novoItem.item} onChange={e => setNovoItem({...novoItem, item: e.target.value})} />
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <input type="number" className="flex-1 md:w-20 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItem.qtd} onChange={e => setNovoItem({...novoItem, qtd: Number(e.target.value)})} />
+                    <button onClick={handleAdicionarItem} className="flex-1 md:flex-none bg-emerald-600 text-white px-6 rounded-2xl active:scale-95 shadow-lg border-none cursor-pointer flex items-center justify-center transition-all"><Plus size={24} /></button>
+                  </div>
+                </div>
+                <div className="min-h-[100px] p-5 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2">
+                  {itensTemporarios.map((it, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-white border border-emerald-100 pl-4 pr-2 py-2 rounded-xl shadow-sm">
+                      <span className="text-emerald-600 font-black text-xs">{it.qtd}x</span><span className="text-gray-600 text-xs font-bold">{it.item}</span>
+                      <button onClick={() => setItensTemporarios(itensTemporarios.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-500 border-none bg-transparent cursor-pointer"><X size={14}/></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <input type="number" placeholder="Valor R$" className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl font-black text-emerald-700 outline-none" value={novaTransacao.valor} onChange={e => setNovaTransacao({...novaTransacao, valor: e.target.value})} />
+                  <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={novaTransacao.status} onChange={e => setNovaTransacao({...novaTransacao, status: e.target.value})}>
+                    <option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={novaTransacao.metodoPagamento} onChange={e => setNovaTransacao({...novaTransacao, metodoPagamento: e.target.value})}>
+                    <option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option>
+                  </select>
+                  <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={novaTransacao.tipo} onChange={e => setNovaTransacao({...novaTransacao, tipo: e.target.value})}>
+                    <option value="Entrada">Receita (+)</option><option value="Saida">Despesa (-)</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <input type="date" className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold" value={novaTransacao.data} onChange={e => setNovaTransacao({...novaTransacao, data: e.target.value})} />
+                  {novaTransacao.tipo === 'Entrada' ? (
+                    <select className="p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold" value={novaTransacao.clienteId} onChange={e => setNovaTransacao({...novaTransacao, clienteId: e.target.value})}>
+                      <option value="">Venda Avulsa</option>
+                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                    </select>
+                  ) : (
+                    <select className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-2xl font-bold outline-none" value={novaTransacao.fornecedorId} onChange={e => setNovaTransacao({...novaTransacao, fornecedorId: e.target.value})}>
+                      <option value="">Gasto Geral</option>
+                      {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                    </select>
+                  )}
+                </div>
+                <button onClick={handleAddTransacao} className="w-full bg-emerald-950 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-2xl hover:bg-black transition-all border-none cursor-pointer">Salvar <Target size={16} className="inline ml-1" /></button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* HISTÓRICO */}
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
@@ -151,43 +274,60 @@ export function Dashboard() {
           </div>
           
           <div className="flex flex-col gap-3">
-            {transacoes.map(t => (
-              <div key={t.id} className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden hover:border-emerald-100 transition-all">
-                <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 md:p-6 bg-transparent border-none cursor-pointer outline-none">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${t.tipo === 'Entrada' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}><span className={`text-xs font-black ${t.tipo === 'Entrada' ? 'text-emerald-700' : 'text-red-700'}`}>{formatarDataLocal(t.data).getDate().toString().padStart(2, '0')}</span></div>
-                    <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none">{t.tipo === 'Entrada' ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : t.tipo === 'Entrada' ? 'text-emerald-600' : 'text-red-500'}`}>{t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                    {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
-                  </div>
-                </button>
-
-                {itemAberto === t.id && (
-                  <div className="px-6 pb-6 pt-2 space-y-5 animate-in slide-in-from-top duration-300">
-                    <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 italic text-xs text-gray-600 font-bold">{t.descricao}</div>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}><CheckCircle2 size={12}/> {t.status}</button>
-                        <div className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2"><Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento}</span></div>
+            {transacoes.map(t => {
+              const isEntrada = t.tipo === 'Entrada';
+              return (
+                <div key={t.id} className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden hover:border-emerald-100 transition-all">
+                  <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 md:p-6 bg-transparent border-none cursor-pointer outline-none">
+                    <div className="flex items-center gap-4">
+                      {/* ALTERAÇÃO: Padrão circular unificado para data */}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${isEntrada ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                        <span className={`text-xs font-black ${isEntrada ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {formatarDataLocal(t.data).getDate().toString().padStart(2, '0')}
+                        </span>
                       </div>
-                      <div className="flex gap-2">
-                        {t.clienteId && <Link to={`/clientes/${t.clienteId}`} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl flex items-center justify-center"><User size={18}/></Link>}
-                        {t.fornecedorId && <Link to={`/fornecedores/${t.fornecedorId}`} className="p-3 text-red-600 bg-red-50 rounded-2xl flex items-center justify-center"><User size={18}/></Link>}
-                        <button onClick={() => setEditando(t)} className="p-3 text-gray-400 bg-gray-50 rounded-2xl border-none cursor-pointer hover:bg-emerald-50 hover:text-emerald-600 transition-colors"><Edit3 size={18}/></button>
-                        <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-colors"><Trash2 size={18}/></button>
+                      <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none">{isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : isEntrada ? 'text-emerald-600' : 'text-red-500'}`}>{t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
+                    </div>
+                  </button>
+
+                  {itemAberto === t.id && (
+                    <div className="px-6 pb-6 pt-2 space-y-5 animate-in slide-in-from-top duration-300">
+                      <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 italic text-xs text-gray-600 font-bold">{t.descricao}</div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}><CheckCircle2 size={12}/> {t.status}</button>
+                          
+                          {/* ALTERAÇÃO: Tag de método agora alterna ao clicar */}
+                          <button 
+                            onClick={() => handleAlternarMetodo(t)}
+                            className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2 border-none cursor-pointer hover:bg-gray-200 transition-colors"
+                          >
+                            <Tag size={10} className="text-gray-400"/>
+                            <span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento}</span>
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          {(t.clienteId || t.fornecedorId) && (
+                            <Link to={isEntrada ? `/clientes/${t.clienteId}` : `/fornecedores/${t.fornecedorId}`} className={`p-3 rounded-2xl transition-all flex items-center justify-center ${isEntrada ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-red-600 bg-red-50 hover:bg-red-100'}`}><User size={18}/></Link>
+                          )}
+                          <button onClick={() => setEditando(t)} className={`p-3 rounded-2xl transition-all border-none cursor-pointer flex items-center justify-center ${isEntrada ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-red-600 bg-red-50 hover:bg-red-100'}`}><Edit3 size={18}/></button>
+                          <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-all flex items-center justify-center"><Trash2 size={18}/></button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO INTEGRAL */}
+      {/* MODAL DE EDIÇÃO */}
       {editando && (
         <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
@@ -197,8 +337,6 @@ export function Dashboard() {
             </div>
             
             <div className="p-6 md:p-10 space-y-8 overflow-y-auto flex-1 pb-20 md:pb-10">
-              
-              {/* EDIÇÃO DE ITENS RESTAURADA */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Itens da Transação</label>
                 <div className="flex flex-col gap-3">
@@ -207,7 +345,7 @@ export function Dashboard() {
                     <input type="number" className="w-16 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Number(e.target.value)})} />
                     <button onClick={() => { if(novoItemEdicao.nome) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-600 text-white px-5 rounded-2xl border-none cursor-pointer"><Plus size={20}/></button>
                   </div>
-                  <div className="min-h-[80px] p-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100 flex flex-wrap gap-2">
+                  <div className="min-h-[80px] p-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-wrap gap-2">
                     {editando.itens.map((it, idx) => (
                       <div key={idx} className="flex items-center gap-2 bg-white border border-emerald-100 pl-3 pr-1.5 py-1.5 rounded-xl shadow-sm">
                         <span className="text-emerald-600 font-black text-[10px]">{it.quantidade}x</span><span className="text-gray-600 text-[11px] font-bold">{it.nome}</span>
@@ -226,7 +364,7 @@ export function Dashboard() {
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><HandCoins size={10}/> Método</label>
                   <select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.metodoPagamento} onChange={e => setEditando({...editando, metodoPagamento: e.target.value})}>
-                    <option value="Pix">Pix</option><option value="A Vista">À Vista</option><option value="Cartão">Cartão</option>
+                    <option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">

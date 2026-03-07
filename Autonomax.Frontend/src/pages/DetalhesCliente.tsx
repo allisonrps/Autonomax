@@ -1,18 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
-  ArrowLeft, 
-  User, 
-  Receipt, 
-  MapPin, 
-  Phone, 
-  AlertCircle, 
-  Loader2,
-  TrendingUp,
-  History
+  ArrowLeft, User, Receipt, MapPin, Phone, 
+  AlertCircle, Loader2, TrendingUp, History,
+  ChevronDown, ChevronUp, CheckCircle2, Tag,
+  CalendarDays, Edit3, Trash2, Save, X, DollarSign, HandCoins, Plus, Wallet
 } from 'lucide-react';
 import api from '../services/api';
+
+interface Item { nome: string; quantidade: number; }
 
 interface Transacao {
   id: number;
@@ -20,6 +17,9 @@ interface Transacao {
   valor: number;
   data: string;
   tipo: string;
+  status: string;
+  metodoPagamento: string;
+  itens: Item[];
 }
 
 interface Cliente {
@@ -41,79 +41,114 @@ export function DetalhesCliente() {
   const [dados, setDados] = useState<DadosCliente | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [itemAberto, setItemAberto] = useState<number | null>(null);
 
-  useEffect(() => {
-    async function carregarDados() {
-      if (!id || !negocioId || negocioId === "undefined") {
-        setErro("Selecione um negócio no menu superior antes de prosseguir.");
-        setCarregando(false);
-        return;
-      }
-      
-      try {
-        setCarregando(true);
-        setErro(null);
+  const [editando, setEditando] = useState<Transacao | null>(null);
+  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
 
-        const response = await api.get(`/Transacoes/por-cliente/${id}`, {
-          params: { negocioId: Number(negocioId) }
-        });
-        
-        setDados(response.data);
-      } catch (err: any) {
-        if (err.response?.status === 401) {
-          setErro("Sua sessão expirou. Faça login novamente.");
-        } else if (err.response?.status === 404) {
-          setErro(`O cliente com ID ${id} não foi encontrado.`);
-        } else {
-          setErro("Não foi possível conectar ao servidor.");
-        }
-      } finally {
-        setCarregando(false);
-      }
+  const formatarDataLocal = (dataISO: string) => {
+    const data = new Date(dataISO);
+    data.setMinutes(data.getMinutes() + data.getTimezoneOffset());
+    return data;
+  };
+
+  const calcularTempoDesde = (dataISO: string) => {
+    const dataPedido = formatarDataLocal(dataISO);
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    dataPedido.setHours(0, 0, 0, 0);
+    const diffTime = Math.abs(hoje.getTime() - dataPedido.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "Hoje";
+    if (diffDays === 1) return "Ontem";
+    return `há ${diffDays} dias`;
+  };
+
+  const carregarDados = useCallback(async () => {
+    if (!id || !negocioId || negocioId === "undefined") {
+      setErro("Selecione um negócio no menu superior.");
+      setCarregando(false);
+      return;
     }
-
-    carregarDados();
+    try {
+      const response = await api.get(`/Transacoes/por-cliente/${id}`, {
+        params: { negocioId: Number(negocioId) }
+      });
+      const ordenadas = {
+        ...response.data,
+        transacoes: response.data.transacoes.sort((a: Transacao, b: Transacao) => 
+          new Date(b.data).getTime() - new Date(a.data).getTime()
+        )
+      };
+      setDados(ordenadas);
+      setErro(null);
+    } catch (err: any) {
+      setErro("Não foi possível sincronizar os dados.");
+    } finally {
+      setCarregando(false);
+    }
   }, [id, negocioId]);
 
-  if (carregando) {
-    return (
-      <Layout>
-        <div className="flex flex-col items-center justify-center p-20 space-y-4">
-          <Loader2 className="animate-spin text-emerald-600" size={40} />
-          <p className="text-gray-500 animate-pulse font-black uppercase text-[10px] tracking-widest">Sincronizando dados...</p>
-        </div>
-      </Layout>
-    );
+  useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  async function handleUpdateTransacao() {
+    if (!editando) return;
+    const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
+    const payload = {
+      ...editando,
+      descricao: editando.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
+      negocioId: Number(negocioId),
+      data: dataAjustada.toISOString()
+    };
+    try {
+      await api.put(`/Transacoes/${editando.id}`, payload);
+      setEditando(null);
+      carregarDados();
+    } catch (err) { alert("Erro ao atualizar."); }
   }
 
-  if (erro || !dados) {
-    return (
-      <Layout>
-        <div className="max-w-xl mx-auto mt-10 p-8 bg-white rounded-3xl border border-red-100 shadow-xl text-center">
-          <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />
-          <h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Cliente não encontrado</h2>
-          <p className="text-gray-500 mt-2 font-medium">{erro || "O histórico deste cliente não pôde ser carregado."}</p>
-          <Link to="/clientes" className="inline-block mt-6 bg-emerald-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-emerald-700 transition-all shadow-lg active:scale-95">
-            Voltar para Clientes
-          </Link>
-        </div>
-      </Layout>
-    );
+  async function handleAlternarStatus(t: Transacao) {
+    const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
+    try {
+      await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
+      carregarDados();
+    } catch (err) { console.error(err); }
   }
 
-  const { cliente, transacoes } = dados;
+  async function handleAlternarMetodo(t: Transacao) {
+    const metodos = ['Pix', 'Dinheiro', 'Cartão'];
+    const proximoIndex = (metodos.indexOf(t.metodoPagamento) + 1) % metodos.length;
+    const novoMetodo = metodos[proximoIndex];
+    try {
+      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: novoMetodo, negocioId: Number(negocioId) });
+      carregarDados();
+    } catch (err) { console.error(err); }
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Excluir lançamento?")) return;
+    try { await api.delete(`/Transacoes/${id}`); carregarDados(); } catch (err) { alert("Erro ao excluir"); }
+  }
+
+  if (carregando && !dados) return <Layout><div className="flex flex-col items-center justify-center p-20 space-y-4"><Loader2 className="animate-spin text-emerald-600" size={40} /><p className="text-gray-500 animate-pulse font-black uppercase text-[10px] tracking-widest">Sincronizando...</p></div></Layout>;
+
+  if (erro && !dados) return <Layout><div className="max-w-xl mx-auto mt-10 p-8 bg-white rounded-3xl border border-red-100 shadow-xl text-center"><AlertCircle className="mx-auto text-red-500 mb-4" size={48} /><h2 className="text-xl font-black text-gray-800 uppercase tracking-tight">Ops!</h2><p className="text-gray-500 mt-2 font-medium">{erro}</p><Link to="/clientes" className="inline-block mt-6 bg-emerald-600 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg">Voltar</Link></div></Layout>;
+
+  const { cliente, transacoes } = dados!;
   const totalGasto = transacoes.reduce((acc, t) => acc + t.valor, 0);
+  const totalPendente = transacoes.filter(t => t.status === 'Pendente').reduce((acc, t) => acc + t.valor, 0);
+  const ultimaTransacao = transacoes[0];
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-8 pb-16 pt-8 px-4">
+      <div className="max-w-6xl mx-auto space-y-8 pb-16 pt-8 px-4 font-sans">
         
         <Link to="/clientes" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-emerald-600 transition-all w-fit">
           <ArrowLeft size={16} /> Voltar para a lista
         </Link>
 
-        {/* HEADER PERFIL - PADRÃO EMERALD */}
-        <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        {/* HEADER PERFIL */}
+        <div className="bg-white p-8 rounded-[40px] border border-gray-200 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-6">
             <div className="bg-emerald-600 p-5 rounded-3xl text-white shadow-xl shadow-emerald-100">
               <User size={36} />
@@ -130,90 +165,132 @@ export function DetalhesCliente() {
               </div>
             </div>
           </div>
-          
-          <div className="w-full md:w-auto bg-emerald-950 p-6 rounded-3xl text-white shadow-2xl shadow-emerald-900/20">
+          <div className="w-full md:w-auto bg-emerald-950 p-6 rounded-3xl text-white shadow-2xl">
             <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">Faturamento Total</p>
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-bold opacity-60">R$</span>
-              <span className="text-4xl font-black">
-                {totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
+              <span className="text-4xl font-black">{totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
 
-        {/* INDICADORES EM CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* INDICADORES EM 4 COLUNAS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
-            <div className="p-4 bg-orange-50 text-orange-500 rounded-2xl">
-              <Receipt size={28} />
-            </div>
+            <div className="p-4 bg-orange-50 text-orange-500 rounded-2xl"><Receipt size={28} /></div>
+            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Registros</p><p className="text-2xl font-black text-gray-800">{transacoes.length}</p></div>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center gap-5">
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><CalendarDays size={28} /></div>
+            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Último Pedido</p><p className="text-2xl font-black text-gray-800">{ultimaTransacao ? formatarDataLocal(ultimaTransacao.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '--/--'}</p>{ultimaTransacao && <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tight">{calcularTempoDesde(ultimaTransacao.data)}</p>}</div>
+          </div>
+
+          {/* CARD NOVO: VALORES PENDENTES ACUMULADOS */}
+          <div className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm flex items-center gap-5">
+            <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><Wallet size={28} /></div>
             <div>
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Lançamentos</p>
-              <p className="text-2xl font-black text-gray-800">{transacoes.length} compras</p>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Pendentes</p>
+              <p className="text-2xl font-black text-amber-700">R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
+
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
-            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl">
-              <TrendingUp size={28} />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Ticket Médio</p>
-              <p className="text-2xl font-black text-gray-800">
-                R$ {transacoes.length > 0 ? (totalGasto / transacoes.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
-              </p>
-            </div>
+            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><TrendingUp size={28} /></div>
+            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Ticket Médio</p><p className="text-2xl font-black text-gray-800">R$ {transacoes.length > 0 ? (totalGasto / transacoes.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p></div>
           </div>
         </div>
 
-        {/* TABELA HISTÓRICO - PADRÃO EMERALD */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-50 flex items-center justify-between bg-gray-50/30">
-            <div className="flex items-center gap-2">
-              <History size={18} className="text-emerald-600" />
-              <h3 className="text-xs font-black text-gray-800 uppercase tracking-widest">Histórico de Atividades</h3>
-            </div>
-            <span className="text-[10px] font-black bg-white border border-gray-100 text-gray-400 px-3 py-1 rounded-full uppercase">Relatório Individual</span>
-          </div>
+        {/* HISTÓRICO DE ATIVIDADES */}
+        <div className="space-y-4">
+          <h3 className="font-black text-gray-800 text-sm uppercase tracking-wider flex items-center gap-2 ml-2">
+            <History size={18} className="text-emerald-600"/> Histórico de Atividades
+          </h3>
+          <div className="flex flex-col gap-3">
+            {transacoes.length === 0 ? (
+              <div className="bg-white p-20 rounded-[32px] border border-dashed border-gray-200 text-center"><p className="text-gray-300 font-black uppercase text-xs tracking-widest italic">Nenhum lançamento encontrado.</p></div>
+            ) : (
+              transacoes.map(t => {
+                const dataObj = formatarDataLocal(t.data);
+                return (
+                  <div key={t.id} className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden hover:border-emerald-100 transition-all">
+                    <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 md:p-6 bg-transparent border-none cursor-pointer outline-none">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center border bg-emerald-50 border-emerald-100 flex-shrink-0">
+                          <span className="text-[11px] font-black text-emerald-700 leading-none">{dataObj.getDate().toString().padStart(2, '0')}</span>
+                          <span className="text-[8px] font-bold text-emerald-500 uppercase leading-none mt-0.5">{dataObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '')}</span>
+                        </div>
+                        <span className="text-sm font-black text-gray-700 truncate max-w-[180px] md:max-w-none text-left">{t.descricao}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : 'text-emerald-600'}`}>{t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
+                      </div>
+                    </button>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-black tracking-[0.2em]">
-                <tr className="border-b border-gray-100">
-                  <th className="px-8 py-5">Data do Lançamento</th>
-                  <th className="px-8 py-5">Descrição do Item</th>
-                  <th className="px-8 py-5 text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {transacoes.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} className="px-8 py-20 text-center text-gray-300 font-black uppercase text-xs tracking-widest italic">
-                      Nenhuma transação vinculada a este cliente.
-                    </td>
-                  </tr>
-                ) : (
-                  transacoes.map(t => (
-                    <tr key={t.id} className="hover:bg-emerald-50/20 transition-all group">
-                      <td className="px-8 py-6 text-xs font-black text-gray-400 group-hover:text-emerald-600 transition-colors">
-                        {new Date(t.data).toLocaleDateString('pt-BR')}
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className="text-gray-700 font-bold text-sm leading-tight">{t.descricao}</span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <span className="font-black text-emerald-600 text-lg">
-                          R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                    {itemAberto === t.id && (
+                      <div className="px-6 pb-6 pt-2 space-y-5 animate-in slide-in-from-top duration-300">
+                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 italic text-xs text-gray-600 font-bold">
+                          {t.itens && t.itens.length > 0 ? t.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', ') : t.descricao}
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}><CheckCircle2 size={12}/> {t.status}</button>
+                            <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2 border-none cursor-pointer hover:bg-gray-200 transition-colors"><Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento}</span></button>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditando(t)} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl border-none cursor-pointer hover:bg-emerald-100 transition-all flex items-center justify-center"><Edit3 size={18}/></button>
+                            <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-all flex items-center justify-center"><Trash2 size={18}/></button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
+
+      {/* MODAL DE EDIÇÃO INTEGRAL */}
+      {editando && (
+        <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
+            <div className="bg-gray-50 px-6 md:px-10 py-6 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-2"><Edit3 size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Ajustar Transação</h3></div>
+              <button onClick={() => setEditando(null)} className="text-gray-300 hover:text-red-500 bg-transparent border-none cursor-pointer p-2"><X size={24}/></button>
+            </div>
+            <div className="p-6 md:p-10 space-y-8 overflow-y-auto flex-1 pb-20 md:pb-10">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest ml-1">Itens da Transação</label>
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <input placeholder="Item..." className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none text-sm font-bold" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} />
+                    <input type="number" className="w-16 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Number(e.target.value)})} />
+                    <button onClick={() => { if(novoItemEdicao.nome) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-600 text-white px-5 rounded-2xl border-none cursor-pointer"><Plus size={20}/></button>
+                  </div>
+                  <div className="min-h-[80px] p-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100 flex flex-wrap gap-2">
+                    {editando.itens.map((it, idx) => (
+                      <div key={idx} className="flex items-center gap-2 bg-white border border-emerald-100 pl-3 pr-1.5 py-1.5 rounded-xl shadow-sm">
+                        <span className="text-emerald-600 font-black text-[10px]">{it.quantidade}x</span><span className="text-gray-600 text-[11px] font-bold">{it.nome}</span>
+                        <button onClick={() => setEditando({...editando, itens: editando.itens.filter((_, i) => i !== idx)})} className="text-gray-200 hover:text-red-500 bg-transparent border-none cursor-pointer"><X size={14}/></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><DollarSign size={10}/> Valor R$</label><input type="number" className="w-full p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl font-black text-emerald-700 outline-none" value={editando.valor} onChange={e => setEditando({...editando, valor: Number(e.target.value)})} /></div>
+                <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><HandCoins size={10}/> Método</label><select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.metodoPagamento} onChange={e => setEditando({...editando, metodoPagamento: e.target.value})}><option value="Pix">Pix</option><option value="A Vista">Dinheiro</option><option value="Cartão">Cartão</option></select></div>
+                <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CalendarDays size={10}/> Data</label><input type="date" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.data.split('T')[0]} onChange={e => setEditando({...editando, data: e.target.value})} /></div>
+                <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CheckCircle2 size={10}/> Status</label><select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.status} onChange={e => setEditando({...editando, status: e.target.value})}><option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option></select></div>
+              </div>
+              <button onClick={handleUpdateTransacao} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-2 border-none cursor-pointer active:scale-95 mb-6">Salvar Alterações <Save size={18}/></button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
