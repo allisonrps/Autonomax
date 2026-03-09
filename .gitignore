@@ -9,6 +9,8 @@ appsettings.json
 appsettings.Development.json
 appsettings.Production.json
 .secrets.json
+.env.development
+.env.production
 
 # User-specific files
 *.rsuser
