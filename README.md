@@ -14,7 +14,6 @@
 </div>
 
 
-Markdown
 # 🚀 Autonomax - Gestão de Fluxo Inteligente para Autônomos
 
 O **Autonomax** é uma plataforma robusta desenvolvida para auxiliar profissionais autônomos na gestão financeira e controle de parceiros. Focado em simplicidade e eficiência, o sistema permite o acompanhamento em tempo real de receitas, despesas e métricas de retenção de clientes.
