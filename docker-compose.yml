@@ -1,11 +1,11 @@
 services:
-  # 1. Banco de Dados SQL Server
+  # 1. Banco de Dados SQL
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: autonomax_db
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=SuaSenhaForte123!
+      - MSSQL_SA_PASSWORD=${MSSQL_PASSWORD}
     ports:
       - "1433:1433"
 
@@ -16,7 +16,7 @@ services:
     depends_on:
       - db
     environment:
-      - ConnectionStrings__DefaultConnection=Server=db;Database=AutonomaxDB;User Id=sa;Password=SuaSenhaForte123!;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION_STRING}
     ports:
       - "5000:80"
 
