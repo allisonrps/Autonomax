@@ -144,7 +144,7 @@ export function DetalhesCliente() {
       <div className="max-w-6xl mx-auto space-y-8 pb-16 pt-8 px-4 font-sans">
         
         <Link to="/clientes" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-emerald-600 transition-all w-fit">
-          <ArrowLeft size={16} /> Voltar para a lista
+          <ArrowLeft size={16} /> Voltar para Meus Clientes
         </Link>
 
         {/* HEADER PERFIL */}
@@ -154,7 +154,7 @@ export function DetalhesCliente() {
               <User size={36} />
             </div>
             <div>
-              <h2 className="text-4xl font-black text-gray-800 tracking-tight uppercase">{cliente.nome}</h2>
+            <h2 className="text-2xl md:text-4xl font-black text-gray-800 tracking-tight uppercase break-words line-clamp-2 md:line-clamp-none">{cliente.nome}</h2>
               <div className="flex flex-wrap gap-4 mt-3">
                 <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter">
                   <Phone size={12}/> {cliente.celular || 'Sem celular'}
@@ -174,19 +174,20 @@ export function DetalhesCliente() {
           </div>
         </div>
 
-        {/* INDICADORES EM 4 COLUNAS */}
+        {/* TOTAL DE REGISTROS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
             <div className="p-4 bg-orange-50 text-orange-500 rounded-2xl"><Receipt size={28} /></div>
             <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Registros</p><p className="text-2xl font-black text-gray-800">{transacoes.length}</p></div>
           </div>
 
+          {/* ÚLTIMO PEDIDO */}
           <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center gap-5">
             <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><CalendarDays size={28} /></div>
             <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Último Pedido</p><p className="text-2xl font-black text-gray-800">{ultimaTransacao ? formatarDataLocal(ultimaTransacao.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '--/--'}</p>{ultimaTransacao && <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tight">{calcularTempoDesde(ultimaTransacao.data)}</p>}</div>
           </div>
 
-          {/* CARD NOVO: VALORES PENDENTES ACUMULADOS */}
+          {/* PENDENTES ACUMULADOS */}
           <div className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm flex items-center gap-5">
             <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><Wallet size={28} /></div>
             <div>
@@ -195,9 +196,10 @@ export function DetalhesCliente() {
             </div>
           </div>
 
+          {/* TICKET MÉDIO */}
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
             <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><TrendingUp size={28} /></div>
-            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Ticket Médio</p><p className="text-2xl font-black text-gray-800">R$ {transacoes.length > 0 ? (totalGasto / transacoes.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}</p></div>
+            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Ticket Médio</p><p className="text-2xl font-black text-gray-800">R$ {transacoes.length > 0 ? (totalGasto / transacoes.length).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : '0,00'}</p></div>
           </div>
         </div>
 
