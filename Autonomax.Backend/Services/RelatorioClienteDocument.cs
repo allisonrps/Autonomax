@@ -11,8 +11,7 @@ public class RelatorioClienteDocument : IDocument
     
     // Paleta de Cores Premium
     private readonly string _primaryColor = "#059669";   // Emerald Principal
-    private readonly string _accentColor = "#10b981";    // Emerald Brilhante
-    private readonly string _darkColor = "#0f172a";      // Slate 900 (Quase preto)
+    private readonly string _darkColor = "#0f172a";      // Slate 900
     private readonly string _softGrey = "#f1f5f9";       // Slate 100
 
     public RelatorioClienteDocument(RelatorioClienteDto dados) => _dados = dados;

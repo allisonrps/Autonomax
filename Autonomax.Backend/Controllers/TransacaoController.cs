@@ -175,11 +175,13 @@ public async Task<IActionResult> GerarRelatorioCliente(int id)
 }
 
 
-
 [HttpGet("fluxo-caixa/relatorio-pdf")]
 public async Task<IActionResult> GerarRelatorioFluxoCaixa([FromQuery] int negocioId, [FromQuery] int mes, [FromQuery] int ano)
 {
+    // ADICIONAMOS OS INCLUDES AQUI PARA TRAZER OS NOMES
     var transacoes = await _context.Transacoes
+        .Include(t => t.Cliente)
+        .Include(t => t.Fornecedor)
         .Where(t => t.NegocioId == negocioId && t.Data.Month == mes && t.Data.Year == ano)
         .OrderBy(t => t.Data)
         .ToListAsync();
@@ -188,18 +190,22 @@ public async Task<IActionResult> GerarRelatorioFluxoCaixa([FromQuery] int negoci
     {
         Periodo = $"{mes:D2}/{ano}",
         TotalEntradas = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor),
-        TotalSaidas = transacoes.Where(t => t.Tipo == "Saída").Sum(t => t.Valor),
-Lancamentos = transacoes.Select(t => new FluxoItemDto
-{
-    Data = t.Data,
-    Descricao = t.Descricao,
-    Tipo = t.Tipo,
-    Status = t.Status,
-    MetodoPagamento = t.MetodoPagamento,
-    Parceiro = t.Tipo == "Entrada" ? (t.Cliente?.Nome ?? "Venda Avulsa") : (t.Fornecedor?.Nome ?? "Gasto Geral"),
-    Valor = t.Valor
-}).ToList()
+        TotalSaidas = transacoes.Where(t => t.Tipo == "Saída" || t.Tipo == "Saida").Sum(t => t.Valor),
+        Lancamentos = transacoes.Select(t => new FluxoItemDto
+        {
+            Data = t.Data,
+            Descricao = t.Descricao,
+            Tipo = t.Tipo,
+            Status = t.Status,
+            MetodoPagamento = t.MetodoPagamento,
+            // LÓGICA DE PARCEIRO: Se for Entrada busca Cliente, se for Saída busca Fornecedor
+            Parceiro = t.Tipo == "Entrada" 
+                ? (t.Cliente?.Nome ?? "Venda Avulsa") 
+                : (t.Fornecedor?.Nome ?? "Gasto Geral"),
+            Valor = t.Valor
+        }).ToList()
     };
+    
     dados.SaldoFinal = dados.TotalEntradas - dados.TotalSaidas;
 
     var document = new RelatorioFluxoCaixaDocument(dados);

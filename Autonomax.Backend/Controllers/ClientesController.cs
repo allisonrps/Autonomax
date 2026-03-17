@@ -95,5 +95,4 @@ public async Task<IActionResult> DeleteCliente(int id)
         return cliente;
     }
 
-
 }

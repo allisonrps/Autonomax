@@ -36,7 +36,7 @@ export function Dashboard() {
   const [mesAtivo, setMesAtivo] = useState(Number(mes) || new Date().getMonth() + 1);
   const [anoAtivo, setAnoAtivo] = useState(Number(ano) || new Date().getFullYear());
   
-  const [resumoAberto, setResumoAberto] = useState(true); // Deixei aberto por padrão para facilitar a visão
+  const [resumoAberto, setResumoAberto] = useState(false); // Fechado
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
