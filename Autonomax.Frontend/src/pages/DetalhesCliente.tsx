@@ -205,9 +205,21 @@ export function DetalhesCliente() {
             <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Registros</p><p className="text-2xl font-black text-gray-800">{transacoes.length}</p></div>
           </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
             <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><CalendarDays size={28} /></div>
-            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Último Pedido</p><p className="text-2xl font-black text-gray-800">{ultimaTransacao ? formatarDataLocal(ultimaTransacao.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '--/--'}</p></div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Último Pedido</p>
+              <div className="flex flex-col">
+                <p className="text-2xl font-black text-gray-800 leading-tight">
+                  {ultimaTransacao ? formatarDataLocal(ultimaTransacao.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '--/--'}
+                </p>
+                {ultimaTransacao && (
+                  <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tight mt-1">
+                    {calcularTempoDesde(ultimaTransacao.data)}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
