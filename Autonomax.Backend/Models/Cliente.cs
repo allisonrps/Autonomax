@@ -10,4 +10,5 @@ public class Cliente
     public string? Estado { get; set; }
     public string? Observacoes { get; set; } // Nullable pois é opcional
     public int NegocioId { get; set; }
+    public List<Transacao> Transacoes { get; set; } = new();
 }

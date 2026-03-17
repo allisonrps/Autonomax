@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
-  ArrowLeft, User, Receipt, MapPin, Phone, 
+  ArrowLeft, User, Receipt, MapPin, Phone, FileDown,
   AlertCircle, Loader2, TrendingUp, History,
   ChevronDown, ChevronUp, CheckCircle2, Tag,
   CalendarDays, Edit3, Trash2, Save, X, DollarSign, HandCoins, Plus, Wallet
@@ -91,6 +91,25 @@ export function DetalhesCliente() {
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
+  const handleExportPDF = async (clienteId: number) => {
+    try {
+      const response = await api.get(`/Transacoes/clientes/${clienteId}/relatorio-pdf`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Relatorio_Cliente_${clienteId}.pdf`; 
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error("Erro ao gerar PDF:", error);
+      alert("O servidor não conseguiu gerar o PDF.");
+    }
+  };
+
   async function handleUpdateTransacao() {
     if (!editando) return;
     const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
@@ -147,14 +166,16 @@ export function DetalhesCliente() {
           <ArrowLeft size={16} /> Voltar para Meus Clientes
         </Link>
 
-        {/* HEADER PERFIL */}
+        {/* 1. HEADER PERFIL - ORIGINAL COM FATURAMENTO */}
         <div className="bg-white p-8 rounded-[40px] border border-gray-200 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-6">
-            <div className="bg-emerald-600 p-5 rounded-3xl text-white shadow-xl shadow-emerald-100">
+            <div className="bg-emerald-600 p-5 rounded-3xl text-white shadow-xl shadow-emerald-100 flex-shrink-0">
               <User size={36} />
             </div>
             <div>
-            <h2 className="text-2xl md:text-4xl font-black text-gray-800 tracking-tight uppercase break-words line-clamp-2 md:line-clamp-none">{cliente.nome}</h2>
+              <h2 className="text-2xl md:text-4xl font-black text-gray-800 tracking-tight uppercase break-words">
+                {cliente.nome}
+              </h2>
               <div className="flex flex-wrap gap-4 mt-3">
                 <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter">
                   <Phone size={12}/> {cliente.celular || 'Sem celular'}
@@ -165,30 +186,31 @@ export function DetalhesCliente() {
               </div>
             </div>
           </div>
-          <div className="w-full md:w-auto bg-emerald-950 p-6 rounded-3xl text-white shadow-2xl">
+
+          <div className="w-full md:w-auto bg-emerald-950 p-6 rounded-3xl text-white shadow-2xl flex flex-col justify-center min-w-[240px]">
             <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mb-1">Faturamento Total</p>
             <div className="flex items-baseline gap-2">
               <span className="text-sm font-bold opacity-60">R$</span>
-              <span className="text-4xl font-black">{totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span className="text-4xl font-black">
+                {totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* TOTAL DE REGISTROS */}
+        {/* 2. DASHBOARD CARDS - OS 4 CARDS ABAIXO */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
             <div className="p-4 bg-orange-50 text-orange-500 rounded-2xl"><Receipt size={28} /></div>
             <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Registros</p><p className="text-2xl font-black text-gray-800">{transacoes.length}</p></div>
           </div>
 
-          {/* ÚLTIMO PEDIDO */}
-          <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center gap-5">
+          <div className="bg-white p-6 rounded-3xl border border-blue-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
             <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><CalendarDays size={28} /></div>
-            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Último Pedido</p><p className="text-2xl font-black text-gray-800">{ultimaTransacao ? formatarDataLocal(ultimaTransacao.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '--/--'}</p>{ultimaTransacao && <p className="text-[10px] font-bold text-blue-500 uppercase tracking-tight">{calcularTempoDesde(ultimaTransacao.data)}</p>}</div>
+            <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Último Pedido</p><p className="text-2xl font-black text-gray-800">{ultimaTransacao ? formatarDataLocal(ultimaTransacao.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) : '--/--'}</p></div>
           </div>
 
-          {/* PENDENTES ACUMULADOS */}
-          <div className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm flex items-center gap-5">
+          <div className="bg-white p-6 rounded-3xl border border-amber-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
             <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><Wallet size={28} /></div>
             <div>
               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Pendentes</p>
@@ -196,21 +218,33 @@ export function DetalhesCliente() {
             </div>
           </div>
 
-          {/* TICKET MÉDIO */}
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
+          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5 transition-colors hover:border-emerald-100">
             <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><TrendingUp size={28} /></div>
             <div><p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Ticket Médio</p><p className="text-2xl font-black text-gray-800">R$ {transacoes.length > 0 ? (totalGasto / transacoes.length).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : '0,00'}</p></div>
           </div>
         </div>
 
-        {/* HISTÓRICO DE ATIVIDADES */}
+        {/* 3. HISTÓRICO DE ATIVIDADES + BOTÃO PDF NA MESMA LINHA */}
         <div className="space-y-4">
-          <h3 className="font-black text-gray-800 text-sm uppercase tracking-wider flex items-center gap-2 ml-2">
-            <History size={18} className="text-emerald-600"/> Histórico de Atividades
-          </h3>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-2">
+            <h3 className="font-black text-gray-800 text-sm uppercase tracking-wider flex items-center gap-2">
+              <History size={18} className="text-emerald-600"/> Histórico de Atividades
+            </h3>
+            
+            <button 
+              onClick={() => handleExportPDF(cliente.id)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-5 rounded-2xl transition-all shadow-lg active:scale-95 text-[10px] uppercase tracking-widest"
+            >
+              <FileDown size={16} />
+              Exportar Relatório PDF
+            </button>
+          </div>
+
           <div className="flex flex-col gap-3">
             {transacoes.length === 0 ? (
-              <div className="bg-white p-20 rounded-[32px] border border-dashed border-gray-200 text-center"><p className="text-gray-300 font-black uppercase text-xs tracking-widest italic">Nenhum lançamento encontrado.</p></div>
+              <div className="bg-white p-20 rounded-[32px] border border-dashed border-gray-200 text-center">
+                <p className="text-gray-300 font-black uppercase text-xs tracking-widest italic">Nenhum lançamento encontrado.</p>
+              </div>
             ) : (
               transacoes.map(t => {
                 const dataObj = formatarDataLocal(t.data);
@@ -225,7 +259,9 @@ export function DetalhesCliente() {
                         <span className="text-sm font-black text-gray-700 truncate max-w-[180px] md:max-w-none text-left">{t.descricao}</span>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : 'text-emerald-600'}`}>{t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
                         {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
                       </div>
                     </button>
@@ -237,8 +273,12 @@ export function DetalhesCliente() {
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
-                            <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}><CheckCircle2 size={12}/> {t.status}</button>
-                            <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2 border-none cursor-pointer hover:bg-gray-200 transition-colors"><Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento}</span></button>
+                            <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}>
+                              <CheckCircle2 size={12}/> {t.status}
+                            </button>
+                            <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2 border-none cursor-pointer hover:bg-gray-200 transition-colors">
+                              <Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento}</span>
+                            </button>
                           </div>
                           <div className="flex gap-2">
                             <button onClick={() => setEditando(t)} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl border-none cursor-pointer hover:bg-emerald-100 transition-all flex items-center justify-center"><Edit3 size={18}/></button>
@@ -255,7 +295,7 @@ export function DetalhesCliente() {
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO INTEGRAL */}
+      {/* MODAL DE EDIÇÃO */}
       {editando && (
         <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
@@ -270,7 +310,7 @@ export function DetalhesCliente() {
                   <div className="flex gap-2">
                     <input placeholder="Item..." className="flex-1 p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none text-sm font-bold" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} />
                     <input type="number" className="w-16 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-center font-black" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Number(e.target.value)})} />
-                    <button onClick={() => { if(novoItemEdicao.nome) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-600 text-white px-5 rounded-2xl border-none cursor-pointer"><Plus size={20}/></button>
+                    <button onClick={() => { if(novoItemEdicao.nome && editando) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-600 text-white px-5 rounded-2xl border-none cursor-pointer"><Plus size={20}/></button>
                   </div>
                   <div className="min-h-[80px] p-4 bg-gray-50/50 rounded-3xl border-2 border-dashed border-gray-100 flex flex-wrap gap-2">
                     {editando.itens.map((it, idx) => (

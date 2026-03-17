@@ -2,7 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
+using Autonomax.Backend.DTOs;
+using Autonomax.Backend.Services;
 using Microsoft.AspNetCore.Authorization;
+using QuestPDF.Fluent;
+
 
 namespace Autonomax.Backend.Controllers;
 
@@ -134,4 +138,41 @@ public class TransacoesController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+
+
+[HttpGet("clientes/{id}/relatorio-pdf")]
+public async Task<IActionResult> GerarRelatorioCliente(int id)
+{
+    // 1. Busca os dados no Banco
+    var cliente = await _context.Clientes
+        .Include(c => c.Transacoes)
+        .FirstOrDefaultAsync(c => c.Id == id);
+
+    if (cliente == null) return NotFound("Cliente não encontrado.");
+
+    // 2. Mapeia para o DTO de Relatório
+    var dadosRelatorio = new RelatorioClienteDto
+    {
+        NomeCliente = cliente.Nome,
+        Celular = cliente.Celular ?? "Não informado",
+        FaturamentoTotal = cliente.Transacoes.Sum(t => t.Valor),
+        Transacoes = cliente.Transacoes
+            .OrderByDescending(t => t.Data)
+            .Select(t => new TransacaoItemDto
+            {
+                Data = t.Data,
+                Descricao = t.Descricao,
+                Valor = t.Valor
+            }).ToList()
+    };
+
+    // 3. Gera o PDF usando a classe
+    var document = new RelatorioClienteDocument(dadosRelatorio);
+    byte[] pdfBytes = document.GeneratePdf();
+
+    // 4. Retorna o arquivo
+    return File(pdfBytes, "application/pdf", $"Relatorio_{cliente.Nome.Replace(" ", "_")}.pdf");
+}
+
+
 }
