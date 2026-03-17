@@ -175,4 +175,38 @@ public async Task<IActionResult> GerarRelatorioCliente(int id)
 }
 
 
+
+[HttpGet("fluxo-caixa/relatorio-pdf")]
+public async Task<IActionResult> GerarRelatorioFluxoCaixa([FromQuery] int negocioId, [FromQuery] int mes, [FromQuery] int ano)
+{
+    var transacoes = await _context.Transacoes
+        .Where(t => t.NegocioId == negocioId && t.Data.Month == mes && t.Data.Year == ano)
+        .OrderBy(t => t.Data)
+        .ToListAsync();
+
+    var dados = new FluxoCaixaDto
+    {
+        Periodo = $"{mes:D2}/{ano}",
+        TotalEntradas = transacoes.Where(t => t.Tipo == "Entrada").Sum(t => t.Valor),
+        TotalSaidas = transacoes.Where(t => t.Tipo == "Saída").Sum(t => t.Valor),
+Lancamentos = transacoes.Select(t => new FluxoItemDto
+{
+    Data = t.Data,
+    Descricao = t.Descricao,
+    Tipo = t.Tipo,
+    Status = t.Status,
+    MetodoPagamento = t.MetodoPagamento,
+    Parceiro = t.Tipo == "Entrada" ? (t.Cliente?.Nome ?? "Venda Avulsa") : (t.Fornecedor?.Nome ?? "Gasto Geral"),
+    Valor = t.Valor
+}).ToList()
+    };
+    dados.SaldoFinal = dados.TotalEntradas - dados.TotalSaidas;
+
+    var document = new RelatorioFluxoCaixaDocument(dados);
+    byte[] pdfBytes = document.GeneratePdf();
+
+    return File(pdfBytes, "application/pdf", $"FluxoCaixa_{mes}_{ano}.pdf");
+}
+
+
 }
