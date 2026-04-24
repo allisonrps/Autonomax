@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, } from 'react-router-dom';
 import { Lock, LogIn } from 'lucide-react';
 
 import { Login } from './pages/Login';
