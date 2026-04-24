@@ -5,7 +5,8 @@ import {
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, FileDown,
   ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight
+  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight,
+  Filter
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -36,9 +37,12 @@ export function Dashboard() {
   const [mesAtivo, setMesAtivo] = useState(Number(mes) || new Date().getMonth() + 1);
   const [anoAtivo, setAnoAtivo] = useState(Number(ano) || new Date().getFullYear());
   
-  const [resumoAberto, setResumoAberto] = useState(false); // Fechado
+  const [resumoAberto, setResumoAberto] = useState(false); 
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   
+  // ESTADO PARA FILTRO NO HISTÓRICO
+  const [filtroAtivo, setFiltroAtivo] = useState<'Tudo' | 'Entrada' | 'Saida' | 'Pendente'>('Tudo');
+
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -141,7 +145,7 @@ export function Dashboard() {
 
   async function handleUpdateTransacao() {
     if (!editando) return;
-    const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
+    const dataAjustada = new Date(editando.data.split('T') + 'T12:00:00');
     const payload = {
       ...editando,
       descricao: editando.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
@@ -181,6 +185,13 @@ export function Dashboard() {
   const totalSaidas = transacoes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
   const totalPendentes = transacoes.filter(t => t.status === 'Pendente').reduce((acc, t) => acc + t.valor, 0);
   const saldo = totalEntradas - totalSaidas;
+
+  // LÓGICA DE FILTRAGEM
+  const transacoesFiltradas = transacoes.filter(t => {
+    if (filtroAtivo === 'Tudo') return true;
+    if (filtroAtivo === 'Pendente') return t.status === 'Pendente';
+    return t.tipo === filtroAtivo;
+  });
 
   return (
     <Layout>
@@ -300,86 +311,121 @@ export function Dashboard() {
           )}
         </div>
 
-        {/* HISTÓRICO + BOTÃO PDF */}
+        {/* HISTÓRICO + FILTROS + BOTÃO PDF */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
             <div className="flex items-center gap-2">
               <h3 className="font-black text-gray-800 text-sm uppercase tracking-wider flex items-center gap-2">
                 <Receipt size={18} className="text-emerald-600"/> Histórico Financeiro
               </h3>
-              <span className="text-[10px] font-black bg-white border border-gray-100 text-gray-400 px-3 py-1 rounded-full uppercase tracking-widest">
-                {transacoes.length}
-              </span>
             </div>
             
+            {/* BOTÕES DE FILTRO REDONDOS */}
+            <div className="flex items-center gap-3 bg-white p-1.5 rounded-full border border-gray-100 shadow-sm">
+               <button 
+                onClick={() => setFiltroAtivo('Tudo')}
+                className={`p-2.5 rounded-full transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Tudo' ? 'bg-gray-800 text-white shadow-lg' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                title="Mostrar Tudo"
+               >
+                 <Filter size={18} />
+               </button>
+               <button 
+                onClick={() => setFiltroAtivo('Entrada')}
+                className={`p-2.5 rounded-full transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Entrada' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                title="Apenas Receitas"
+               >
+                 <ArrowUpRight size={18} />
+               </button>
+               <button 
+                onClick={() => setFiltroAtivo('Saida')}
+                className={`p-2.5 rounded-full transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Saida' ? 'bg-red-600 text-white shadow-lg' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                title="Apenas Despesas"
+               >
+                 <ArrowDownRight size={18} />
+               </button>
+               <button 
+                onClick={() => setFiltroAtivo('Pendente')}
+                className={`p-2.5 rounded-full transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Pendente' ? 'bg-amber-500 text-white shadow-lg' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
+                title="Pendentes"
+               >
+                 <Wallet size={18} />
+               </button>
+            </div>
+
             <button 
               onClick={handleExportarMensalPDF}
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-5 rounded-2xl transition-all shadow-lg active:scale-95 text-[10px] uppercase tracking-widest"
             >
               <FileDown size={16} />
-              Exportar Fluxo PDF
+              Exportar PDF
             </button>
           </div>
           
           <div className="flex flex-col gap-3">
-            {transacoes.map(t => {
-              const isEntrada = t.tipo === 'Entrada';
-              const dataObj = formatarDataLocal(t.data);
-              return (
-                <div key={t.id} className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden hover:border-emerald-100 transition-all">
-                  <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 md:p-6 bg-transparent border-none cursor-pointer outline-none">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${isEntrada ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
-                        <span className={`text-xs font-black ${isEntrada ? 'text-emerald-700' : 'text-red-700'}`}>
-                          {dataObj.getDate().toString().padStart(2, '0')}
+            {transacoesFiltradas.length === 0 ? (
+              <div className="bg-white p-12 rounded-[32px] border border-dashed border-gray-200 text-center">
+                <p className="text-gray-400 font-bold text-sm">Nenhum lançamento encontrado para este filtro.</p>
+              </div>
+            ) : (
+              transacoesFiltradas.map(t => {
+                const isEntrada = t.tipo === 'Entrada';
+                const dataObj = formatarDataLocal(t.data);
+                return (
+                  <div key={t.id} className="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden hover:border-emerald-100 transition-all">
+                    <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 md:p-6 bg-transparent border-none cursor-pointer outline-none text-left">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${isEntrada ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                          <span className={`text-xs font-black ${isEntrada ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {dataObj.getDate().toString().padStart(2, '0')}
+                          </span>
+                        </div>
+                        <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none">
+                          {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
                         </span>
                       </div>
-                      <span className="text-sm font-black text-gray-700 truncate max-w-[150px] md:max-w-none text-left">
-                        {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : isEntrada ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
-                    </div>
-                  </button>
+                      <div className="flex items-center gap-4">
+                        <span className={`text-lg font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-600' : isEntrada ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                        {itemAberto === t.id ? <ChevronUp size={20} className="text-gray-300"/> : <ChevronDown size={20} className="text-gray-300"/>}
+                      </div>
+                    </button>
 
-                  {itemAberto === t.id && (
-                    <div className="px-6 pb-6 pt-2 space-y-5 animate-in slide-in-from-top duration-300">
-                      <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 italic text-xs text-gray-600 font-bold">{t.descricao}</div>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}>
-                            <CheckCircle2 size={12}/> {t.status}
-                          </button>
-                          <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2 border-none cursor-pointer hover:bg-gray-200 transition-colors">
-                            <Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento}</span>
-                          </button>
-                        </div>
-                        <div className="flex gap-2">
-                          {(t.clienteId || t.fornecedorId) && (
-                            <Link to={isEntrada ? `/clientes/${t.clienteId}` : `/fornecedores/${t.fornecedorId}`} className={`p-3 rounded-2xl transition-all flex items-center justify-center ${isEntrada ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-red-600 bg-red-50 hover:bg-red-100'}`}>
-                              <User size={18}/>
-                            </Link>
-                          )}
-                          <button onClick={() => setEditando(t)} className={`p-3 rounded-2xl transition-all border-none cursor-pointer flex items-center justify-center ${isEntrada ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-red-600 bg-red-50 hover:bg-red-100'}`}><Edit3 size={18}/></button>
-                          <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-all flex items-center justify-center"><Trash2 size={18}/></button>
+                    {itemAberto === t.id && (
+                      <div className="px-6 pb-6 pt-2 space-y-5 animate-in slide-in-from-top duration-300">
+                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 italic text-xs text-gray-600 font-bold">{t.descricao}</div>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleAlternarStatus(t)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border-none cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}>
+                              <CheckCircle2 size={12}/> {t.status}
+                            </button>
+                            <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-100 px-4 py-2 rounded-xl flex items-center gap-2 border-none cursor-pointer hover:bg-gray-200 transition-colors">
+                              <Tag size={10} className="text-gray-400"/><span className="text-[9px] font-black text-gray-500 uppercase">{t.metodoPagamento}</span>
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
+                            {(t.clienteId || t.fornecedorId) && (
+                              <Link to={isEntrada ? `/clientes/${t.clienteId}` : `/fornecedores/${t.fornecedorId}`} className={`p-3 rounded-2xl transition-all flex items-center justify-center ${isEntrada ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-red-600 bg-red-50 hover:bg-red-100'}`}>
+                                <User size={18}/>
+                              </Link>
+                            )}
+                            <button onClick={() => setEditando(t)} className={`p-3 rounded-2xl transition-all border-none cursor-pointer flex items-center justify-center ${isEntrada ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : 'text-red-600 bg-red-50 hover:bg-red-100'}`}><Edit3 size={18}/></button>
+                            <button onClick={() => handleDelete(t.id)} className="p-3 text-red-500 bg-red-50 rounded-2xl border-none cursor-pointer hover:bg-red-100 transition-all flex items-center justify-center"><Trash2 size={18}/></button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
 
       {/* MODAL DE EDIÇÃO */}
       {editando && (
-        <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+        <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z- flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-[40px] md:rounded-[40px] shadow-2xl flex flex-col overflow-hidden border border-emerald-100 animate-in slide-in-from-bottom md:zoom-in duration-300">
             <div className="bg-gray-50 px-6 md:px-10 py-6 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2"><Edit3 size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Ajustar Transação</h3></div>
@@ -407,7 +453,7 @@ export function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><DollarSign size={10}/> Valor R$</label><input type="number" className="w-full p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl font-black text-emerald-700 outline-none" value={editando.valor} onChange={e => setEditando({...editando, valor: Number(e.target.value)})} /></div>
                 <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><HandCoins size={10}/> Método</label><select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.metodoPagamento} onChange={e => setEditando({...editando, metodoPagamento: e.target.value})}><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select></div>
-                <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CalendarDays size={10}/> Data</label><input type="date" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.data.split('T')[0]} onChange={e => setEditando({...editando, data: e.target.value})} /></div>
+                <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CalendarDays size={10}/> Data</label><input type="date" className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.data.split('T')} onChange={e => setEditando({...editando, data: e.target.value})} /></div>
                 <div className="space-y-1.5"><label className="flex items-center gap-2 text-[9px] font-black text-gray-400 uppercase ml-2"><CheckCircle2 size={10}/> Status</label><select className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-600 outline-none" value={editando.status} onChange={e => setEditando({...editando, status: e.target.value})}><option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option></select></div>
               </div>
               <button onClick={handleUpdateTransacao} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-2 border-none cursor-pointer active:scale-95 mb-6">Salvar Alterações <Save size={18}/></button>
