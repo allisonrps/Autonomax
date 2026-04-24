@@ -19,13 +19,51 @@ public class ClientesController : ControllerBase
     }
 
 [HttpGet("por-negocio/{negocioId}")]
-    public async Task<ActionResult<IEnumerable<Cliente>>> GetClientes(int negocioId)
+public async Task<IActionResult> GetClientes(int negocioId)
+{
+    try
     {
-        return await _context.Clientes
+        // Buscamos os clientes e suas transações vinculadas
+        var clientesComTransacoes = await _context.Clientes
+            .Include(c => c.Transacoes) 
             .Where(c => c.NegocioId == negocioId)
-            .OrderBy(c => c.Nome)
             .ToListAsync();
+
+
+        var resultado = clientesComTransacoes.Select(c => new {
+            c.Id,
+            c.Nome,
+            c.Celular,
+            c.Endereco,
+            c.Cidade,
+            c.Estado,
+            c.Observacoes,
+            c.NegocioId,
+            
+            // Soma faturamento (apenas entradas)
+            TotalComprado = c.Transacoes
+                .Where(t => t.Tipo == "Entrada")
+                .Sum(t => t.Valor),
+            
+            // Quantidade total de pedidos/movimentações
+            QtdMovimentacoes = c.Transacoes.Count,
+                
+            // Pega a data da última transação (se existir)
+            UltimaMovimentacao = c.Transacoes
+                .OrderByDescending(t => t.Data)
+                .Select(t => t.Data.ToString("yyyy-MM-ddTHH:mm:ss"))
+                .FirstOrDefault()
+        })
+        .OrderBy(c => c.Nome)
+        .ToList();
+
+        return Ok(resultado);
     }
+    catch (Exception ex)
+    {
+        return StatusCode(500, $"Erro interno: {ex.Message}");
+    }
+}
 
     // POST: api/Clientes
     [HttpPost]
