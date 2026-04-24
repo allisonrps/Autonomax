@@ -19,7 +19,6 @@ interface ProtectedRouteProps {
 // COMPONENTE DE PROTEÇÃO COM TELA DE AVISO
 function ProtectedRoute({ children }: ProtectedRouteProps) {
   const token = localStorage.getItem('@Autonomax:token');
-  const location = useLocation();
 
   if (!token) {
     return (

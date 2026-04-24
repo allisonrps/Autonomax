@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom';
 import { 
   Trash2, Edit3, Save, X, Users, 
   Phone, Search, Contact2, Eye, 
-  CheckCircle2, ChevronDown, ChevronUp,
-  Calendar, ShoppingBag, DollarSign
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import api from '../services/api';
 
