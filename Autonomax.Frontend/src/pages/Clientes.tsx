@@ -116,7 +116,7 @@ export function Clientes() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-950 -mt-8 pt-8 pb-16 px-4 font-sans text-gray-100">
+      <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
         <div className="max-w-6xl mx-auto space-y-5">
           
           {/* PAINEL DE CONTROLE (BUSCA E ORDENAÇÃO) */}

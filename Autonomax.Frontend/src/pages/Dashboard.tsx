@@ -196,21 +196,25 @@ export function Dashboard() {
 
   return (
     <Layout>
-      {/* Container Geral - Dark Mode Premium */}
-      <div className="min-h-screen bg-gray-950 -mt-8 pt-8 pb-16 px-4 font-sans text-gray-100">
+      <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
         <div className="max-w-6xl mx-auto space-y-5">
           
-          {/* NAVEGAÇÃO / CONTROLE DE PERÍODO */}
-          <div className="flex items-center justify-between bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-950/50 text-emerald-400 rounded-md border border-emerald-900"><CalendarDays size={20} /></div>
-              <h2 className="text-base font-black uppercase tracking-tight text-gray-100">
-                {mesesNome[mesAtivo - 1]} <span className="text-emerald-400">{anoAtivo}</span>
-              </h2>
+          {/* NAVEGAÇÃO / CONTROLE DE PERÍODO PADRÃO CLIENTES */}
+          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4 w-full lg:w-auto">
+              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex">
+                <CalendarDays size={22} />
+              </div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap">
+                  {mesesNome[mesAtivo - 1]} <span className="text-emerald-400">{anoAtivo}</span>
+                </h2>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => navegarPeriodo(-1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-900 cursor-pointer"><ChevronLeft size={18} /></button>
-              <button onClick={() => navegarPeriodo(1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-900 cursor-pointer"><ChevronRight size={18} /></button>
+            
+            <div className="flex items-center gap-1.5 w-full lg:w-auto justify-end">
+              <button onClick={() => navegarPeriodo(-1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-950 cursor-pointer"><ChevronLeft size={18} /></button>
+              <button onClick={() => navegarPeriodo(1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-950 cursor-pointer"><ChevronRight size={18} /></button>
             </div>
           </div>
 
@@ -339,19 +343,26 @@ export function Dashboard() {
 
           {/* HISTÓRICO FINANCEIRO */}
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-1">
               <h3 className="font-black text-gray-300 text-xs uppercase tracking-wider flex items-center gap-2">
                 <Receipt size={16} className="text-emerald-400"/> Lançamentos do Período
               </h3>
               
-              <div className="flex items-center gap-1.5 bg-gray-900 p-1 rounded-md border border-gray-800">
-                 <button onClick={() => setFiltroAtivo('Tudo')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Tudo' ? 'bg-gray-800 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`} title="Todos"><Filter size={16} /></button>
-                 <button onClick={() => setFiltroAtivo('Entrada')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Entrada' ? 'bg-emerald-600 text-white' : 'bg-transparent text-emerald-500 hover:text-emerald-400'}`} title="Receitas"><ArrowUpRight size={16} /></button>
-                 <button onClick={() => setFiltroAtivo('Saida')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Saida' ? 'bg-red-600 text-white' : 'bg-transparent text-red-500 hover:text-red-400'}`} title="Despesas"><ArrowDownRight size={16} /></button>
-                 <button onClick={() => setFiltroAtivo('Pendente')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Pendente' ? 'bg-amber-500 text-white' : 'bg-transparent text-amber-500 hover:text-amber-400'}`} title="Pendentes"><Wallet size={16} /></button>
-              </div>
+              <div className="flex items-center w-full sm:w-auto justify-between sm:justify-end gap-2">
+                {/* Filtros em linha */}
+                <div className="flex items-center gap-1.5 bg-gray-900 p-1 rounded-md border border-gray-800">
+                   <button onClick={() => setFiltroAtivo('Tudo')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Tudo' ? 'bg-gray-800 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`} title="Todos"><Filter size={16} /></button>
+                   <button onClick={() => setFiltroAtivo('Entrada')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Entrada' ? 'bg-emerald-600 text-white' : 'bg-transparent text-emerald-500 hover:text-emerald-400'}`} title="Receitas"><ArrowUpRight size={16} /></button>
+                   <button onClick={() => setFiltroAtivo('Saida')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Saida' ? 'bg-red-600 text-white' : 'bg-transparent text-red-500 hover:text-red-400'}`} title="Despesas"><ArrowDownRight size={16} /></button>
+                   <button onClick={() => setFiltroAtivo('Pendente')} className={`p-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${filtroAtivo === 'Pendente' ? 'bg-amber-500 text-white' : 'bg-transparent text-amber-500 hover:text-amber-400'}`} title="Pendentes"><Wallet size={16} /></button>
+                </div>
 
-              <button onClick={handleExportarMensalPDF} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-black py-2 px-4 rounded-md transition-all text-xs border border-gray-700 cursor-pointer"><FileDown size={14} /> Exportar PDF</button>
+                {/* Botão Exportar PDF ao lado no mobile e com texto no desktop */}
+                <button onClick={handleExportarMensalPDF} className="flex-shrink-0 flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 font-black p-2 md:py-2 md:px-4 rounded-md transition-all text-xs border border-gray-700 cursor-pointer" title="Exportar PDF">
+                  <FileDown size={18} />
+                  <span className="hidden md:inline">Exportar PDF</span>
+                </button>
+              </div>
             </div>
             
             <div className="flex flex-col gap-2">
