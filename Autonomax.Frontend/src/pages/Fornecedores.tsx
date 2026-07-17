@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { Link } from 'react-router-dom'; 
 import { 
-  Trash2, Edit3, Save, X, Truck, 
-  Phone, Search, CheckCircle2, ChevronDown, ChevronUp, Tag, Eye, ArrowDownWideNarrow 
+  Trash2, Truck, 
+  ChevronDown, ChevronUp, Tag, Eye
 } from 'lucide-react';
 import api from '../services/api';
 

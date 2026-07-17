@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { 
-  UserPlus, User, Mail, Lock, ArrowLeft, 
+  User, Mail, Lock, ArrowLeft, 
   Loader2, Sparkles, ShieldCheck 
 } from 'lucide-react';
 import logoImg from '../assets/logo.png';

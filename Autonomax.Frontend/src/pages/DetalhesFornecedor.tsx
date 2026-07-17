@@ -2,10 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
-  ArrowLeft, Truck, Receipt, Phone, AlertCircle, 
-  Loader2, History, Tag, ChevronDown, ChevronUp, 
-  CheckCircle2, CalendarDays, Edit3, Trash2, FileDown,
-  Save, X, DollarSign, HandCoins, Plus, Wallet, FileText
+  ArrowLeft, Truck, Receipt, Phone, 
+  Loader2, History, Tag, 
+  Edit3, Trash2, FileDown, Wallet,
 } from 'lucide-react';
 import api from '../services/api';
 

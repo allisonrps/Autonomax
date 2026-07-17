@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
-  BarChart3, Package, ArrowUpRight, ArrowDownLeft, 
-  ChevronLeft, ChevronRight, Calendar,
-  TrendingUp, ChevronDown, ChevronUp, LineChart as LineChartIcon, Users, PieChart as PieChartIcon
+  BarChart3, 
+  ChevronLeft, ChevronRight,
+  TrendingUp, ChevronDown, ChevronUp, LineChart as LineChartIcon, PieChart as PieChartIcon
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
