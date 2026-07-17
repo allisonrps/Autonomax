@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import api from '../services/api';
-import { UserPlus, User, Mail, Lock, ArrowLeft, Loader2, Sparkles } from 'lucide-react';
+import { 
+  UserPlus, User, Mail, Lock, ArrowLeft, 
+  Loader2, Sparkles, ShieldCheck 
+} from 'lucide-react';
+import logoImg from '../assets/logo.png';
 
 export function Register() {
   const [nome, setNome] = useState('');
@@ -22,19 +26,11 @@ export function Register() {
     }
 
     try {
-      // CORREÇÃO: Mapeamos a chave que o C# espera (Maiúsculo) 
-      // para o valor que está no estado do React (minúsculo)
-      await api.post('/Auth/register', { 
-        Nome: nome, 
-        Email: email, 
-        Senha: senha 
-      });
-
+      await api.post('/Auth/register', { Nome: nome, Email: email, Senha: senha });
       alert('Conta criada com sucesso! Agora você pode fazer login.');
       window.location.href = '/';
     } catch (err: any) {
-      // Captura a mensagem de erro vinda do seu AuthController
-      const mensagemServidor = err.response?.data?.message || err.response?.data || 'Erro ao criar conta. Tente outro e-mail.';
+      const mensagemServidor = err.response?.data?.message || err.response?.data || 'Erro ao criar conta.';
       setErro(typeof mensagemServidor === 'string' ? mensagemServidor : 'Erro na validação dos dados.');
     } finally {
       setLoading(false);
@@ -42,125 +38,76 @@ export function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-emerald-950 px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4 font-sans">
       
-      {/* Elementos Decorativos de Fundo */}
-      <div className="absolute top-[-10%] right-[-10%] w-72 h-72 bg-emerald-800 rounded-full blur-[120px] opacity-20"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-emerald-500 rounded-full blur-[150px] opacity-10"></div>
-
-      <div className="max-w-lg w-full z-10 py-10">
-        <div className="bg-white rounded-[2.5rem] shadow-2xl p-10 border border-emerald-900/10">
-          
-          {/* Botão Voltar */}
-          <div className="mb-8">
-            <button 
-              onClick={() => window.location.href = '/'}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 transition-all group"
-            >
-              <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> Voltar ao Login
-            </button>
-          </div>
-
-          {/* Header */}
-          <div className="text-center mb-10">
-            <div className="inline-flex p-3 bg-emerald-50 rounded-2xl text-emerald-600 mb-4">
-              <UserPlus size={28} />
-            </div>
-            <h1 className="text-xs font-black text-emerald-600 uppercase tracking-[0.3em] mb-2">Comece sua jornada</h1>
-            <p className="text-gray-400 text-sm font-medium italic">Junte-se ao Autonomax e simplifique sua gestão</p>
-          </div>
-
-          <form onSubmit={handleRegister} className="space-y-5">
-            
-            {/* Campo Nome */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
-              <div className="relative group">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-500 transition-colors" size={20} />
-                <input
-                  type="text"
-                  required
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-gray-700 transition-all placeholder:text-gray-300"
-                  placeholder="Como quer ser chamado?"
-                  value={nome}
-                  onChange={e => setNome(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Campo E-mail */}
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">E-mail Principal</label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-500 transition-colors" size={20} />
-                <input
-                  type="email"
-                  required
-                  className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-gray-700 transition-all placeholder:text-gray-300"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Grid Senhas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha</label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-500 transition-colors" size={18} />
-                  <input
-                    type="password"
-                    required
-                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-gray-700 transition-all placeholder:text-gray-300 text-sm"
-                    placeholder="••••••••"
-                    value={senha}
-                    onChange={e => setSenha(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Confirmar</label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-500 transition-colors" size={18} />
-                  <input
-                    type="password"
-                    required
-                    className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-gray-700 transition-all placeholder:text-gray-300 text-sm"
-                    placeholder="••••••••"
-                    value={confirmarSenha}
-                    onChange={e => setConfirmarSenha(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {erro && (
-              <div className="bg-red-50 border border-red-100 text-red-500 text-[11px] font-bold p-3 rounded-xl text-center animate-in fade-in slide-in-from-top-1">
-                {erro}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl transition-all shadow-xl shadow-emerald-200 active:scale-95 flex items-center justify-center gap-3 mt-4"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin" size={20} />
-              ) : (
-                <>Criar minha conta <Sparkles size={18} /></>
-              )}
-            </button>
-          </form>
-        </div>
+      <div className="w-full max-w-md bg-gray-900 p-8 rounded-xl border border-gray-800 shadow-2xl space-y-8">
         
-        <p className="mt-8 text-center text-[10px] text-emerald-600/40 font-black uppercase tracking-[0.4em]">
-          Autonomax © 2026
-        </p>
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img src={logoImg} alt="Autonomax" className="h-12 w-auto object-contain opacity-90" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-white uppercase tracking-widest">Criar Conta</h1>
+            <p className="text-xs text-gray-500 font-medium mt-1">Junte-se ao ecossistema Autonomax</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleRegister} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Nome</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+              <input type="text" required className="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-md focus:border-emerald-600 outline-none font-bold text-sm text-white" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">E-mail</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+              <input type="email" required className="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-md focus:border-emerald-600 outline-none font-bold text-sm text-white" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+                <input type="password" required className="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-md focus:border-emerald-600 outline-none font-bold text-sm text-white" value={senha} onChange={e => setSenha(e.target.value)} placeholder="••••••••" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Confirmar</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={16} />
+                <input type="password" required className="w-full pl-10 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-md focus:border-emerald-600 outline-none font-bold text-sm text-white" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} placeholder="••••••••" />
+              </div>
+            </div>
+          </div>
+
+          {erro && (
+            <div className="text-[10px] font-black text-red-400 bg-red-950/30 p-3 rounded-md text-center uppercase tracking-widest border border-red-900/50">
+              {erro}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-[10px] py-4 rounded-md transition-all flex items-center justify-center gap-2 border border-emerald-700 mt-2">
+            {loading ? <Loader2 className="animate-spin" size={16} /> : <>Criar conta <Sparkles size={16} /></>}
+          </button>
+        </form>
+
+        <div className="pt-4 border-t border-gray-800 text-center">
+          <button onClick={() => window.location.href = '/'} className="flex items-center justify-center gap-2 text-[10px] font-black text-gray-500 uppercase hover:text-white transition-all w-full">
+            <ArrowLeft size={14} /> Voltar ao Login
+          </button>
+        </div>
       </div>
+      
+      <p className="fixed bottom-8 text-[9px] text-gray-700 font-black uppercase tracking-[0.3em] text-center w-full">
+        Autonomax © 2026 • Sistema Seguro <ShieldCheck size={10} className="inline ml-1" />
+      </p>
     </div>
   );
 }

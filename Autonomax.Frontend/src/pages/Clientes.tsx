@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { 
   Trash2, Edit3, Save, X, Users, 
   Phone, Search, Contact2, Eye, 
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, ArrowDownWideNarrow
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -31,7 +31,9 @@ export function Clientes() {
   
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [clienteEdicao, setClienteEdicao] = useState<Cliente | null>(null);
+  
   const [filtro, setFiltro] = useState('');
+  const [ordenacao, setOrdenacao] = useState('nome-asc');
 
   const currentNegocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
 
@@ -85,145 +87,228 @@ export function Clientes() {
     } catch (err) { alert("Erro ao excluir."); }
   }
 
-  const clientesFiltrados = clientes.filter(c => 
-    c.nome.toLowerCase().includes(filtro.toLowerCase())
-  );
+  // LÓGICA DE FILTRAGEM E ORDENAÇÃO
+  const clientesFiltrados = clientes
+    .filter(c => c.nome.toLowerCase().includes(filtro.toLowerCase()))
+    .sort((a, b) => {
+      const [campo, ordem] = ordenacao.split('-');
+      let valorA: string | number = '';
+      let valorB: string | number = '';
+
+      if (campo === 'faturamento') {
+        valorA = a.totalComprado || 0;
+        valorB = b.totalComprado || 0;
+      } else if (campo === 'pedidos') {
+        valorA = a.qtdMovimentacoes || 0;
+        valorB = b.qtdMovimentacoes || 0;
+      } else if (campo === 'atividade') {
+        valorA = a.ultimaMovimentacao && !a.ultimaMovimentacao.startsWith('0001') ? new Date(a.ultimaMovimentacao).getTime() : 0;
+        valorB = b.ultimaMovimentacao && !b.ultimaMovimentacao.startsWith('0001') ? new Date(b.ultimaMovimentacao).getTime() : 0;
+      } else {
+        valorA = a.nome.toLowerCase();
+        valorB = b.nome.toLowerCase();
+      }
+
+      if (valorA < valorB) return ordem === 'asc' ? -1 : 1;
+      if (valorA > valorB) return ordem === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-6 pb-16 pt-8 px-4 font-sans text-gray-800">
-        
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-600 rounded-2xl text-white shadow-xl shadow-emerald-100">
-              <Users size={28} />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-black tracking-tight uppercase">Meus Clientes</h2>
-          </div>
-
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
-            <input 
-              type="text"
-              placeholder="Localizar cliente..."
-              className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 shadow-xl shadow-emerald-50/20 font-bold transition-all"
-              value={filtro}
-              onChange={e => setFiltro(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* CADASTRO ULTRA CLEAN */}
-        <div className="bg-white rounded-[32px] border border-gray-200 shadow-xl overflow-hidden">
-          <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-emerald-50/50 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer">
-            <div className="flex items-center gap-3">
-              <Contact2 size={20} className="text-emerald-600" />
-              <h3 className="text-xs font-black text-emerald-900 uppercase tracking-widest">Novo Cadastro</h3>
-            </div>
-            {formAberto ? <ChevronUp size={20} className="text-emerald-600" /> : <ChevronDown size={20} className="text-emerald-600" />}
-          </button>
+      <div className="min-h-screen bg-gray-950 -mt-8 pt-8 pb-16 px-4 font-sans text-gray-100">
+        <div className="max-w-6xl mx-auto space-y-5">
           
-          {formAberto && (
-            <div className="p-8 space-y-4 animate-in slide-in-from-top duration-300 border-t border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm" value={novoCliente.nome} onChange={e => setNovoCliente({...novoCliente, nome: e.target.value})} placeholder="Nome Completo" />
-                <input className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm" value={novoCliente.celular} onChange={e => setNovoCliente({...novoCliente, celular: e.target.value})} placeholder="WhatsApp / Celular" />
+          {/* PAINEL DE CONTROLE (BUSCA E ORDENAÇÃO) */}
+          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4 w-full lg:w-auto">
+              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex">
+                <Users size={22} />
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input className="md:col-span-2 w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm" value={novoCliente.endereco} onChange={e => setNovoCliente({...novoCliente, endereco: e.target.value})} placeholder="Endereço (Rua, nº, Bairro)" />
-                <input className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm" value={novoCliente.cidade} onChange={e => setNovoCliente({...novoCliente, cidade: e.target.value})} placeholder="Cidade" />
-                <input className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-black uppercase text-center text-sm" maxLength={2} value={novoCliente.estado} onChange={e => setNovoCliente({...novoCliente, estado: e.target.value})} placeholder="UF" />
-              </div>
-
-              <textarea rows={2} className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm resize-none" value={novoCliente.observacoes} onChange={e => setNovoCliente({...novoCliente, observacoes: e.target.value})} placeholder="Observações e detalhes importantes..." />
-
-              <button onClick={handleAddCliente} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-black shadow-2xl transition-all active:scale-95 border-none cursor-pointer">
-                Confirmar Cadastro
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* LEGENDA */}
-        <div className="flex flex-wrap items-center gap-6 px-6 py-3 bg-white/50 rounded-2xl border border-dashed border-gray-200">
-           <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div><span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Última Atividade</span></div>
-           <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div><span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Total de Pedidos</span></div>
-           <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div><span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">Faturamento Acumulado</span></div>
-        </div>
-
-        {/* LISTA DE CLIENTES */}
-        <div className="flex flex-col gap-3">
-          {clientesFiltrados.map(cliente => (
-            <div key={cliente.id} className="bg-white rounded-[28px] border border-gray-100 shadow-sm hover:border-emerald-200 transition-all p-4 md:px-8 md:py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-              
-              <div className="flex items-center gap-5 flex-1">
-                <div className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-300 flex items-center justify-center font-black text-lg group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-inner">
-                  {cliente.nome.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <h4 className="font-black text-gray-800 uppercase text-sm tracking-tight truncate">
-                    {cliente.nome}
-                  </h4>
-                  <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1 uppercase">
-                    <Phone size={10} className="text-emerald-500"/> {cliente.celular}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between md:justify-end gap-3 md:gap-8">
-                <div className="flex items-center gap-2 bg-blue-50/50 px-4 py-2 rounded-full border border-blue-100/50" title="Dias desde a última compra">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span className="text-xs font-black text-blue-700">{calcularDias(cliente.ultimaMovimentacao)}</span>
-                </div>
-
-                <div className="flex items-center gap-2 bg-orange-50/50 px-4 py-2 rounded-full border border-orange-100/50" title="Quantidade total de pedidos">
-                  <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                  <span className="text-xs font-black text-orange-700">{cliente.qtdMovimentacoes || 0}</span>
-                </div>
-
-                <div className="flex items-center gap-2 bg-emerald-50/50 px-4 py-2 rounded-full border border-emerald-100/50" title="Faturamento total">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                  <span className="text-xs font-black text-emerald-700">
-                    { (cliente.totalComprado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 }) }
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap">Meus Clientes</h2>
+                {/* MARCADOR DE TOTAL DE CLIENTES */}
+                <div className="px-2.5 py-1 bg-emerald-950/30 border border-emerald-900/50 rounded-md flex items-center justify-center">
+                  <span className="text-[10px] font-black text-emerald-400 tracking-wider">
+                    {clientes.length} {clientes.length === 1 ? 'REGISTRO' : 'REGISTROS'}
                   </span>
                 </div>
-
-                <div className="flex items-center gap-1 ml-4">
-                  <Link to={`/clientes/${cliente.id}`} className="p-2 text-gray-300 hover:text-emerald-600 transition-colors"><Eye size={20} /></Link>
-                  <button onClick={() => { setEditandoId(cliente.id); setClienteEdicao(cliente); }} className="p-2 text-gray-300 hover:text-blue-600 border-none bg-transparent cursor-pointer"><Edit3 size={18} /></button>
-                  <button onClick={() => handleDeleteCliente(cliente.id)} className="p-2 text-gray-300 hover:text-red-500 border-none bg-transparent cursor-pointer"><Trash2 size={18} /></button>
-                </div>
               </div>
             </div>
-          ))}
+
+            <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto flex-1 justify-end">
+              {/* Pesquisa */}
+              <div className="relative w-full md:max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                <input 
+                  type="text"
+                  placeholder="Localizar cliente..."
+                  className="w-full pl-11 pr-4 py-3 bg-gray-950 border border-gray-800 rounded-md text-sm outline-none focus:border-emerald-600 text-white placeholder-gray-600 transition-all font-medium"
+                  value={filtro}
+                  onChange={e => setFiltro(e.target.value)}
+                />
+              </div>
+
+              {/* Ordenação */}
+              <div className="relative w-full md:w-auto flex items-center bg-gray-950 border border-gray-800 rounded-md px-3 py-3 focus-within:border-emerald-600 transition-all">
+                <ArrowDownWideNarrow size={16} className="text-gray-500 mr-2 flex-shrink-0" />
+                <select 
+                  className="bg-transparent border-none outline-none text-gray-300 text-sm font-medium w-full cursor-pointer appearance-none"
+                  value={ordenacao}
+                  onChange={e => setOrdenacao(e.target.value)}
+                >
+                  <optgroup label=" Ordem Alfabética" className="bg-gray-900 text-gray-300">
+                    <option value="nome-asc">Nome (A - Z)</option>
+                    <option value="nome-desc">Nome (Z - A)</option>
+                  </optgroup>
+                  <optgroup label=" Faturamento" className="bg-gray-900 text-gray-300">
+                    <option value="faturamento-desc">Maior Faturamento</option>
+                    <option value="faturamento-asc">Menor Faturamento</option>
+                  </optgroup>
+                  <optgroup label=" Volume de Compras" className="bg-gray-900 text-gray-300">
+                    <option value="pedidos-desc">Mais Pedidos</option>
+                    <option value="pedidos-asc">Menos Pedidos</option>
+                  </optgroup>
+                  <optgroup label=" Atividade" className="bg-gray-900 text-gray-300">
+                    <option value="atividade-desc">Atividade Mais Recente</option>
+                    <option value="atividade-asc">Atividade Mais Antiga</option>
+                  </optgroup>
+                </select>
+                <ChevronDown size={14} className="text-gray-500 ml-2 flex-shrink-0 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* CADASTRO ULTRA CLEAN */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+            <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-colors border-none outline-none cursor-pointer border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <Contact2 size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">Novo Cadastro</h3>
+              </div>
+              {formAberto ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+            </button>
+            
+            {formAberto && (
+              <div className="p-5 md:p-6 space-y-3 bg-gray-900 animate-in slide-in-from-top duration-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm transition-all" value={novoCliente.nome} onChange={e => setNovoCliente({...novoCliente, nome: e.target.value})} placeholder="Nome Completo" />
+                  <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm transition-all" value={novoCliente.celular} onChange={e => setNovoCliente({...novoCliente, celular: e.target.value})} placeholder="WhatsApp / Celular" />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <input className="md:col-span-2 w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm transition-all" value={novoCliente.endereco} onChange={e => setNovoCliente({...novoCliente, endereco: e.target.value})} placeholder="Endereço (Rua, nº, Bairro)" />
+                  <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm transition-all" value={novoCliente.cidade} onChange={e => setNovoCliente({...novoCliente, cidade: e.target.value})} placeholder="Cidade" />
+                  <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-black uppercase text-center text-sm transition-all" maxLength={2} value={novoCliente.estado} onChange={e => setNovoCliente({...novoCliente, estado: e.target.value})} placeholder="UF" />
+                </div>
+
+                <textarea rows={2} className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm resize-none transition-all" value={novoCliente.observacoes} onChange={e => setNovoCliente({...novoCliente, observacoes: e.target.value})} placeholder="Observações e detalhes importantes..." />
+
+                <button onClick={handleAddCliente} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-md font-black uppercase tracking-wider text-xs border border-emerald-700 cursor-pointer flex items-center justify-center transition-all mt-2">
+                  Confirmar Cadastro
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* LEGENDA DE IDENTIFICAÇÃO RÁPIDA */}
+          <div className="flex flex-wrap items-center gap-6 px-5 py-3 bg-gray-900/40 rounded-lg border border-dashed border-gray-800">
+             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500/80 border border-blue-500"></div><span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Última Atividade</span></div>
+             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-orange-500/80 border border-orange-500"></div><span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Qtd. de Pedidos</span></div>
+             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/80 border border-emerald-500"></div><span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Faturamento</span></div>
+          </div>
+
+          {/* LISTA DE CLIENTES */}
+          <div className="flex flex-col gap-2.5">
+            {clientesFiltrados.length === 0 ? (
+              <div className="bg-gray-900 p-12 rounded-xl border border-dashed border-gray-800 text-center">
+                <p className="text-gray-500 font-bold text-xs uppercase tracking-wider">Nenhum cliente atende aos critérios atuais.</p>
+              </div>
+            ) : (
+              clientesFiltrados.map(cliente => (
+                <div key={cliente.id} className="bg-gray-900 rounded-xl border border-gray-800 hover:border-gray-700 transition-all p-4 md:px-6 md:py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  
+                  {/* IDENTIFICAÇÃO */}
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-10 h-10 rounded-lg bg-gray-800 text-gray-400 flex items-center justify-center font-black text-lg border border-gray-700">
+                      {cliente.nome.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <h4 className="font-black text-gray-200 uppercase text-sm tracking-tight truncate">
+                        {cliente.nome}
+                      </h4>
+                      <p className="text-[10px] font-bold text-gray-500 flex items-center gap-1 uppercase">
+                        <Phone size={10} className="text-emerald-500/70"/> {cliente.celular || 'Sem Contato'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* METADADOS ANALÍTICOS (PILLS) */}
+                  <div className="flex items-center justify-between md:justify-end gap-3 md:gap-6">
+                    <div className="flex items-center gap-2 bg-blue-950/30 px-3 py-1.5 rounded-md border border-blue-900/50" title="Dias desde a última compra">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                      <span className="text-[11px] font-black text-blue-400 uppercase">{calcularDias(cliente.ultimaMovimentacao)}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-orange-950/30 px-3 py-1.5 rounded-md border border-orange-900/50" title="Quantidade total de pedidos">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                      <span className="text-[11px] font-black text-orange-400">{cliente.qtdMovimentacoes || 0}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-emerald-950/30 px-3 py-1.5 rounded-md border border-emerald-900/50" title="Faturamento total">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                      <span className="text-[11px] font-black text-emerald-400">
+                        { (cliente.totalComprado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 }) }
+                      </span>
+                    </div>
+
+                    {/* AÇÕES */}
+                    <div className="flex items-center gap-1 ml-2">
+                      <Link to={`/clientes/${cliente.id}`} className="p-2 text-gray-500 hover:text-emerald-400 hover:bg-emerald-950/40 rounded-md transition-all border border-transparent hover:border-emerald-900/50">
+                        <Eye size={16} />
+                      </Link>
+                      <button onClick={() => { setEditandoId(cliente.id); setClienteEdicao(cliente); }} className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-950/40 rounded-md transition-all border border-transparent hover:border-blue-900/50 cursor-pointer bg-transparent">
+                        <Edit3 size={16} />
+                      </button>
+                      <button onClick={() => handleDeleteCliente(cliente.id)} className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-950/40 rounded-md transition-all border border-transparent hover:border-red-900/50 cursor-pointer bg-transparent">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO ULTRA CLEAN */}
+      {/* MODAL DE EDIÇÃO ESCURO */}
       {editandoId && clienteEdicao && (
-        <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z- flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-            <div className="bg-gray-50 px-8 py-6 flex justify-between items-center border-b border-gray-100">
-              <div className="flex items-center gap-2"><Edit3 size={20} className="text-emerald-600"/><h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Ajustar Cadastro</h3></div>
-              <button onClick={() => setEditandoId(null)} className="text-gray-300 hover:text-red-500 bg-transparent border-none cursor-pointer"><X size={24}/></button>
+        <div className="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="bg-gray-900 w-full md:max-w-2xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-lg md:rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in slide-in-from-bottom md:zoom-in duration-200">
+            <div className="bg-gray-950 px-6 py-5 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Edit3 size={18} className="text-emerald-400"/>
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-widest">Ajustar Cadastro</h3>
+              </div>
+              <button onClick={() => setEditandoId(null)} className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer p-1 transition-colors"><X size={20}/></button>
             </div>
             
-            <div className="p-8 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <input className="w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} placeholder="Nome" />
-                <input className="w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" value={clienteEdicao.celular} onChange={e => setClienteEdicao({...clienteEdicao, celular: e.target.value})} placeholder="Celular" />
+            <div className="p-6 md:p-8 space-y-4 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} placeholder="Nome" />
+                <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" value={clienteEdicao.celular} onChange={e => setClienteEdicao({...clienteEdicao, celular: e.target.value})} placeholder="Celular" />
               </div>
-              <input className="w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" value={clienteEdicao.endereco} onChange={e => setClienteEdicao({...clienteEdicao, endereco: e.target.value})} placeholder="Endereço Completo" />
-              <div className="grid grid-cols-4 gap-4">
-                <input className="col-span-3 w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl font-bold outline-none focus:ring-2 focus:ring-emerald-500" value={clienteEdicao.cidade} onChange={e => setClienteEdicao({...clienteEdicao, cidade: e.target.value})} placeholder="Cidade" />
-                <input className="w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl font-black text-center uppercase outline-none focus:ring-2 focus:ring-emerald-500" maxLength={2} value={clienteEdicao.estado} onChange={e => setClienteEdicao({...clienteEdicao, estado: e.target.value})} placeholder="UF" />
+              <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" value={clienteEdicao.endereco} onChange={e => setClienteEdicao({...clienteEdicao, endereco: e.target.value})} placeholder="Endereço Completo" />
+              <div className="grid grid-cols-4 gap-3">
+                <input className="col-span-3 w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" value={clienteEdicao.cidade} onChange={e => setClienteEdicao({...clienteEdicao, cidade: e.target.value})} placeholder="Cidade" />
+                <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-black text-center uppercase outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" maxLength={2} value={clienteEdicao.estado} onChange={e => setClienteEdicao({...clienteEdicao, estado: e.target.value})} placeholder="UF" />
               </div>
-              <textarea className="w-full p-5 bg-gray-50 border border-gray-100 rounded-2xl font-bold resize-none outline-none focus:ring-2 focus:ring-emerald-500" rows={2} value={clienteEdicao.observacoes} onChange={e => setClienteEdicao({...clienteEdicao, observacoes: e.target.value})} placeholder="Observações" />
+              <textarea className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium resize-none outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" rows={3} value={clienteEdicao.observacoes} onChange={e => setClienteEdicao({...clienteEdicao, observacoes: e.target.value})} placeholder="Observações..." />
               
-              <button onClick={() => handleUpdateCliente(clienteEdicao.id)} className="w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-2 border-none cursor-pointer">
-                Salvar Alterações <Save size={18}/>
+              <button onClick={() => handleUpdateCliente(clienteEdicao.id)} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 mt-2 rounded-md font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all">
+                Salvar Alterações <Save size={16}/>
               </button>
             </div>
           </div>

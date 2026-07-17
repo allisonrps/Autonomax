@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { 
-  Plus, Trash2, Edit3, Building2, 
-  ArrowRight, AlertTriangle,
-  LayoutGrid, Rocket, ChevronDown, ChevronUp
+  Plus, Trash2, Edit3, Save, X, Building2, 
+  ArrowRight, AlertTriangle, LayoutGrid, Rocket, 
+  ChevronDown, ChevronUp, Lock, RefreshCcw, ShieldCheck
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -19,52 +19,52 @@ export function Perfil() {
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nomeEdicao, setNomeEdicao] = useState('');
   const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null);
+  
+  // Estado para Modal de Senha
+  const [modalSenhaAberto, setModalSenhaAberto] = useState(false);
+  const [senhaAntiga, setSenhaAntiga] = useState('');
+  const [novaSenha, setNovaSenha] = useState('');
 
-  useEffect(() => {
-    carregarNegocios();
-  }, []);
+  useEffect(() => { carregarNegocios(); }, []);
 
   async function carregarNegocios() {
     try {
       const response = await api.get('/Negocios');
       setNegocios(response.data);
-    } catch (err) {
-      console.error("Erro ao buscar negócios.");
-    }
+    } catch (err) { console.error("Erro ao buscar negócios."); }
+  }
+
+  async function handleRedefinirSenha() {
+    if (!senhaAntiga || !novaSenha) return alert("Preencha todos os campos.");
+    try {
+      await api.post('/Auth/redefinir-senha', { senhaAntiga, novaSenha });
+      alert("Senha alterada com sucesso!");
+      setSenhaAntiga(''); setNovaSenha(''); setModalSenhaAberto(false);
+    } catch (err) { alert("Erro ao alterar senha. Verifique a senha atual."); }
   }
 
   async function handleAddNegocio() {
     if (!novoNegocio.trim()) return;
     try {
       await api.post('/Negocios', { nome: novoNegocio });
-      setNovoNegocio('');
-      setFormAberto(false);
-      carregarNegocios();
-    } catch (err) {
-      alert("Erro ao cadastrar negócio.");
-    }
+      setNovoNegocio(''); setFormAberto(false); carregarNegocios();
+    } catch (err) { alert("Erro ao cadastrar."); }
   }
 
   async function handleUpdateNegocio(id: number) {
     if (!nomeEdicao.trim()) return;
     try {
-      await api.put(`/Negocios/${id}`, { id: id, nome: nomeEdicao });
-      setEditandoId(null);
-      carregarNegocios();
-    } catch (err) {
-      alert("Erro ao atualizar.");
-    }
+      await api.put(`/Negocios/${id}`, { id, nome: nomeEdicao });
+      setEditandoId(null); carregarNegocios();
+    } catch (err) { alert("Erro ao atualizar."); }
   }
 
   async function handleDeleteNegocio() {
     if (!confirmarExclusao) return;
     try {
       await api.delete(`/Negocios/${confirmarExclusao}`);
-      setConfirmarExclusao(null);
-      carregarNegocios();
-    } catch (err) {
-      alert("Erro ao excluir.");
-    }
+      setConfirmarExclusao(null); carregarNegocios();
+    } catch (err) { alert("Erro ao excluir."); }
   }
 
   const selecionarNegocio = (id: number) => {
@@ -74,122 +74,90 @@ export function Perfil() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-10 pb-16 pt-8 px-4">
-        
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-600 rounded-2xl text-white shadow-xl">
-              <Building2 size={28} />
+      <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
+        <div className="max-w-4xl mx-auto space-y-6">
+          
+          {/* HEADER */}
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50"><Building2 size={24} /></div>
+              <div>
+                <h2 className="text-xl font-black uppercase tracking-tight">Gerenciamento de Conta</h2>
+                <p className="text-xs text-gray-500 font-medium">Unidades de negócio e configurações de segurança</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-3xl font-black text-gray-800 tracking-tight uppercase">Meus Negócios</h2>
-              <p className="text-sm text-gray-500 font-medium">Gerencie suas unidades de trabalho</p>
+            <button onClick={() => setModalSenhaAberto(true)} className="flex items-center gap-2 bg-gray-950 px-4 py-2 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-400 hover:text-emerald-400 transition-colors">
+              <ShieldCheck size={14} /> Redefinir Senha
+            </button>
+          </div>
+
+          {/* NEGÓCIOS */}
+          <div className="space-y-4">
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between border-b border-gray-800 outline-none">
+                  <span className="text-xs font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2"><Rocket size={16}/> Novo Perfil</span>
+                  {formAberto ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                </button>
+                {formAberto && (
+                  <div className="p-6 flex gap-3 bg-gray-900">
+                    <input className="flex-1 p-3.5 bg-gray-950 border border-gray-800 rounded-md text-sm text-white focus:border-emerald-600 outline-none" value={novoNegocio} onChange={e => setNovoNegocio(e.target.value)} placeholder="Nome do Negócio..." />
+                    <button onClick={handleAddNegocio} className="bg-emerald-600 px-6 rounded-md font-black text-xs uppercase text-white">Criar</button>
+                  </div>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {negocios.map(negocio => (
+                <div key={negocio.id} className="bg-gray-900 p-5 rounded-xl border border-gray-800">
+                  <div className="flex justify-between mb-4">
+                    <div className="w-10 h-10 rounded-md bg-emerald-950/40 text-emerald-400 flex items-center justify-center font-black border border-emerald-900/50">{negocio.nome.charAt(0)}</div>
+                    <div className="flex gap-1">
+                      <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-500 hover:text-emerald-400"><Edit3 size={16}/></button>
+                      <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-500 hover:text-red-400"><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                  {editandoId === negocio.id ? (
+                    <div className="space-y-2">
+                      <input className="w-full p-2 bg-gray-950 border border-gray-800 rounded text-xs text-white" value={nomeEdicao} onChange={e => setNomeEdicao(e.target.value)} />
+                      <button onClick={() => handleUpdateNegocio(negocio.id)} className="w-full py-2 bg-emerald-600 rounded text-[10px] font-black uppercase">Salvar</button>
+                    </div>
+                  ) : (
+                    <>
+                      <h4 className="font-black text-sm uppercase tracking-tight text-gray-100">{negocio.nome}</h4>
+                      <button onClick={() => selecionarNegocio(negocio.id)} className="mt-4 w-full py-2 bg-gray-950 border border-gray-800 rounded-md text-[10px] font-black uppercase hover:border-emerald-600 transition-all">Acessar</button>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
-
-        {/* CADASTRO RETRÁTIL */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
-          <button 
-            onClick={() => setFormAberto(!formAberto)}
-            className="w-full bg-emerald-50/50 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer"
-          >
-            <div className="flex items-center gap-3">
-              <Rocket size={20} className="text-emerald-600" />
-              <h3 className="text-xs font-black text-emerald-900 uppercase tracking-[0.2em]">Novo Perfil</h3>
-            </div>
-            {formAberto ? <ChevronUp size={20} className="text-emerald-600" /> : <ChevronDown size={20} className="text-emerald-600" />}
-          </button>
-          
-          {formAberto && (
-            <div className="p-8 animate-in slide-in-from-top duration-300">
-              <div className="flex flex-col md:flex-row gap-6">
-                <input
-                  className="flex-1 px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
-                  value={novoNegocio}
-                  onChange={e => setNovoNegocio(e.target.value)}
-                  placeholder="Nome do Negócio..."
-                />
-                <button 
-                  onClick={handleAddNegocio}
-                  className="bg-emerald-950 text-white px-10 py-5 rounded-2xl font-black uppercase text-xs hover:bg-black transition-all border-none cursor-pointer"
-                >
-                  Criar <Plus size={18} className="inline ml-1"/>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* GRID DE CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {negocios.map(negocio => (
-            <div key={negocio.id} className="group bg-white rounded-[32px] border border-gray-200 shadow-sm hover:shadow-2xl transition-all overflow-hidden flex flex-col relative">
-              {!editandoId && (
-                <div className="flex gap-1 absolute top-6 right-6 bg-white shadow-lg p-1.5 rounded-2xl border border-gray-100 z-10">
-                  <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-400 hover:text-emerald-600 transition-colors bg-transparent border-none cursor-pointer">
-                    <Edit3 size={18} />
-                  </button>
-                  <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              )}
-
-              <div className="p-8 flex-1">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xl mb-6">
-                  {negocio.nome.charAt(0).toUpperCase()}
-                </div>
-                {editandoId === negocio.id ? (
-                  <div className="space-y-4 animate-in fade-in duration-300">
-                    <input 
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm font-bold outline-none focus:border-emerald-500"
-                      value={nomeEdicao}
-                      onChange={e => setNomeEdicao(e.target.value)}
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={() => handleUpdateNegocio(negocio.id)} className="flex-1 py-2 bg-emerald-600 text-white rounded-lg border-none cursor-pointer font-bold text-xs uppercase">Salvar</button>
-                      <button onClick={() => setEditandoId(null)} className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg border-none cursor-pointer font-bold text-xs uppercase">Cancelar</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <h4 className="text-2xl font-black text-gray-800 mb-2 leading-tight">{negocio.nome}</h4>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                      <LayoutGrid size={12} className="text-emerald-600" /> ID #{negocio.id}
-                    </p>
-                  </>
-                )}
-              </div>
-              {!editandoId && (
-                <button 
-                  onClick={() => selecionarNegocio(negocio.id)}
-                  className="w-full bg-gray-50 border-t border-gray-100 py-6 px-8 text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center justify-between hover:bg-emerald-950 hover:text-white transition-all border-none cursor-pointer"
-                >
-                  Acessar <ArrowRight size={18} />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* MODAL DE EXCLUSÃO */}
+      {/* MODAL REDEFINIR SENHA */}
+      {modalSenhaAberto && (
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-gray-900 w-full max-w-sm rounded-xl border border-gray-800 p-6 space-y-4">
+            <div className="flex justify-between items-center mb-4">
+               <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center gap-2"><Lock size={16}/> Segurança</h3>
+               <button onClick={() => setModalSenhaAberto(false)} className="text-gray-500 hover:text-white"><X size={20}/></button>
+            </div>
+            <input type="password" placeholder="Senha Atual" className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-sm text-white focus:border-emerald-600 outline-none" value={senhaAntiga} onChange={e => setSenhaAntiga(e.target.value)} />
+            <input type="password" placeholder="Nova Senha" className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-sm text-white focus:border-emerald-600 outline-none" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} />
+            <button onClick={handleRedefinirSenha} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-[10px] font-black uppercase tracking-widest border border-emerald-700">Atualizar Senha</button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EXCLUSÃO */}
       {confirmarExclusao && (
-        <div className="fixed inset-0 bg-emerald-950/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-[32px] shadow-2xl p-8 text-center space-y-6">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto">
-              <AlertTriangle size={32} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-gray-800 uppercase">Excluir Perfil?</h3>
-              <p className="text-sm text-gray-500 mt-2">Isso apagará todos os dados desta unidade permanentemente </p>
-            </div>
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-gray-900 w-full max-w-sm rounded-xl border border-gray-800 p-8 text-center space-y-6">
+            <div className="w-16 h-16 bg-red-950/30 text-red-500 rounded-full flex items-center justify-center mx-auto border border-red-900/50"><AlertTriangle size={32} /></div>
+            <h3 className="text-sm font-black text-gray-100 uppercase">Excluir este perfil?</h3>
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setConfirmarExclusao(null)} className="py-4 bg-gray-100 text-gray-500 rounded-2xl font-black text-xs uppercase border-none cursor-pointer">Não</button>
-              <button onClick={handleDeleteNegocio} className="py-4 bg-red-500 text-white rounded-2xl font-black text-xs uppercase border-none cursor-pointer shadow-lg shadow-red-200">Sim</button>
+              <button onClick={() => setConfirmarExclusao(null)} className="py-3 bg-gray-800 text-gray-300 rounded-md font-black text-[10px] uppercase">Não</button>
+              <button onClick={handleDeleteNegocio} className="py-3 bg-red-600 text-white rounded-md font-black text-[10px] uppercase">Sim</button>
             </div>
           </div>
         </div>

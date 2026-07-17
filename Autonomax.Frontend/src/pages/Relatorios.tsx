@@ -3,11 +3,11 @@ import { Layout } from '../components/Layout';
 import { 
   BarChart3, Package, ArrowUpRight, ArrowDownLeft, 
   ChevronLeft, ChevronRight, Calendar,
-  TrendingUp, ChevronDown, ChevronUp, LineChart as LineChartIcon, Users
+  TrendingUp, ChevronDown, ChevronUp, LineChart as LineChartIcon, Users, PieChart as PieChartIcon
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Legend
+  Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
 
@@ -23,11 +23,10 @@ export function Relatorios() {
   const [loading, setLoading] = useState(true);
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
-  // ESTADOS RETRÁTEIS: Todos iniciam fechados por padrão
-  const [resumoAberto, setResumoAberto] = useState(false);
-  const [graficoAberto, setGraficoAberto] = useState(false); 
-  const [itensAberto, setItensAberto] = useState(false);
-  const [clientesAberto, setClientesAberto] = useState(false);
+  const [resumoAberto, setResumoAberto] = useState(true);
+  const [graficoAberto, setGraficoAberto] = useState(true); 
+  const [itensAberto, setItensAberto] = useState(true);
+  const [clientesAberto, setClientesAberto] = useState(true);
 
   useEffect(() => {
     async function carregarEstatisticas() {
@@ -36,7 +35,7 @@ export function Relatorios() {
         setLoading(true);
         const res = await api.get(`/Transacoes/por-negocio/${negocioId}`);
         setTransacoes(res.data);
-      } catch (err) { console.error("Erro ao carregar estatísticas", err); } 
+      } catch (err) { console.error(err); } 
       finally { setLoading(false); }
     }
     carregarEstatisticas();
@@ -52,168 +51,98 @@ export function Relatorios() {
     const transacoesMes = transacoesDoAno.filter(t => new Date(t.data).getMonth() === i);
     const ent = transacoesMes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
     const sai = transacoesMes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
-    return { name: meses[i], entradas: ent, saidas: sai, lucro: ent - sai };
+    return { name: meses[i], entradas: ent, saidas: sai };
   });
 
-  const rankingItensMap = transacoesDoAno
-    .filter(t => t.tipo === 'Entrada')
-    .flatMap(t => t.itens || [])
+  const dadosPizza = [{ name: 'Receitas', value: totalEntradas }, { name: 'Despesas', value: totalSaidas }];
+  const COLORS = ['#10b981', '#f43f5e'];
+
+  const rankingItens = Object.entries(transacoesDoAno.filter(t => t.tipo === 'Entrada').flatMap(t => t.itens || [])
     .reduce((acc: Record<string, number>, item) => {
-      const nomeLimpo = item.nome.trim();
-      if (nomeLimpo) acc[nomeLimpo] = (acc[nomeLimpo] || 0) + item.quantidade;
+      const nome = item.nome.trim(); if (nome) acc[nome] = (acc[nome] || 0) + item.quantidade;
       return acc;
-    }, {});
+    }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
 
-  const itensOrdenados = Object.entries(rankingItensMap).sort(([, a], [, b]) => b - a).slice(0, 10);
-
-  const rankingClientesMap = transacoesDoAno
-    .filter(t => t.tipo === 'Entrada' && t.cliente)
+  const rankingClientes = Object.entries(transacoesDoAno.filter(t => t.tipo === 'Entrada' && t.cliente)
     .reduce((acc: Record<string, number>, t) => {
-      const nome = t.cliente!.nome;
-      acc[nome] = (acc[nome] || 0) + t.valor;
+      acc[t.cliente!.nome] = (acc[t.cliente!.nome] || 0) + t.valor;
       return acc;
-    }, {});
+    }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
 
-  const clientesOrdenados = Object.entries(rankingClientesMap).sort(([, a], [, b]) => b - a).slice(0, 10);
-
-  if (loading) return (
-    <Layout><div className="h-96 flex items-center justify-center text-emerald-600 font-black uppercase tracking-widest animate-pulse">Carregando Analítico...</div></Layout>
-  );
+  if (loading) return <Layout><div className="min-h-screen bg-gray-950 flex items-center justify-center text-emerald-500 font-black uppercase tracking-widest animate-pulse">Carregando Analítico...</div></Layout>;
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto space-y-8 pb-16 pt-8 px-4 font-sans">
-        
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-600 rounded-2xl text-white shadow-xl shadow-emerald-100"><BarChart3 size={28} /></div>
-            <div>
-              <h2 className="text-3xl font-black text-gray-800 tracking-tight uppercase">Performance Anual</h2>
-              <p className="text-sm text-gray-500 font-medium tracking-tight">Análise financeira consolidada</p>
+      <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
+        <div className="max-w-6xl mx-auto space-y-6">
+          
+          {/* Header */}
+          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50"><BarChart3 size={22} /></div>
+              <h2 className="text-lg font-black uppercase tracking-tight">Performance {anoAtivo}</h2>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 p-1 rounded-md">
+              <button onClick={() => setAnoAtivo(a => a - 1)} className="p-2 text-gray-500 hover:text-white"><ChevronLeft size={18}/></button>
+              <span className="font-black text-sm px-2">{anoAtivo}</span>
+              <button onClick={() => setAnoAtivo(a => a + 1)} className="p-2 text-gray-500 hover:text-white"><ChevronRight size={18}/></button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
-            <button onClick={() => setAnoAtivo(anoAtivo - 1)} className="p-2 hover:bg-emerald-50 rounded-xl transition-all text-gray-400 border-none cursor-pointer bg-transparent"><ChevronLeft size={20} /></button>
-            <div className="flex items-center gap-2 px-4"><Calendar size={16} className="text-emerald-600" /><span className="font-black text-gray-700 tracking-widest">{anoAtivo}</span></div>
-            <button onClick={() => setAnoAtivo(anoAtivo + 1)} className="p-2 hover:bg-emerald-50 rounded-xl transition-all text-gray-400 border-none cursor-pointer bg-transparent"><ChevronRight size={20} /></button>
+          {/* Resumo */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+             <button onClick={() => setResumoAberto(!resumoAberto)} className="w-full px-6 py-4 flex justify-between border-b border-gray-800">
+                <span className="text-xs font-black uppercase flex items-center gap-2"><TrendingUp size={16} className="text-emerald-400"/> Resumo Financeiro</span>
+                {resumoAberto ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+             </button>
+             {resumoAberto && (
+               <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[ {l: 'Receitas', v: totalEntradas, c: 'text-emerald-400'}, {l: 'Despesas', v: totalSaidas, c: 'text-red-400'}, {l: 'Saldo', v: faturamentoLiquido, c: faturamentoLiquido >= 0 ? 'text-white' : 'text-red-400'} ].map((item, i) => (
+                    <div key={i} className="bg-gray-950 p-5 rounded-lg border border-gray-800">
+                        <p className="text-[9px] font-black uppercase text-gray-500">{item.l}</p>
+                        <p className={`text-2xl font-black ${item.c}`}>R$ {item.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    </div>
+                  ))}
+               </div>
+             )}
           </div>
-        </div>
 
-        {/* 1. RESUMO FINANCEIRO RETRÁTIL */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
-          <button onClick={() => setResumoAberto(!resumoAberto)} className="w-full bg-emerald-50/30 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer">
-            <div className="flex items-center gap-3">
-              <TrendingUp size={20} className="text-emerald-600"/>
-              <h3 className="text-xs font-black text-emerald-900 uppercase tracking-[0.2em]">Resumo Financeiro</h3>
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-gray-900 rounded-xl border border-gray-800 p-6">
+                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2"><LineChartIcon size={16} className="text-emerald-400"/> Evolução Mensal</h3>
+                <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={dadosGrafico}><CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false}/><XAxis dataKey="name" stroke="#6b7280" fontSize={10}/><YAxis stroke="#6b7280" fontSize={10}/><Tooltip contentStyle={{backgroundColor: '#111827', border: '1px solid #374151'}}/><Legend/><Line dataKey="entradas" stroke="#10b981" strokeWidth={3}/><Line dataKey="saidas" stroke="#f43f5e" strokeWidth={3}/></LineChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
-            {resumoAberto ? <ChevronUp size={20} className="text-emerald-600"/> : <ChevronDown size={20} className="text-emerald-600"/>}
-          </button>
-          {resumoAberto && (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top duration-300">
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex items-center justify-between">
-                <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-1"><ArrowUpRight size={12} className="text-emerald-500"/> Receitas</p><p className="text-2xl font-black text-emerald-600">R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-              </div>
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 flex items-center justify-between">
-                <div><p className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-1"><ArrowDownLeft size={12} className="text-red-500"/> Despesas</p><p className="text-2xl font-black text-red-500">R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div>
-              </div>
-              <div className={`p-6 rounded-2xl shadow-inner text-white ${faturamentoLiquido >= 0 ? 'bg-emerald-950' : 'bg-red-950'}`}>
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Saldo Líquido</p>
-                <p className="text-2xl font-black mt-1">R$ {faturamentoLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-              </div>
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2"><PieChartIcon size={16} className="text-emerald-400"/> Distribuição</h3>
+                <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart><Pie data={dadosPizza} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">{dadosPizza.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={{backgroundColor: '#111827'}} /></PieChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* 2. GRÁFICO EM LINHAS RETRÁTIL */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
-          <button onClick={() => setGraficoAberto(!graficoAberto)} className="w-full bg-emerald-50/50 px-8 py-5 flex items-center justify-between hover:bg-emerald-50 transition-colors border-none outline-none cursor-pointer">
-            <div className="flex items-center gap-3">
-              <LineChartIcon size={20} className="text-emerald-600" />
-              <h3 className="text-xs font-black text-emerald-900 uppercase tracking-[0.2em]">Tendência de Fluxo de Caixa</h3>
-            </div>
-            {graficoAberto ? <ChevronUp size={20} className="text-emerald-600" /> : <ChevronDown size={20} className="text-emerald-600" />}
-          </button>
-          {graficoAberto && (
-            <div className="p-8 animate-in slide-in-from-top duration-300">
-              <div className="h-[350px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dadosGrafico} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 'bold', fill: '#999'}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#ccc'}} tickFormatter={(value) => `R$ ${value}`} />
-                    <Tooltip 
-                        contentStyle={{
-                        borderRadius: '20px', 
-                        border: 'none', 
-                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-                       }} 
-                     formatter={(value: any) => `R$ ${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                    />
-                    <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '30px' }} />
-                    <Line type="monotone" dataKey="entradas" name="Receitas" stroke="#10b981" strokeWidth={4} dot={{ r: 6 }} activeDot={{ r: 8 }} />
-                    <Line type="monotone" dataKey="saidas" name="Despesas" stroke="#ef4444" strokeWidth={4} dot={{ r: 6 }} activeDot={{ r: 8 }} />
-                    <Line type="monotone" dataKey="lucro" name="Lucro Líquido" stroke="#064e3b" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-        </div>
+          {/* Rankings */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[ {t: 'Top 10 Itens', d: rankingItens, u: 'UN'}, {t: 'Top 10 Clientes', d: rankingClientes, u: 'R$'} ].map((rank, i) => (
+                <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                    <div className="p-4 border-b border-gray-800 text-xs font-black uppercase">{rank.t}</div>
+                    <div className="p-2">{rank.d.map(([nome, val], idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 border-b border-gray-800 last:border-0 hover:bg-gray-800/50">
+                            <span className="text-xs font-bold text-gray-300">{idx+1}. {nome}</span>
+                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/30 px-2 py-1 rounded">{rank.u === 'R$' ? 'R$ ' + val.toLocaleString('pt-BR') : val + ' UN'}</span>
+                        </div>
+                    ))}</div>
+                </div>
+            ))}
+          </div>
 
-        {/* 3. RANKING DE ITENS RETRÁTIL */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
-          <button onClick={() => setItensAberto(!itensAberto)} className="w-full bg-gray-50 px-8 py-5 border-b border-gray-100 flex items-center justify-between hover:bg-gray-100 transition-colors border-none outline-none cursor-pointer">
-            <div className="flex items-center gap-3">
-              <Package size={20} className="text-emerald-600" />
-              <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em]">Top 10 Itens Mais Vendidos</h3>
-            </div>
-            {itensAberto ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-          </button>
-          {itensAberto && (
-            <div className="p-8 animate-in slide-in-from-top duration-300 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {itensOrdenados.length === 0 ? <p className="text-xs text-gray-400 italic col-span-full text-center py-4">Nenhum item registrado.</p> : 
-                itensOrdenados.map(([nome, qtd], idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-gray-50/50 p-4 rounded-2xl border border-gray-100 hover:border-emerald-200 transition-all">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-black text-emerald-600/30 w-5">#{idx + 1}</span>
-                      <span className="text-sm font-bold text-gray-700 uppercase tracking-tight">{nome}</span>
-                    </div>
-                    <span className="bg-emerald-600 text-white px-3 py-1 rounded-xl text-[10px] font-black">{qtd} UN</span>
-                  </div>
-                ))
-              }
-            </div>
-          )}
         </div>
-
-        {/* 4. RANKING DE CLIENTES RETRÁTIL */}
-        <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
-          <button onClick={() => setClientesAberto(!clientesAberto)} className="w-full bg-gray-50 px-8 py-5 border-b border-gray-100 flex items-center justify-between hover:bg-gray-100 transition-colors border-none outline-none cursor-pointer">
-            <div className="flex items-center gap-3">
-              <Users size={20} className="text-emerald-600" />
-              <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.2em]">Top 10 Maiores Clientes</h3>
-            </div>
-            {clientesAberto ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
-          </button>
-          {clientesAberto && (
-            <div className="p-8 animate-in slide-in-from-top duration-300 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {clientesOrdenados.length === 0 ? <p className="text-xs text-gray-400 italic col-span-full text-center py-4">Nenhuma movimentação de cliente.</p> : 
-                clientesOrdenados.map(([nome, valor], idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-gray-50/50 p-4 rounded-2xl border border-gray-100 hover:border-emerald-950/20 transition-all">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-black text-gray-300 w-5">#{idx + 1}</span>
-                      <span className="text-sm font-bold text-gray-700 uppercase tracking-tight">{nome}</span>
-                    </div>
-                    <span className="text-emerald-900 font-black text-sm tracking-tighter">R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                ))
-              }
-            </div>
-          )}
-        </div>
-
       </div>
     </Layout>
   );
