@@ -114,16 +114,16 @@ export function Fornecedores() {
   return (
     <Layout>
       {/* Removido o "-mt-8" e ajustado o padding top para criar respiro abaixo do header */}
-      <div className="min-h-screen bg-gray-950 pt-10 pb-16 px-4 font-sans text-gray-100">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
+        <div className="max-w-6xl mx-auto space-y-5">
           
           {/* PAINEL DE CONTROLE (BUSCA E ORDENAÇÃO) INTRODUTÓRIO */}
-          <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-5 w-full lg:w-auto">
+          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4 w-full lg:w-auto">
               <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex">
                 <Truck size={22} />
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <h2 className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap">Meus Parceiros</h2>
                 <div className="px-2.5 py-1 bg-emerald-950/30 border border-emerald-900/50 rounded-md flex items-center justify-center">
                   <span className="text-[10px] font-black text-emerald-400 tracking-wider">
