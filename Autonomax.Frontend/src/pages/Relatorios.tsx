@@ -24,9 +24,6 @@ export function Relatorios() {
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
   const [resumoAberto, setResumoAberto] = useState(true);
-  const [graficoAberto, setGraficoAberto] = useState(true); 
-  const [itensAberto, setItensAberto] = useState(true);
-  const [clientesAberto, setClientesAberto] = useState(true);
 
   useEffect(() => {
     async function carregarEstatisticas() {
@@ -92,8 +89,8 @@ export function Relatorios() {
           {/* Resumo */}
           <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
              <button onClick={() => setResumoAberto(!resumoAberto)} className="w-full px-6 py-4 flex justify-between border-b border-gray-800">
-                <span className="text-xs font-black uppercase flex items-center gap-2"><TrendingUp size={16} className="text-emerald-400"/> Resumo Financeiro</span>
-                {resumoAberto ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+               <span className="text-xs font-black uppercase flex items-center gap-2"><TrendingUp size={16} className="text-emerald-400"/> Resumo Financeiro</span>
+               {resumoAberto ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
              </button>
              {resumoAberto && (
                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">

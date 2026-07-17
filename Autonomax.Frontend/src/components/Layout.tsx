@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect} from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, LayoutDashboard, Users, 
-  BarChart3, LogOut, Briefcase, Building2, User, Truck 
+  BarChart3, Briefcase, Building2, User, Truck 
 } from 'lucide-react';
 import api from '../services/api';
 import logoImg from '../assets/logo-horizontal-white.png';
@@ -58,7 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {/* Logo e Navegação */}
           <div className="flex items-center gap-8">
             <Link to="/perfil" className="flex-shrink-0">
-              <img src={logoImg} alt="Logo" className="h-7 w-auto opacity-90 hover:opacity-100 transition-opacity" />
+              <img src={logoImg} alt="Logo" className="h-7 w-auto opacity-80 hover:opacity-100 transition-opacity" />
             </Link>
             
             <nav className="hidden lg:flex items-center gap-6">

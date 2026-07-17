@@ -40,10 +40,8 @@ export function DetalhesFornecedor() {
   
   const [dados, setDados] = useState<DadosFornecedor | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   const [editando, setEditando] = useState<Transacao | null>(null);
-  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
 
   const formatarDataLocal = (dataISO: string) => {
     const data = new Date(dataISO);
@@ -51,19 +49,9 @@ export function DetalhesFornecedor() {
     return data;
   };
 
-  const calcularTempoDesde = (dataISO: string) => {
-    const dataPedido = formatarDataLocal(dataISO);
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    dataPedido.setHours(0, 0, 0, 0);
-    const diffTime = Math.abs(hoje.getTime() - dataPedido.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays === 0 ? "Hoje" : diffDays === 1 ? "Ontem" : `há ${diffDays} dias`;
-  };
-
   const carregarDados = useCallback(async () => {
     if (!id || !negocioId || negocioId === "undefined") {
-      setErro("Selecione um negócio válido.");
+      console.error("Selecione um negócio válido.");
       setCarregando(false);
       return;
     }
@@ -79,7 +67,7 @@ export function DetalhesFornecedor() {
       };
       setDados(ordenadas);
     } catch (err) {
-      setErro("Não foi possível carregar os dados.");
+      console.error("Não foi possível carregar os dados.", err);
     } finally {
       setCarregando(false);
     }
@@ -124,15 +112,6 @@ export function DetalhesFornecedor() {
     } catch (err) { console.error(err); }
   }
 
-  async function handleAlternarMetodo(t: Transacao) {
-    const metodos = ['Pix', 'Dinheiro', 'Cartão'];
-    const proximoIndex = (metodos.indexOf(t.metodoPagamento) + 1) % metodos.length;
-    try {
-      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: metodos[proximoIndex], negocioId: Number(negocioId) });
-      carregarDados();
-    } catch (err) { console.error(err); }
-  }
-
   async function handleDelete(id: number) {
     if (!confirm("Excluir lançamento de despesa?")) return;
     try { await api.delete(`/Transacoes/${id}`); carregarDados(); } catch (err) { alert("Erro ao excluir"); }
@@ -147,12 +126,31 @@ export function DetalhesFornecedor() {
   return (
     <Layout>
       <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 text-gray-100">
+        
+        {/* Modal de Edição */}
+        {editando && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 w-full max-w-md">
+              <h3 className="text-lg font-black mb-4">Editar Lançamento</h3>
+              <input 
+                className="w-full bg-gray-950 border border-gray-800 p-2 rounded mb-4 text-sm"
+                value={editando.descricao}
+                onChange={(e) => setEditando({...editando, descricao: e.target.value})}
+                placeholder="Descrição"
+              />
+              <div className="flex gap-2">
+                <button onClick={() => setEditando(null)} className="flex-1 bg-gray-800 p-2 rounded text-xs font-bold uppercase">Cancelar</button>
+                <button onClick={handleUpdateTransacao} className="flex-1 bg-emerald-600 p-2 rounded text-xs font-bold uppercase">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="max-w-6xl mx-auto space-y-6">
           <Link to="/fornecedores" className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-500 bg-gray-900 px-4 py-2 rounded-md border border-gray-800 w-fit hover:text-emerald-400">
             <ArrowLeft size={16} /> Voltar para lista
           </Link>
 
-          {/* Header */}
           <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-5">
               <div className="bg-emerald-950/40 p-4 rounded-lg text-emerald-400 border border-emerald-900/50"><Truck size={32} /></div>
@@ -170,7 +168,6 @@ export function DetalhesFornecedor() {
             </div>
           </div>
 
-          {/* Cards Estatísticos */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              {[{icon: Receipt, label: 'Lançamentos', val: transacoes.length, color: 'text-red-400'}, {icon: Wallet, label: 'Pendentes', val: `R$ ${totalPendente.toLocaleString('pt-BR')}`, color: 'text-amber-400'}, {icon: History, label: 'Total Gasto', val: `R$ ${totalGasto.toLocaleString('pt-BR')}`, color: 'text-emerald-400'}].map((item, i) => (
                 <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex items-center gap-4">
@@ -180,7 +177,6 @@ export function DetalhesFornecedor() {
              ))}
           </div>
 
-          {/* Histórico */}
           <div className="space-y-4">
             <div className="flex justify-between items-center px-1">
                <h3 className="font-black text-gray-300 text-xs uppercase">Histórico de Gastos</h3>
