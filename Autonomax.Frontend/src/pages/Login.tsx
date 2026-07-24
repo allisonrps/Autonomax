@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { 
   Mail, Lock, Loader2, ArrowRight, ShieldCheck, 
-  Wallet, Users, Truck, PlusCircle, BarChart3, CheckCircle2 
+  Wallet, Users, Truck, PlusCircle, BarChart3,
 } from 'lucide-react';
 import logoImg from '../assets/logo.png';
 
 import imgAnalitico from '../assets/mobile_analitico.png';
-import imgClientes from '../assets/mobile_clientes.png';
 import imgClienteDetalhe from '../assets/mobile_clientedetalhe.png';
 import imgFluxo from '../assets/mobile_fluxo.png';
 import imgLancamento from '../assets/mobile_lançamento.png';
