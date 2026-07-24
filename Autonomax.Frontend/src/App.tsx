@@ -11,6 +11,7 @@ import { DetalhesCliente } from './pages/DetalhesCliente';
 import { Relatorios } from './pages/Relatorios';
 import { Fornecedores } from './pages/Fornecedores';
 import { DetalhesFornecedor } from './pages/DetalhesFornecedor';
+import { EsqueceuSenha } from './pages/EsqueceuSenha';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -71,6 +72,7 @@ function App() {
         <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
         <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />
         <Route path="/fornecedores/:id" element={<ProtectedRoute><DetalhesFornecedor /></ProtectedRoute>} />
+        <Route path="/esqueceu-senha" element={<EsqueceuSenha />} />
         
         {/* Redirecionamento Global para o Login (Raiz) */}
         <Route path="*" element={<Navigate to="/" replace />} />
