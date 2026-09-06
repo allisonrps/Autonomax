@@ -55,6 +55,9 @@ public class TransacoesController : ControllerBase
             _context.Transacoes.Add(transacao);
             await _context.SaveChangesAsync();
 
+            // Sincroniza automaticamente com o catálogo de produtos/serviços
+            await ProdutosServicosController.SincronizarItensDoHistoricoInternoAsync(_context, transacao.NegocioId);
+
             var transacaoCriada = await _context.Transacoes
                 .Include(t => t.Itens)
                 .Include(t => t.Cliente)
@@ -78,7 +81,11 @@ public class TransacoesController : ControllerBase
         transacao.Fornecedor = null;
         _context.Entry(transacao).State = EntityState.Modified;
 
-        try { await _context.SaveChangesAsync(); }
+        try 
+        { 
+            await _context.SaveChangesAsync(); 
+            await ProdutosServicosController.SincronizarItensDoHistoricoInternoAsync(_context, transacao.NegocioId);
+        }
         catch (DbUpdateConcurrencyException)
         {
             if (!_context.Transacoes.Any(e => e.Id == id)) return NotFound();

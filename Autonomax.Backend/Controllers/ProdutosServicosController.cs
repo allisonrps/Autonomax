@@ -22,6 +22,8 @@ public class ProdutosServicosController : ControllerBase
     [HttpGet("por-negocio/{negocioId}")]
     public async Task<ActionResult<IEnumerable<ProdutoServico>>> GetPorNegocio(int negocioId)
     {
+        await SincronizarItensDoHistoricoInternoAsync(_context, negocioId);
+
         return await _context.ProdutosServicos
             .Where(p => p.NegocioId == negocioId)
             .OrderBy(p => p.Nome)
@@ -271,5 +273,129 @@ public class ProdutosServicosController : ControllerBase
         }
 
         return Ok(novosProdutos);
+    }
+
+    public static async Task SincronizarItensDoHistoricoInternoAsync(AppDbContext context, int negocioId)
+    {
+        if (negocioId <= 0) return;
+
+        try
+        {
+            var transacoes = await context.Transacoes
+                .Include(t => t.Itens)
+                .Where(t => t.NegocioId == negocioId)
+                .ToListAsync();
+
+            if (transacoes.Count == 0) return;
+
+            var existentes = await context.ProdutosServicos
+                .Where(p => p.NegocioId == negocioId)
+                .Select(p => p.Nome.Trim())
+                .ToListAsync();
+
+            var setExistentes = new HashSet<string>(existentes, StringComparer.OrdinalIgnoreCase);
+
+            var regexItem = new System.Text.RegularExpressions.Regex(@"^(?:(\d+)\s*[xX*]\s*)?(.+)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+            var palavrasChaveServico = new[] { 
+                "servico", "serviço", "consultoria", "manutencao", "manutenção", 
+                "instalacao", "instalação", "visita", "hora", "formatacao", 
+                "formatação", "desenvolvimento", "suporte", "limpeza", "criacao", "criação", "aula" 
+            };
+
+            var novosProdutos = new List<ProdutoServico>();
+
+            foreach (var t in transacoes)
+            {
+                // 1. Processa ItensTransacao
+                if (t.Itens != null && t.Itens.Count > 0)
+                {
+                    foreach (var it in t.Itens)
+                    {
+                        if (string.IsNullOrWhiteSpace(it.Nome)) continue;
+                        var nome = it.Nome.Trim();
+                        if (nome.Length < 2) continue;
+
+                        if (!setExistentes.Contains(nome))
+                        {
+                            decimal preco = 0;
+                            if (t.Itens.Count == 1 && it.Quantidade > 0 && t.Valor > 0)
+                            {
+                                preco = Math.Round(t.Valor / it.Quantidade, 2);
+                            }
+
+                            var ehServ = palavrasChaveServico.Any(p => nome.ToLower().Contains(p));
+
+                            novosProdutos.Add(new ProdutoServico
+                            {
+                                Nome = nome,
+                                Preco = preco,
+                                EhServico = ehServ,
+                                NegocioId = negocioId,
+                                Descricao = "Importado automaticamente das vendas"
+                            });
+                            setExistentes.Add(nome);
+                        }
+                    }
+                }
+
+                // 2. Processa Descrição Textual (ex: "2x CARTAZ G, 2x CARTAZ M" ou "CARTAZ M")
+                if (!string.IsNullOrWhiteSpace(t.Descricao))
+                {
+                    var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var parte in partes)
+                    {
+                        var pedaco = parte.Trim();
+                        if (string.IsNullOrWhiteSpace(pedaco)) continue;
+
+                        var match = regexItem.Match(pedaco);
+                        if (match.Success)
+                        {
+                            var nomeExtraido = match.Groups[2].Value.Trim();
+                            var qtdStr = match.Groups[1].Value;
+
+                            if (nomeExtraido.Length >= 2 && !decimal.TryParse(nomeExtraido, out _))
+                            {
+                                if (!setExistentes.Contains(nomeExtraido))
+                                {
+                                    decimal preco = 0;
+                                    int qtd = 1;
+                                    if (!string.IsNullOrEmpty(qtdStr) && int.TryParse(qtdStr, out var qP))
+                                    {
+                                        qtd = qP > 0 ? qP : 1;
+                                    }
+                                    if (partes.Length == 1 && t.Valor > 0)
+                                    {
+                                        preco = Math.Round(t.Valor / qtd, 2);
+                                    }
+
+                                    var ehServ = palavrasChaveServico.Any(p => nomeExtraido.ToLower().Contains(p));
+
+                                    novosProdutos.Add(new ProdutoServico
+                                    {
+                                        Nome = nomeExtraido,
+                                        Preco = preco,
+                                        EhServico = ehServ,
+                                        NegocioId = negocioId,
+                                        Descricao = "Importado automaticamente das vendas"
+                                    });
+                                    setExistentes.Add(nomeExtraido);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (novosProdutos.Count > 0)
+            {
+                context.ProdutosServicos.AddRange(novosProdutos);
+                await context.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro na sincronização automática do catálogo: {ex.Message}");
+        }
     }
 }
