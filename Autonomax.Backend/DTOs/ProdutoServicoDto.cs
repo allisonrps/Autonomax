@@ -32,3 +32,28 @@ public class ProdutoServicoUpdateDto
 
     public bool EhServico { get; set; } = false;
 }
+
+public class ItemHistoricoSugestaoDto
+{
+    public string Nome { get; set; } = string.Empty;
+    public int Ocorrencias { get; set; }
+    public decimal PrecoSugerido { get; set; }
+    public bool EhServico { get; set; }
+    public bool JaCadastrado { get; set; }
+}
+
+public class ProdutoServicoBatchItemDto
+{
+    [Required]
+    public string Nome { get; set; } = string.Empty;
+    public string? Descricao { get; set; }
+    public decimal Preco { get; set; }
+    public bool EhServico { get; set; } = false;
+}
+
+public class ProdutoServicoBatchImportDto
+{
+    [Required]
+    public int NegocioId { get; set; }
+    public List<ProdutoServicoBatchItemDto> Itens { get; set; } = new();
+}

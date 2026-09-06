@@ -192,7 +192,7 @@ export function Dashboard() {
       clienteId: novaTransacao.tipo === 'Entrada' ? Number(novaTransacao.clienteId) || null : null,
       fornecedorId: novaTransacao.tipo === 'Saida' ? Number(novaTransacao.fornecedorId) || null : null,
       data: dataAjustada.toISOString(),
-      itens: itensTemporarios.map(it => ({ nome: it.item, quantity: it.qtd }))
+      itens: itensTemporarios.map(it => ({ nome: it.item, quantidade: it.qtd }))
     };
     try {
       await api.post('/Transacoes', payload);

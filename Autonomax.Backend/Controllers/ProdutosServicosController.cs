@@ -90,4 +90,186 @@ public class ProdutosServicosController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("sugestoes-historico/{negocioId}")]
+    public async Task<ActionResult<IEnumerable<ItemHistoricoSugestaoDto>>> GetSugestoesHistorico(int negocioId)
+    {
+        var transacoes = await _context.Transacoes
+            .Include(t => t.Itens)
+            .Where(t => t.NegocioId == negocioId)
+            .ToListAsync();
+
+        var produtosCadastrados = await _context.ProdutosServicos
+            .Where(p => p.NegocioId == negocioId)
+            .Select(p => p.Nome.Trim())
+            .ToListAsync();
+
+        var setCadastrados = new HashSet<string>(produtosCadastrados, StringComparer.OrdinalIgnoreCase);
+
+        var mapaItens = new Dictionary<string, (string DisplayName, int Ocorrencias, List<decimal> Precos)>(StringComparer.OrdinalIgnoreCase);
+
+        var regexItem = new System.Text.RegularExpressions.Regex(@"^(?:(\d+)\s*[xX*]\s*)?(.+)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        foreach (var t in transacoes)
+        {
+            var itensProcessadosNestaTransacao = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // 1. Processa itens da tabela relacionada ItensTransacao
+            if (t.Itens != null && t.Itens.Count > 0)
+            {
+                foreach (var it in t.Itens)
+                {
+                    if (string.IsNullOrWhiteSpace(it.Nome)) continue;
+                    var nomeLimpo = it.Nome.Trim();
+                    if (nomeLimpo.Length < 2) continue;
+
+                    itensProcessadosNestaTransacao.Add(nomeLimpo);
+
+                    if (!mapaItens.TryGetValue(nomeLimpo, out var dados))
+                    {
+                        dados = (nomeLimpo, 0, new List<decimal>());
+                    }
+
+                    dados.Ocorrencias += 1;
+                    if (t.Itens.Count == 1 && it.Quantidade > 0 && t.Valor > 0)
+                    {
+                        dados.Precos.Add(Math.Round(t.Valor / it.Quantidade, 2));
+                    }
+                    mapaItens[nomeLimpo] = dados;
+                }
+            }
+
+            // 2. Processa descrição textual (ex: "2x CARTAZ G, 2x CARTAZ M" ou "CARTAZ M")
+            if (!string.IsNullOrWhiteSpace(t.Descricao))
+            {
+                var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                var qtdPartesValidas = 0;
+                var itensDescricao = new List<(string Nome, int Qtd)>();
+
+                foreach (var parte in partes)
+                {
+                    var pedaco = parte.Trim();
+                    if (string.IsNullOrWhiteSpace(pedaco)) continue;
+
+                    var match = regexItem.Match(pedaco);
+                    if (match.Success)
+                    {
+                        var qtdStr = match.Groups[1].Value;
+                        var nomeExtraido = match.Groups[2].Value.Trim();
+
+                        if (nomeExtraido.Length >= 2 && !decimal.TryParse(nomeExtraido, out _))
+                        {
+                            int qtd = 1;
+                            if (!string.IsNullOrEmpty(qtdStr) && int.TryParse(qtdStr, out var qParsed))
+                            {
+                                qtd = qParsed;
+                            }
+                            itensDescricao.Add((nomeExtraido, qtd));
+                            qtdPartesValidas++;
+                        }
+                    }
+                }
+
+                foreach (var itemDesc in itensDescricao)
+                {
+                    // Evita duplicar se já foi adicionado via ItensTransacao
+                    if (itensProcessadosNestaTransacao.Contains(itemDesc.Nome)) continue;
+
+                    if (!mapaItens.TryGetValue(itemDesc.Nome, out var dados))
+                    {
+                        dados = (itemDesc.Nome, 0, new List<decimal>());
+                    }
+
+                    dados.Ocorrencias += 1;
+                    if (qtdPartesValidas == 1 && itemDesc.Qtd > 0 && t.Valor > 0)
+                    {
+                        dados.Precos.Add(Math.Round(t.Valor / itemDesc.Qtd, 2));
+                    }
+                    mapaItens[itemDesc.Nome] = dados;
+                }
+            }
+        }
+
+        var palavrasChaveServico = new[] { 
+            "servico", "serviço", "consultoria", "manutencao", "manutenção", 
+            "instalacao", "instalação", "visita", "hora", "formatacao", 
+            "formatação", "desenvolvimento", "suporte", "limpeza", "criacao", "criação", "aula" 
+        };
+
+        var resultado = mapaItens.Select(kvp =>
+        {
+            var nome = kvp.Value.DisplayName;
+            var jaCadastrado = setCadastrados.Contains(nome);
+            
+            // Sugestão de preço médio quando houver transações unitárias
+            decimal precoSugerido = 0;
+            if (kvp.Value.Precos.Count > 0)
+            {
+                precoSugerido = Math.Round(kvp.Value.Precos.Average(), 2);
+            }
+
+            // Heurística de Serviço vs Produto
+            var nomeLower = nome.ToLower();
+            var ehServico = palavrasChaveServico.Any(p => nomeLower.Contains(p));
+
+            return new ItemHistoricoSugestaoDto
+            {
+                Nome = nome,
+                Ocorrencias = kvp.Value.Ocorrencias,
+                PrecoSugerido = precoSugerido,
+                EhServico = ehServico,
+                JaCadastrado = jaCadastrado
+            };
+        })
+        .OrderBy(s => s.JaCadastrado)
+        .ThenByDescending(s => s.Ocorrencias)
+        .ToList();
+
+        return Ok(resultado);
+    }
+
+    [HttpPost("importar-em-lote")]
+    public async Task<ActionResult<IEnumerable<ProdutoServico>>> ImportarEmLote([FromBody] ProdutoServicoBatchImportDto dto)
+    {
+        if (dto.NegocioId <= 0) return BadRequest("Negócio inválido.");
+        if (dto.Itens == null || dto.Itens.Count == 0) return BadRequest("Nenhum item informado para importação.");
+
+        var existentes = await _context.ProdutosServicos
+            .Where(p => p.NegocioId == dto.NegocioId)
+            .Select(p => p.Nome.Trim())
+            .ToListAsync();
+
+        var setExistentes = new HashSet<string>(existentes, StringComparer.OrdinalIgnoreCase);
+
+        var novosProdutos = new List<ProdutoServico>();
+
+        foreach (var itemDto in dto.Itens)
+        {
+            if (string.IsNullOrWhiteSpace(itemDto.Nome)) continue;
+            var nomeTrim = itemDto.Nome.Trim();
+
+            // Se já existe com esse nome para este negócio, não duplica
+            if (setExistentes.Contains(nomeTrim)) continue;
+
+            var novo = new ProdutoServico
+            {
+                Nome = nomeTrim,
+                Descricao = itemDto.Descricao,
+                Preco = itemDto.Preco > 0 ? itemDto.Preco : 0,
+                EhServico = itemDto.EhServico,
+                NegocioId = dto.NegocioId
+            };
+
+            novosProdutos.Add(novo);
+            setExistentes.Add(nomeTrim); // Evita duplicar no mesmo lote
+        }
+
+        if (novosProdutos.Count > 0)
+        {
+            _context.ProdutosServicos.AddRange(novosProdutos);
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(novosProdutos);
+    }
 }
