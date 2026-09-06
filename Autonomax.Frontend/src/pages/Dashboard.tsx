@@ -73,20 +73,37 @@ export function Dashboard() {
   const carregarDados = useCallback(async () => {
     if (!negocioId) return;
     try {
-      const [resTrans, resCli, resFor, resProd] = await Promise.all([
+      const [resTrans, resCli, resFor, resProd] = await Promise.allSettled([
         api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`),
         api.get(`/Clientes/por-negocio/${negocioId}`),
         api.get(`/Fornecedores/por-negocio/${negocioId}`),
         api.get(`/ProdutosServicos/por-negocio/${negocioId}`)
       ]);
-      const ordenadas = resTrans.data.sort((a: Transacao, b: Transacao) => 
-        new Date(b.data).getTime() - new Date(a.data).getTime()
-      );
-      setTransacoes(ordenadas);
-      setClientes(resCli.data || []);
-      setFornecedores(resFor.data || []);
-      setProdutosServicos(resProd.data || []);
-    } catch (err) { console.error("Erro ao carregar dados do dashboard:", err); }
+
+      if (resTrans.status === 'fulfilled') {
+        const transData = resTrans.value.data || [];
+        const ordenadas = transData.sort((a: Transacao, b: Transacao) => 
+          new Date(b.data).getTime() - new Date(a.data).getTime()
+        );
+        setTransacoes(ordenadas);
+      } else {
+        console.error("Erro ao carregar transações:", resTrans.reason);
+      }
+
+      if (resCli.status === 'fulfilled') {
+        setClientes(resCli.value.data || []);
+      }
+
+      if (resFor.status === 'fulfilled') {
+        setFornecedores(resFor.value.data || []);
+      }
+
+      if (resProd.status === 'fulfilled') {
+        setProdutosServicos(resProd.value.data || []);
+      }
+    } catch (err) { 
+      console.error("Erro ao carregar dados do dashboard:", err); 
+    }
   }, [negocioId, mesAtivo, anoAtivo]);
 
   useEffect(() => {

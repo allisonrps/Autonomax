@@ -1,4 +1,4 @@
-﻿namespace Autonomax.Backend.Models;
+namespace Autonomax.Backend.Models;
 
 public class Cliente
 {
@@ -10,5 +10,7 @@ public class Cliente
     public string? Estado { get; set; }
     public string? Observacoes { get; set; } // Nullable pois é opcional
     public int NegocioId { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public List<Transacao> Transacoes { get; set; } = new();
 }

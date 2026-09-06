@@ -36,18 +36,20 @@ public class FornecedoresController : ControllerBase
                 f.DataCriacao,
 
                 // Soma total gasto (saídas vinculadas a este parceiro)
-                TotalGasto = f.Transacoes
-                    .Where(t => t.Tipo == "Saida" || t.Tipo == "Saída")
-                    .Sum(t => t.Valor),
+                TotalGasto = f.Transacoes != null 
+                    ? f.Transacoes.Where(t => t.Tipo == "Saida" || t.Tipo == "Saída").Sum(t => t.Valor) 
+                    : 0,
 
                 // Quantidade total de lançamentos
-                QtdLancamentos = f.Transacoes.Count,
+                QtdLancamentos = f.Transacoes != null ? f.Transacoes.Count : 0,
 
                 // Pega a data da última transação (se existir)
-                UltimaMovimentacao = f.Transacoes
-                    .OrderByDescending(t => t.Data)
-                    .Select(t => t.Data.ToString("yyyy-MM-ddTHH:mm:ss"))
-                    .FirstOrDefault()
+                UltimaMovimentacao = f.Transacoes != null
+                    ? f.Transacoes
+                        .OrderByDescending(t => t.Data)
+                        .Select(t => t.Data.ToString("yyyy-MM-ddTHH:mm:ss"))
+                        .FirstOrDefault()
+                    : null
             })
             .OrderBy(f => f.Nome)
             .ToList();
