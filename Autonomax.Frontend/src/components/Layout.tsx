@@ -2,7 +2,7 @@ import React, { useState, useEffect} from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, LayoutDashboard, Users, 
-  BarChart3, Briefcase, Building2, User, Truck 
+  BarChart3, Briefcase, Building2, User, Truck, Package 
 } from 'lucide-react';
 import api from '../services/api';
 import logoImg from '../assets/logo-horizontal-white.png';
@@ -42,6 +42,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { name: 'Fluxo de Caixa', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Catálogo', path: '/catalogo', icon: Package },
     { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Parceiros', path: '/fornecedores', icon: Truck },
     { name: 'Análise', path: '/relatorios', icon: BarChart3 },

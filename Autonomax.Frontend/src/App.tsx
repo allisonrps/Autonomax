@@ -11,6 +11,7 @@ import { DetalhesCliente } from './pages/DetalhesCliente';
 import { Relatorios } from './pages/Relatorios';
 import { Fornecedores } from './pages/Fornecedores';
 import { DetalhesFornecedor } from './pages/DetalhesFornecedor';
+import { Catalogo } from './pages/Catalogo';
 import { EsqueceuSenha } from './pages/EsqueceuSenha';
 
 interface ProtectedRouteProps {
@@ -70,6 +71,7 @@ function App() {
         <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
         <Route path="/clientes/:id" element={<ProtectedRoute><DetalhesCliente /></ProtectedRoute>} />
         <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+        <Route path="/catalogo" element={<ProtectedRoute><Catalogo /></ProtectedRoute>} />
         <Route path="/fornecedores" element={<ProtectedRoute><Fornecedores /></ProtectedRoute>} />
         <Route path="/fornecedores/:id" element={<ProtectedRoute><DetalhesFornecedor /></ProtectedRoute>} />
         <Route path="/esqueceu-senha" element={<EsqueceuSenha />} />

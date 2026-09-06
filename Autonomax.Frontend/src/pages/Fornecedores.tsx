@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout';
 import { Link } from 'react-router-dom'; 
 import { 
   Trash2, Edit3, Save, X, Truck, Phone, 
-  Search, Eye, ArrowDownWideNarrow, Contact2, 
+  Search, Eye, EyeOff, ArrowDownWideNarrow, Contact2, 
   ChevronDown, ChevronUp, Tag, Receipt, 
   DollarSign, Activity, Plus
 } from 'lucide-react';
@@ -25,6 +25,7 @@ interface Fornecedor {
 export function Fornecedores() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [formAberto, setFormAberto] = useState(false);
+  const [mostrarKpis, setMostrarKpis] = useState(false);
   const [novoFornecedor, setNovoFornecedor] = useState({ 
     nome: '', telefone: '', categoria: '', observacoes: '' 
   });
@@ -164,55 +165,6 @@ export function Fornecedores() {
       <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
         <div className="max-w-6xl mx-auto space-y-5">
           
-          {/* HEADER E RESUMO DE INDICADORES (KPIS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Total Parceiros */}
-            <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
-                <Truck size={22} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Parceiros Cadastrados</p>
-                <p className="text-xl font-black text-white">{metricas.totalParceiros}</p>
-              </div>
-            </div>
-
-            {/* Gasto Total com Parceiros */}
-            <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-red-950/50 text-red-400 rounded-lg border border-red-900/50">
-                <DollarSign size={22} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Gasto Total Acumulado</p>
-                <p className="text-xl font-black text-red-400">
-                  R$ {metricas.gastoAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
-
-            {/* Total Lançamentos */}
-            <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-orange-950/50 text-orange-400 rounded-lg border border-orange-900/50">
-                <Receipt size={22} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lançamentos / Compras</p>
-                <p className="text-xl font-black text-orange-400">{metricas.lancamentosTotais}</p>
-              </div>
-            </div>
-
-            {/* Parceiros com Movimentação */}
-            <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-blue-950/50 text-blue-400 rounded-lg border border-blue-900/50">
-                <Activity size={22} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Parceiros Ativos</p>
-                <p className="text-xl font-black text-blue-400">{metricas.ativos}</p>
-              </div>
-            </div>
-          </div>
-
           {/* PAINEL DE CONTROLE (BUSCA E ORDENAÇÃO) */}
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4 w-full lg:w-auto">
@@ -223,6 +175,21 @@ export function Fornecedores() {
                     {fornecedoresFiltrados.length} {fornecedoresFiltrados.length === 1 ? 'REGISTRO' : 'REGISTROS'}
                   </span>
                 </div>
+                <button 
+                  type="button"
+                  onClick={() => setMostrarKpis(!mostrarKpis)} 
+                  className={`p-2 rounded-md border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    mostrarKpis 
+                      ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' 
+                      : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                  }`}
+                  title={mostrarKpis ? "Ocultar Indicadores (KPIs)" : "Revelar Indicadores (KPIs)"}
+                >
+                  {mostrarKpis ? <EyeOff size={15} /> : <Eye size={15} />}
+                  <span className="text-[10px] font-black uppercase hidden sm:inline">
+                    {mostrarKpis ? "Ocultar KPIs" : "Ver KPIs"}
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -276,6 +243,57 @@ export function Fornecedores() {
               </div>
             </div>
           </div>
+
+          {/* RESUMO DE INDICADORES (KPIS) - REVELADO PELO OLHINHO */}
+          {mostrarKpis && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-top-2 fade-in duration-200">
+              {/* Total Parceiros */}
+              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
+                  <Truck size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Parceiros Cadastrados</p>
+                  <p className="text-xl font-black text-white">{metricas.totalParceiros}</p>
+                </div>
+              </div>
+
+              {/* Gasto Total com Parceiros */}
+              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                <div className="p-3 bg-red-950/50 text-red-400 rounded-lg border border-red-900/50">
+                  <DollarSign size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Gasto Total Acumulado</p>
+                  <p className="text-xl font-black text-red-400">
+                    R$ {metricas.gastoAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Total Lançamentos */}
+              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                <div className="p-3 bg-orange-950/50 text-orange-400 rounded-lg border border-orange-900/50">
+                  <Receipt size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lançamentos / Compras</p>
+                  <p className="text-xl font-black text-orange-400">{metricas.lancamentosTotais}</p>
+                </div>
+              </div>
+
+              {/* Parceiros com Movimentação */}
+              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                <div className="p-3 bg-blue-950/50 text-blue-400 rounded-lg border border-blue-900/50">
+                  <Activity size={22} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Parceiros Ativos</p>
+                  <p className="text-xl font-black text-blue-400">{metricas.ativos}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* CADASTRO RETRÁTIL */}
           <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">

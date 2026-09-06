@@ -13,6 +13,8 @@ import api from '../services/api';
 interface Item { nome: string; quantidade: number; }
 interface Cliente { id: number; nome: string; }
 interface Fornecedor { id: number; nome: string; }
+interface ProdutoServico { id: number; nome: string; preco: number; ehServico: boolean; }
+interface ItemTemporario { item: string; qtd: number; precoUnitario?: number; }
 
 interface Transacao {
   id: number;
@@ -45,13 +47,15 @@ export function Dashboard() {
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   
   const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
   const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
 
-  const [itensTemporarios, setItensTemporarios] = useState<{ item: string, qtd: number }[]>([]);
-  const [novoItem, setNovoItem] = useState({ item: '', qtd: 1 });
+  const [itensTemporarios, setItensTemporarios] = useState<ItemTemporario[]>([]);
+  const [novoItem, setNovoItem] = useState({ item: '', qtd: 1, precoUnitario: '' });
+  const [itemCatalogoId, setItemCatalogoId] = useState<string>('');
   
   const [novaTransacao, setNovaTransacao] = useState({
     valor: '', tipo: 'Entrada', status: 'Pago', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
@@ -69,10 +73,11 @@ export function Dashboard() {
   const carregarDados = useCallback(async () => {
     if (!negocioId) return;
     try {
-      const [resTrans, resCli, resFor] = await Promise.all([
+      const [resTrans, resCli, resFor, resProd] = await Promise.all([
         api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`),
         api.get(`/Clientes/por-negocio/${negocioId}`),
-        api.get(`/Fornecedores/por-negocio/${negocioId}`)
+        api.get(`/Fornecedores/por-negocio/${negocioId}`),
+        api.get(`/ProdutosServicos/por-negocio/${negocioId}`)
       ]);
       const ordenadas = resTrans.data.sort((a: Transacao, b: Transacao) => 
         new Date(b.data).getTime() - new Date(a.data).getTime()
@@ -80,7 +85,8 @@ export function Dashboard() {
       setTransacoes(ordenadas);
       setClientes(resCli.data || []);
       setFornecedores(resFor.data || []);
-    } catch (err) { console.error(err); }
+      setProdutosServicos(resProd.data || []);
+    } catch (err) { console.error("Erro ao carregar dados do dashboard:", err); }
   }, [negocioId, mesAtivo, anoAtivo]);
 
   useEffect(() => {
@@ -111,10 +117,48 @@ export function Dashboard() {
     } catch (err) { alert("Erro ao gerar PDF."); }
   };
 
+  const handleSelecionarDoCatalogo = (idStr: string) => {
+    setItemCatalogoId(idStr);
+    if (!idStr) return;
+    const prod = produtosServicos.find(p => p.id === Number(idStr));
+    if (prod) {
+      setNovoItem({
+        item: prod.nome,
+        qtd: 1,
+        precoUnitario: String(prod.preco)
+      });
+    }
+  };
+
   const handleAdicionarItem = () => {
     if (!novoItem.item.trim()) return;
-    setItensTemporarios([...itensTemporarios, { item: novoItem.item, qtd: novoItem.qtd }]);
-    setNovoItem({ item: '', qtd: 1 });
+    const precoNum = Number(novoItem.precoUnitario) || 0;
+    const qtdNum = Number(novoItem.qtd) || 1;
+    const novosItens = [
+      ...itensTemporarios, 
+      { item: novoItem.item.trim(), qtd: qtdNum, precoUnitario: precoNum }
+    ];
+    setItensTemporarios(novosItens);
+
+    // Se houver preço unitário calculado, recalcula o valor total automaticamente
+    const totalItens = novosItens.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
+    if (totalItens > 0) {
+      setNovaTransacao(prev => ({ ...prev, valor: totalItens.toFixed(2) }));
+    }
+
+    setNovoItem({ item: '', qtd: 1, precoUnitario: '' });
+    setItemCatalogoId('');
+  };
+
+  const handleRemoverItem = (idxRemover: number) => {
+    const atualizados = itensTemporarios.filter((_, i) => i !== idxRemover);
+    setItensTemporarios(atualizados);
+    const totalItens = atualizados.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
+    if (totalItens > 0) {
+      setNovaTransacao(prev => ({ ...prev, valor: totalItens.toFixed(2) }));
+    } else if (atualizados.length === 0) {
+      setNovaTransacao(prev => ({ ...prev, valor: '' }));
+    }
   };
 
   async function handleAddTransacao() {
@@ -268,22 +312,82 @@ export function Dashboard() {
             {formAberto && (
               <div className="p-5 md:p-6 space-y-4 bg-gray-900">
                 
-                {/* ENTRADA DOS PRODUTOS */}
-                <div className="flex flex-col md:flex-row gap-2">
-                  <input placeholder="Descreva o produto ou serviço..." className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-white focus:border-emerald-500 font-medium text-sm transition-all placeholder-gray-600" value={novoItem.item} onChange={e => setNovoItem({...novoItem, item: e.target.value})} />
-                  <div className="flex gap-2 w-full md:w-auto">
-                    <input type="number" className="w-16 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-sm text-white" value={novoItem.qtd} onChange={e => setNovoItem({...novoItem, qtd: Number(e.target.value)})} />
-                    <button onClick={handleAdicionarItem} className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer flex items-center justify-center transition-all"><Plus size={18} /></button>
+                {/* ENTRADA DOS PRODUTOS / SELEÇÃO DO CATÁLOGO */}
+                <div className="space-y-2">
+                  {produtosServicos.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={itemCatalogoId} 
+                        onChange={e => handleSelecionarDoCatalogo(e.target.value)}
+                        className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600 cursor-pointer"
+                      >
+                        <option value="">⚡ Selecionar do Catálogo (Preço automático)...</option>
+                        {produtosServicos.map(ps => (
+                          <option key={ps.id} value={ps.id}>
+                            {ps.ehServico ? '🛠️ [Serviço]' : '📦 [Produto]'} {ps.nome} — R$ {Number(ps.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <input 
+                      placeholder="Descreva o produto ou serviço..." 
+                      className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-white focus:border-emerald-500 font-medium text-sm transition-all placeholder-gray-600" 
+                      value={novoItem.item} 
+                      onChange={e => { setNovoItem({...novoItem, item: e.target.value}); setItemCatalogoId(''); }} 
+                    />
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        placeholder="R$ Unit." 
+                        className="w-24 sm:w-28 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-bold text-sm text-emerald-400 outline-none focus:border-emerald-500 placeholder-gray-600" 
+                        value={novoItem.precoUnitario} 
+                        onChange={e => setNovoItem({...novoItem, precoUnitario: e.target.value})} 
+                        title="Preço unitário (opcional, calcula total automático)"
+                      />
+                      <input 
+                        type="number" 
+                        min="1"
+                        className="w-16 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-sm text-white outline-none focus:border-emerald-500" 
+                        value={novoItem.qtd} 
+                        onChange={e => setNovoItem({...novoItem, qtd: Number(e.target.value) || 1})} 
+                        title="Quantidade"
+                      />
+                      <button 
+                        type="button"
+                        onClick={handleAdicionarItem} 
+                        className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer flex items-center justify-center transition-all"
+                        title="Adicionar item"
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* ITENS TEMPORÁRIOS */}
+                {/* ITENS TEMPORÁRIOS COM VALORES */}
                 {itensTemporarios.length > 0 && (
-                  <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 flex flex-wrap gap-2">
+                  <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 flex flex-wrap gap-2 items-center">
                     {itensTemporarios.map((it, idx) => (
                       <div key={idx} className="flex items-center gap-2 bg-gray-900 border border-gray-800 px-3 py-1 rounded-md">
-                        <span className="text-emerald-400 font-black text-xs">{it.qtd}x</span><span className="text-gray-300 text-xs font-medium">{it.item}</span>
-                        <button onClick={() => setItensTemporarios(itensTemporarios.filter((_, i) => i !== idx))} className="text-gray-500 hover:text-red-400 border-none bg-transparent cursor-pointer"><X size={12}/></button>
+                        <span className="text-emerald-400 font-black text-xs">{it.qtd}x</span>
+                        <span className="text-gray-300 text-xs font-medium">{it.item}</span>
+                        {Boolean(it.precoUnitario && it.precoUnitario > 0) && (
+                          <span className="text-[10px] font-bold text-emerald-400 bg-gray-950 px-1.5 py-0.5 rounded border border-gray-800">
+                            R$ {(it.qtd * it.precoUnitario!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoverItem(idx)} 
+                          className="text-gray-500 hover:text-red-400 border-none bg-transparent cursor-pointer p-0.5"
+                          title="Remover item"
+                        >
+                          <X size={12}/>
+                        </button>
                       </div>
                     ))}
                   </div>
