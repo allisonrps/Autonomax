@@ -10,8 +10,8 @@ public class ProdutoServicoCreateDto
 
     public string? Descricao { get; set; }
 
-    [Range(0.01, 9999999.99, ErrorMessage = "O preço deve ser maior que zero.")]
-    public decimal Preco { get; set; }
+    [Range(0, 9999999.99, ErrorMessage = "O preço deve ser zero ou maior.")]
+    public decimal Preco { get; set; } = 0;
 
     public bool EhServico { get; set; } = false;
 
@@ -27,8 +27,8 @@ public class ProdutoServicoUpdateDto
 
     public string? Descricao { get; set; }
 
-    [Range(0.01, 9999999.99, ErrorMessage = "O preço deve ser maior que zero.")]
-    public decimal Preco { get; set; }
+    [Range(0, 9999999.99, ErrorMessage = "O preço deve ser zero ou maior.")]
+    public decimal Preco { get; set; } = 0;
 
     public bool EhServico { get; set; } = false;
 }

@@ -68,11 +68,28 @@ export function Catalogo() {
     carregarSugestoes();
   }, [currentNegocioId]);
 
-  async function carregarItens() {
-    if (!currentNegocioId) return;
+  async function getNegocioIdAtivo(): Promise<string | null> {
+    let id = currentNegocioId || localStorage.getItem('@Autonomax:selectedNegocioId');
+    if (!id) {
+      try {
+        const resNeg = await api.get('/Negocios');
+        if (resNeg.data && resNeg.data.length > 0) {
+          id = String(resNeg.data[0].id);
+          localStorage.setItem('@Autonomax:selectedNegocioId', id);
+        }
+      } catch (e) {
+        console.error("Erro ao obter negócios:", e);
+      }
+    }
+    return id;
+  }
+
+  async function carregarItens(negId?: string | number) {
+    const idUsar = negId ? String(negId) : await getNegocioIdAtivo();
+    if (!idUsar) return;
     setCarregando(true);
     try {
-      const response = await api.get(`/ProdutosServicos/por-negocio/${currentNegocioId}`);
+      const response = await api.get(`/ProdutosServicos/por-negocio/${idUsar}`);
       setItens(response.data || []);
     } catch (err) {
       console.error("Erro ao carregar itens do catálogo:", err);
@@ -81,10 +98,11 @@ export function Catalogo() {
     }
   }
 
-  async function carregarSugestoes() {
-    if (!currentNegocioId) return;
+  async function carregarSugestoes(negId?: string | number) {
+    const idUsar = negId ? String(negId) : await getNegocioIdAtivo();
+    if (!idUsar) return;
     try {
-      const res = await api.get(`/ProdutosServicos/sugestoes-historico/${currentNegocioId}`);
+      const res = await api.get(`/ProdutosServicos/sugestoes-historico/${idUsar}`);
       setSugestoesHistorico(res.data || []);
     } catch (err) {
       console.error("Erro ao carregar sugestões do histórico:", err);
@@ -97,7 +115,7 @@ export function Catalogo() {
     const listaBase = naoCadastrados.length > 0 ? naoCadastrados : sugestoesHistorico;
     const listaInicial: ItemImportacao[] = listaBase.map(s => ({
       nome: s.nome,
-      preco: s.precoSugerido > 0 ? String(s.precoSugerido) : '',
+      preco: '',
       ehServico: s.ehServico,
       selecionado: !s.jaCadastrado,
       ocorrencias: s.ocorrencias
@@ -136,7 +154,8 @@ export function Catalogo() {
   }
 
   async function handleImportarEmLote() {
-    if (!currentNegocioId) return;
+    const idUsar = await getNegocioIdAtivo();
+    if (!idUsar) return;
     const selecionados = itensImportacao.filter(i => i.selecionado && i.nome.trim());
     if (selecionados.length === 0) {
       alert("Selecione pelo menos um item para importar.");
@@ -146,7 +165,7 @@ export function Catalogo() {
     setImportandoLote(true);
     try {
       const payload = {
-        negocioId: Number(currentNegocioId),
+        negocioId: Number(idUsar),
         itens: selecionados.map(i => ({
           nome: i.nome.trim(),
           preco: Number(i.preco) || 0,
@@ -160,13 +179,13 @@ export function Catalogo() {
       
       setFeedbackMsg({
         tipo: 'sucesso',
-        texto: `${qtdImportados} item(ns) importado(s) com sucesso para o seu catálogo!`
+        texto: `${qtdImportados} item(ns) adicionado(s) com sucesso ao catálogo!`
       });
       setTimeout(() => setFeedbackMsg(null), 6000);
 
       setModalHistoricoAberto(false);
-      carregarItens();
-      carregarSugestoes();
+      carregarItens(idUsar);
+      carregarSugestoes(idUsar);
     } catch (err) {
       console.error("Erro ao importar em lote:", err);
       alert("Erro ao importar itens selecionados.");
@@ -180,24 +199,21 @@ export function Catalogo() {
       alert("Por favor, informe o nome do item.");
       return;
     }
-    if (!novoItem.preco || Number(novoItem.preco) <= 0) {
-      alert("Por favor, informe um preço válido maior que zero.");
-      return;
-    }
-    if (!currentNegocioId) return;
+    const idUsar = await getNegocioIdAtivo();
+    if (!idUsar) return;
 
     try {
       await api.post('/ProdutosServicos', {
         nome: novoItem.nome.trim(),
         descricao: novoItem.descricao.trim(),
-        preco: Number(novoItem.preco),
+        preco: Number(novoItem.preco) || 0,
         ehServico: novoItem.ehServico,
-        negocioId: Number(currentNegocioId)
+        negocioId: Number(idUsar)
       });
       setNovoItem({ nome: '', descricao: '', preco: '', ehServico: false });
       setFormAberto(false);
-      carregarItens();
-      carregarSugestoes();
+      carregarItens(idUsar);
+      carregarSugestoes(idUsar);
     } catch (err) {
       alert("Erro ao cadastrar item no catálogo.");
     }
@@ -209,16 +225,12 @@ export function Catalogo() {
       alert("O nome é obrigatório.");
       return;
     }
-    if (itemEdicao.preco <= 0) {
-      alert("O preço deve ser maior que zero.");
-      return;
-    }
 
     try {
       await api.put(`/ProdutosServicos/${id}`, {
         nome: itemEdicao.nome.trim(),
         descricao: itemEdicao.descricao,
-        preco: Number(itemEdicao.preco),
+        preco: Number(itemEdicao.preco) || 0,
         ehServico: itemEdicao.ehServico
       });
       setEditandoId(null);
@@ -547,7 +559,7 @@ export function Catalogo() {
                   {/* Preço Unitário */}
                   <div className="md:col-span-3">
                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                      Preço Padrão (R$) *
+                      Preço Padrão (Opcional - R$)
                     </label>
                     <input 
                       type="number"
@@ -555,7 +567,7 @@ export function Catalogo() {
                       className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-emerald-400 font-black text-sm transition-all placeholder-gray-600" 
                       value={novoItem.preco} 
                       onChange={e => setNovoItem({...novoItem, preco: e.target.value})} 
-                      placeholder="0,00" 
+                      placeholder="0,00 (Opcional)" 
                     />
                   </div>
 

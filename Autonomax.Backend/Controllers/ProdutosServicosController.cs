@@ -108,9 +108,7 @@ public class ProdutosServicosController : ControllerBase
 
         var setCadastrados = new HashSet<string>(produtosCadastrados, StringComparer.OrdinalIgnoreCase);
 
-        var mapaItens = new Dictionary<string, (string DisplayName, int Ocorrencias, List<decimal> Precos)>(StringComparer.OrdinalIgnoreCase);
-
-        var regexItem = new System.Text.RegularExpressions.Regex(@"^(?:(\d+)\s*[xX*]\s*)?(.+)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+        var mapaItens = new Dictionary<string, (string DisplayName, int Ocorrencias)>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var t in transacoes)
         {
@@ -129,14 +127,10 @@ public class ProdutosServicosController : ControllerBase
 
                     if (!mapaItens.TryGetValue(nomeLimpo, out var dados))
                     {
-                        dados = (nomeLimpo, 0, new List<decimal>());
+                        dados = (nomeLimpo, 0);
                     }
 
                     dados.Ocorrencias += 1;
-                    if (t.Itens.Count == 1 && it.Quantidade > 0 && t.Valor > 0)
-                    {
-                        dados.Precos.Add(Math.Round(t.Valor / it.Quantidade, 2));
-                    }
                     mapaItens[nomeLimpo] = dados;
                 }
             }
@@ -144,50 +138,18 @@ public class ProdutosServicosController : ControllerBase
             // 2. Processa descrição textual (ex: "2x CARTAZ G, 2x CARTAZ M" ou "CARTAZ M")
             if (!string.IsNullOrWhiteSpace(t.Descricao))
             {
-                var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                var qtdPartesValidas = 0;
-                var itensDescricao = new List<(string Nome, int Qtd)>();
-
-                foreach (var parte in partes)
+                var nomesExtraidos = ExtrairNomesDeItens(t.Descricao);
+                foreach (var nomeExtraido in nomesExtraidos)
                 {
-                    var pedaco = parte.Trim();
-                    if (string.IsNullOrWhiteSpace(pedaco)) continue;
+                    if (itensProcessadosNestaTransacao.Contains(nomeExtraido)) continue;
 
-                    var match = regexItem.Match(pedaco);
-                    if (match.Success)
+                    if (!mapaItens.TryGetValue(nomeExtraido, out var dados))
                     {
-                        var qtdStr = match.Groups[1].Value;
-                        var nomeExtraido = match.Groups[2].Value.Trim();
-
-                        if (nomeExtraido.Length >= 2 && !decimal.TryParse(nomeExtraido, out _))
-                        {
-                            int qtd = 1;
-                            if (!string.IsNullOrEmpty(qtdStr) && int.TryParse(qtdStr, out var qParsed))
-                            {
-                                qtd = qParsed;
-                            }
-                            itensDescricao.Add((nomeExtraido, qtd));
-                            qtdPartesValidas++;
-                        }
-                    }
-                }
-
-                foreach (var itemDesc in itensDescricao)
-                {
-                    // Evita duplicar se já foi adicionado via ItensTransacao
-                    if (itensProcessadosNestaTransacao.Contains(itemDesc.Nome)) continue;
-
-                    if (!mapaItens.TryGetValue(itemDesc.Nome, out var dados))
-                    {
-                        dados = (itemDesc.Nome, 0, new List<decimal>());
+                        dados = (nomeExtraido, 0);
                     }
 
                     dados.Ocorrencias += 1;
-                    if (qtdPartesValidas == 1 && itemDesc.Qtd > 0 && t.Valor > 0)
-                    {
-                        dados.Precos.Add(Math.Round(t.Valor / itemDesc.Qtd, 2));
-                    }
-                    mapaItens[itemDesc.Nome] = dados;
+                    mapaItens[nomeExtraido] = dados;
                 }
             }
         }
@@ -202,15 +164,6 @@ public class ProdutosServicosController : ControllerBase
         {
             var nome = kvp.Value.DisplayName;
             var jaCadastrado = setCadastrados.Contains(nome);
-            
-            // Sugestão de preço médio quando houver transações unitárias
-            decimal precoSugerido = 0;
-            if (kvp.Value.Precos.Count > 0)
-            {
-                precoSugerido = Math.Round(kvp.Value.Precos.Average(), 2);
-            }
-
-            // Heurística de Serviço vs Produto
             var nomeLower = nome.ToLower();
             var ehServico = palavrasChaveServico.Any(p => nomeLower.Contains(p));
 
@@ -218,7 +171,7 @@ public class ProdutosServicosController : ControllerBase
             {
                 Nome = nome,
                 Ocorrencias = kvp.Value.Ocorrencias,
-                PrecoSugerido = precoSugerido,
+                PrecoSugerido = 0, // Preço zerado conforme solicitado pelo usuário
                 EhServico = ehServico,
                 JaCadastrado = jaCadastrado
             };
@@ -257,7 +210,7 @@ public class ProdutosServicosController : ControllerBase
             {
                 Nome = nomeTrim,
                 Descricao = itemDto.Descricao,
-                Preco = itemDto.Preco > 0 ? itemDto.Preco : 0,
+                Preco = itemDto.Preco >= 0 ? itemDto.Preco : 0,
                 EhServico = itemDto.EhServico,
                 NegocioId = dto.NegocioId
             };
@@ -295,8 +248,6 @@ public class ProdutosServicosController : ControllerBase
 
             var setExistentes = new HashSet<string>(existentes, StringComparer.OrdinalIgnoreCase);
 
-            var regexItem = new System.Text.RegularExpressions.Regex(@"^(?:(\d+)\s*[xX*]\s*)?(.+)$", System.Text.RegularExpressions.RegexOptions.Compiled);
-
             var palavrasChaveServico = new[] { 
                 "servico", "serviço", "consultoria", "manutencao", "manutenção", 
                 "instalacao", "instalação", "visita", "hora", "formatacao", 
@@ -318,21 +269,15 @@ public class ProdutosServicosController : ControllerBase
 
                         if (!setExistentes.Contains(nome))
                         {
-                            decimal preco = 0;
-                            if (t.Itens.Count == 1 && it.Quantidade > 0 && t.Valor > 0)
-                            {
-                                preco = Math.Round(t.Valor / it.Quantidade, 2);
-                            }
-
                             var ehServ = palavrasChaveServico.Any(p => nome.ToLower().Contains(p));
 
                             novosProdutos.Add(new ProdutoServico
                             {
                                 Nome = nome,
-                                Preco = preco,
+                                Preco = 0,
                                 EhServico = ehServ,
                                 NegocioId = negocioId,
-                                Descricao = "Importado automaticamente das vendas"
+                                Descricao = "Importado do fluxo de caixa"
                             });
                             setExistentes.Add(nome);
                         }
@@ -342,46 +287,22 @@ public class ProdutosServicosController : ControllerBase
                 // 2. Processa Descrição Textual (ex: "2x CARTAZ G, 2x CARTAZ M" ou "CARTAZ M")
                 if (!string.IsNullOrWhiteSpace(t.Descricao))
                 {
-                    var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var parte in partes)
+                    var nomesExtraidos = ExtrairNomesDeItens(t.Descricao);
+                    foreach (var nomeExtraido in nomesExtraidos)
                     {
-                        var pedaco = parte.Trim();
-                        if (string.IsNullOrWhiteSpace(pedaco)) continue;
-
-                        var match = regexItem.Match(pedaco);
-                        if (match.Success)
+                        if (!setExistentes.Contains(nomeExtraido))
                         {
-                            var nomeExtraido = match.Groups[2].Value.Trim();
-                            var qtdStr = match.Groups[1].Value;
+                            var ehServ = palavrasChaveServico.Any(p => nomeExtraido.ToLower().Contains(p));
 
-                            if (nomeExtraido.Length >= 2 && !decimal.TryParse(nomeExtraido, out _))
+                            novosProdutos.Add(new ProdutoServico
                             {
-                                if (!setExistentes.Contains(nomeExtraido))
-                                {
-                                    decimal preco = 0;
-                                    int qtd = 1;
-                                    if (!string.IsNullOrEmpty(qtdStr) && int.TryParse(qtdStr, out var qP))
-                                    {
-                                        qtd = qP > 0 ? qP : 1;
-                                    }
-                                    if (partes.Length == 1 && t.Valor > 0)
-                                    {
-                                        preco = Math.Round(t.Valor / qtd, 2);
-                                    }
-
-                                    var ehServ = palavrasChaveServico.Any(p => nomeExtraido.ToLower().Contains(p));
-
-                                    novosProdutos.Add(new ProdutoServico
-                                    {
-                                        Nome = nomeExtraido,
-                                        Preco = preco,
-                                        EhServico = ehServ,
-                                        NegocioId = negocioId,
-                                        Descricao = "Importado automaticamente das vendas"
-                                    });
-                                    setExistentes.Add(nomeExtraido);
-                                }
-                            }
+                                Nome = nomeExtraido,
+                                Preco = 0,
+                                EhServico = ehServ,
+                                NegocioId = negocioId,
+                                Descricao = "Importado do fluxo de caixa"
+                            });
+                            setExistentes.Add(nomeExtraido);
                         }
                     }
                 }
@@ -397,5 +318,32 @@ public class ProdutosServicosController : ControllerBase
         {
             Console.WriteLine($"Erro na sincronização automática do catálogo: {ex.Message}");
         }
+    }
+
+    public static List<string> ExtrairNomesDeItens(string? descricao)
+    {
+        var resultado = new List<string>();
+        if (string.IsNullOrWhiteSpace(descricao)) return resultado;
+
+        var partes = descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        var regexQuantidade = new System.Text.RegularExpressions.Regex(@"^\s*(?:(\d+)\s*[xX*•-]\s*|\s*(\d+)\s+)?(.+?)\s*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        foreach (var parte in partes)
+        {
+            var pedaco = parte.Trim();
+            if (string.IsNullOrWhiteSpace(pedaco) || pedaco.Length < 2) continue;
+
+            var match = regexQuantidade.Match(pedaco);
+            string nome = match.Success ? match.Groups[3].Value.Trim() : pedaco;
+
+            nome = System.Text.RegularExpressions.Regex.Replace(nome, @"^[\d\s*xX•\-_/]+", "").Trim();
+
+            if (nome.Length >= 2 && !decimal.TryParse(nome, out _) && !nome.Equals("R$", StringComparison.OrdinalIgnoreCase))
+            {
+                resultado.Add(nome);
+            }
+        }
+
+        return resultado;
     }
 }
