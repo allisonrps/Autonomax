@@ -22,12 +22,22 @@ public class ProdutosServicosController : ControllerBase
     [HttpGet("por-negocio/{negocioId}")]
     public async Task<ActionResult<IEnumerable<ProdutoServico>>> GetPorNegocio(int negocioId)
     {
-        await SincronizarItensDoHistoricoInternoAsync(_context, negocioId);
+        try
+        {
+            await SincronizarItensDoHistoricoInternoAsync(_context, negocioId);
 
-        return await _context.ProdutosServicos
-            .Where(p => p.NegocioId == negocioId)
-            .OrderBy(p => p.Nome)
-            .ToListAsync();
+            var itens = await _context.ProdutosServicos
+                .Where(p => p.NegocioId == negocioId)
+                .OrderBy(p => p.Nome)
+                .ToListAsync();
+
+            return Ok(itens);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro em GetPorNegocio: {ex.Message}");
+            return Ok(new List<ProdutoServico>());
+        }
     }
 
     [HttpGet("{id}")]
@@ -40,19 +50,30 @@ public class ProdutosServicosController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProdutoServico>> Post([FromBody] ProdutoServicoCreateDto dto)
     {
-        var item = new ProdutoServico
+        try
         {
-            Nome = dto.Nome,
-            Descricao = dto.Descricao,
-            Preco = dto.Preco,
-            EhServico = dto.EhServico,
-            NegocioId = dto.NegocioId
-        };
+            if (string.IsNullOrWhiteSpace(dto.Nome))
+                return BadRequest("O nome do item é obrigatório.");
 
-        _context.ProdutosServicos.Add(item);
-        await _context.SaveChangesAsync();
+            var item = new ProdutoServico
+            {
+                Nome = dto.Nome.Trim(),
+                Descricao = dto.Descricao?.Trim(),
+                Preco = dto.Preco >= 0 ? dto.Preco : 0,
+                EhServico = dto.EhServico,
+                NegocioId = dto.NegocioId
+            };
 
-        return CreatedAtAction(nameof(GetById), new { id = item.Id }, item);
+            _context.ProdutosServicos.Add(item);
+            await _context.SaveChangesAsync();
+
+            return Ok(item);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao criar produto/serviço: {ex.Message}");
+            return StatusCode(500, "Erro interno ao cadastrar o item no catálogo.");
+        }
     }
 
     [HttpPut("{id}")]
