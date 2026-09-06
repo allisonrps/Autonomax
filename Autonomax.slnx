@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/Autonomax.Backend/">
-    <Project Path="Autonomax.Backend/Autonomax.csproj" />
+    <Project Path="Autonomax.Backend/Autonomax.Backend.csproj" />
   </Folder>
   <Project Path="Autonomax.Tests/Autonomax.Tests.csproj" />
-  <Project Path="Autonomax/Autonomax.csproj" />
 </Solution>

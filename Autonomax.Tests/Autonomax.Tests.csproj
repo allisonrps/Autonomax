@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -28,7 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Autonomax\Autonomax.csproj" />
     <ProjectReference Include="..\Autonomax.Backend\Autonomax.Backend.csproj" />
   </ItemGroup>
 

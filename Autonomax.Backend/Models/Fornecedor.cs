@@ -19,4 +19,7 @@ public class Fornecedor
     public int NegocioId { get; set; }
     
     public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<Transacao> Transacoes { get; set; } = new();
 }

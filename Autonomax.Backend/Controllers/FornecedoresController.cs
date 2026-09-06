@@ -16,12 +16,48 @@ public class FornecedoresController : ControllerBase
     public FornecedoresController(AppDbContext context) => _context = context;
 
     [HttpGet("por-negocio/{negocioId}")]
-    public async Task<ActionResult<IEnumerable<Fornecedor>>> GetFornecedores(int negocioId)
+    public async Task<IActionResult> GetFornecedores(int negocioId)
     {
-        return await _context.Fornecedores
-            .Where(f => f.NegocioId == negocioId)
+        try
+        {
+            var fornecedoresComTransacoes = await _context.Fornecedores
+                .Include(f => f.Transacoes)
+                .Where(f => f.NegocioId == negocioId)
+                .ToListAsync();
+
+            var resultado = fornecedoresComTransacoes.Select(f => new
+            {
+                f.Id,
+                f.Nome,
+                f.Telefone,
+                f.Categoria,
+                f.Observacoes,
+                f.NegocioId,
+                f.DataCriacao,
+
+                // Soma total gasto (saídas vinculadas a este parceiro)
+                TotalGasto = f.Transacoes
+                    .Where(t => t.Tipo == "Saida" || t.Tipo == "Saída")
+                    .Sum(t => t.Valor),
+
+                // Quantidade total de lançamentos
+                QtdLancamentos = f.Transacoes.Count,
+
+                // Pega a data da última transação (se existir)
+                UltimaMovimentacao = f.Transacoes
+                    .OrderByDescending(t => t.Data)
+                    .Select(t => t.Data.ToString("yyyy-MM-ddTHH:mm:ss"))
+                    .FirstOrDefault()
+            })
             .OrderBy(f => f.Nome)
-            .ToListAsync();
+            .ToList();
+
+            return Ok(resultado);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Erro interno: {ex.Message}");
+        }
     }
 
     [HttpGet("{id}")]
@@ -62,28 +98,28 @@ public class FornecedoresController : ControllerBase
         return NoContent();
     }
 
-
-[HttpGet("por-fornecedor/{fornecedorId}")]
-public async Task<ActionResult> GetPorFornecedor(int fornecedorId, [FromQuery] int negocioId)
-{
-    // 1. Busca os dados do fornecedor 
-    var fornecedor = await _context.Fornecedores
-        .FirstOrDefaultAsync(f => f.Id == fornecedorId && f.NegocioId == negocioId);
-
-    if (fornecedor == null) return NotFound("Parceiro não encontrado.");
-
-    // 2. Busca apenas as saídas (despesas) vinculadas a este fornecedor
-    var transacoes = await _context.Transacoes
-        .Where(t => t.FornecedorId == fornecedorId && t.NegocioId == negocioId && t.Tipo == "Saida")
-        .OrderByDescending(t => t.Data)
-        .ToListAsync();
-
-    return Ok(new
+    [HttpGet("por-fornecedor/{fornecedorId}")]
+    public async Task<ActionResult> GetPorFornecedor(int fornecedorId, [FromQuery] int negocioId)
     {
-        fornecedor,
-        transacoes
-    });
-}
+        // 1. Busca os dados do fornecedor 
+        var fornecedor = await _context.Fornecedores
+            .FirstOrDefaultAsync(f => f.Id == fornecedorId && f.NegocioId == negocioId);
+
+        if (fornecedor == null) return NotFound("Parceiro não encontrado.");
+
+        // 2. Busca as transações vinculadas a este fornecedor com os itens
+        var transacoes = await _context.Transacoes
+            .Include(t => t.Itens)
+            .Where(t => t.FornecedorId == fornecedorId && t.NegocioId == negocioId)
+            .OrderByDescending(t => t.Data)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            fornecedor,
+            transacoes
+        });
+    }
 
 
 }

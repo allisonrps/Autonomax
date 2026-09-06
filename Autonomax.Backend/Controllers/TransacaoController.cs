@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
@@ -42,6 +42,7 @@ public class TransacoesController : ControllerBase
             if (string.IsNullOrEmpty(transacao.MetodoPagamento)) transacao.MetodoPagamento = "Pix";
 
             transacao.Cliente = null;
+            transacao.Fornecedor = null;
             
             if (transacao.Itens != null)
             {
@@ -57,6 +58,7 @@ public class TransacoesController : ControllerBase
             var transacaoCriada = await _context.Transacoes
                 .Include(t => t.Itens)
                 .Include(t => t.Cliente)
+                .Include(t => t.Fornecedor)
                 .FirstOrDefaultAsync(t => t.Id == transacao.Id);
 
             return Ok(transacaoCriada);
@@ -73,6 +75,7 @@ public class TransacoesController : ControllerBase
     {
         if (id != transacao.Id) return BadRequest();
         transacao.Cliente = null;
+        transacao.Fornecedor = null;
         _context.Entry(transacao).State = EntityState.Modified;
 
         try { await _context.SaveChangesAsync(); }
@@ -110,6 +113,7 @@ public class TransacoesController : ControllerBase
         if (fornecedor == null) return NotFound(new { mensagem = "Fornecedor não encontrado." });
 
         var transacoes = await _context.Transacoes
+            .Include(t => t.Itens)
             .Where(t => t.FornecedorId == fornecedorId && t.NegocioId == negocioId)
             .OrderByDescending(t => t.Data)
             .ToListAsync();
@@ -172,6 +176,42 @@ public async Task<IActionResult> GerarRelatorioCliente(int id)
 
     // 4. Retorna o arquivo
     return File(pdfBytes, "application/pdf", $"Relatorio_{cliente.Nome.Replace(" ", "_")}.pdf");
+}
+
+[HttpGet("fornecedores/{id}/relatorio-pdf")]
+public async Task<IActionResult> GerarRelatorioFornecedor(int id)
+{
+    // 1. Busca os dados no Banco
+    var fornecedor = await _context.Fornecedores
+        .Include(f => f.Transacoes)
+        .FirstOrDefaultAsync(f => f.Id == id);
+
+    if (fornecedor == null) return NotFound("Parceiro não encontrado.");
+
+    // 2. Mapeia para o DTO de Relatório
+    var dadosRelatorio = new RelatorioFornecedorDto
+    {
+        NomeFornecedor = fornecedor.Nome,
+        Telefone = fornecedor.Telefone ?? "Não informado",
+        Categoria = fornecedor.Categoria ?? "Geral",
+        TotalGasto = fornecedor.Transacoes.Where(t => t.Tipo == "Saida" || t.Tipo == "Saída").Sum(t => t.Valor),
+        Transacoes = fornecedor.Transacoes
+            .Where(t => t.Tipo == "Saida" || t.Tipo == "Saída")
+            .OrderByDescending(t => t.Data)
+            .Select(t => new TransacaoItemDto
+            {
+                Data = t.Data,
+                Descricao = t.Descricao,
+                Valor = t.Valor
+            }).ToList()
+    };
+
+    // 3. Gera o PDF usando a classe
+    var document = new RelatorioFornecedorDocument(dadosRelatorio);
+    byte[] pdfBytes = document.GeneratePdf();
+
+    // 4. Retorna o arquivo
+    return File(pdfBytes, "application/pdf", $"Relatorio_{fornecedor.Nome.Replace(" ", "_")}.pdf");
 }
 
 
