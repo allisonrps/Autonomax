@@ -47,6 +47,134 @@ public class ProdutosServicosController : ControllerBase
         return item == null ? NotFound() : item;
     }
 
+    [HttpGet("{id}/detalhes")]
+    public async Task<IActionResult> GetDetalhes(int id, [FromQuery] int negocioId, [FromQuery] int? ano)
+    {
+        var produto = await _context.ProdutosServicos.FindAsync(id);
+        if (produto == null) return NotFound(new { message = "Produto ou serviço não encontrado." });
+
+        int anoAlvo = ano ?? DateTime.Now.Year;
+
+        var todasTransacoes = await _context.Transacoes
+            .Include(t => t.Cliente)
+            .Include(t => t.Itens)
+            .Where(t => t.NegocioId == negocioId)
+            .ToListAsync();
+
+        var nomeProduto = produto.Nome.Trim();
+        var regexQtd = new System.Text.RegularExpressions.Regex(
+            @"(?:(\d+)\s*[xX*]\s*)?" + System.Text.RegularExpressions.Regex.Escape(nomeProduto), 
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled
+        );
+
+        var transacoesVinculadas = new List<object>();
+        decimal totalFaturado = 0;
+        int quantidadeTotal = 0;
+        DateTime? ultimaData = null;
+
+        var faturamentoPorMes = new decimal[12];
+        var quantidadePorMes = new int[12];
+
+        foreach (var t in todasTransacoes)
+        {
+            bool vinculado = false;
+            int qtdNestaTransacao = 0;
+
+            // 1. Verifica itens na tabela ItensTransacao
+            if (t.Itens != null && t.Itens.Count > 0)
+            {
+                var itensCorrespondentes = t.Itens
+                    .Where(it => it.Nome.Trim().Equals(nomeProduto, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (itensCorrespondentes.Count > 0)
+                {
+                    vinculado = true;
+                    qtdNestaTransacao = itensCorrespondentes.Sum(it => it.Quantidade > 0 ? it.Quantidade : 1);
+                }
+            }
+
+            // 2. Verifica descrição textual se não vinculado ainda
+            if (!vinculado && !string.IsNullOrWhiteSpace(t.Descricao))
+            {
+                var match = regexQtd.Match(t.Descricao);
+                if (match.Success)
+                {
+                    vinculado = true;
+                    var qtdStr = match.Groups[1].Value;
+                    if (!string.IsNullOrEmpty(qtdStr) && int.TryParse(qtdStr, out var qParsed))
+                    {
+                        qtdNestaTransacao = qParsed > 0 ? qParsed : 1;
+                    }
+                    else
+                    {
+                        qtdNestaTransacao = 1;
+                    }
+                }
+            }
+
+            if (vinculado)
+            {
+                totalFaturado += t.Valor;
+                quantidadeTotal += qtdNestaTransacao;
+
+                if (ultimaData == null || t.Data > ultimaData)
+                {
+                    ultimaData = t.Data;
+                }
+
+                if (t.Data.Year == anoAlvo)
+                {
+                    int mesIdx = t.Data.Month - 1;
+                    if (mesIdx >= 0 && mesIdx < 12)
+                    {
+                        faturamentoPorMes[mesIdx] += t.Valor;
+                        quantidadePorMes[mesIdx] += qtdNestaTransacao;
+                    }
+                }
+
+                transacoesVinculadas.Add(new
+                {
+                    id = t.Id,
+                    descricao = t.Descricao,
+                    valor = t.Valor,
+                    tipo = t.Tipo,
+                    status = t.Status,
+                    metodoPagamento = t.MetodoPagamento,
+                    data = t.Data.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    cliente = t.Cliente != null ? new { id = t.Cliente.Id, nome = t.Cliente.Nome } : null,
+                    itens = t.Itens?.Select(it => new { nome = it.Nome, quantidade = it.Quantidade }).ToList(),
+                    quantidadeItem = qtdNestaTransacao
+                });
+            }
+        }
+
+        var mesesNomes = new[] { "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez" };
+        var evolucaoMensal = mesesNomes.Select((nome, idx) => new
+        {
+            mes = nome,
+            mesNumero = idx + 1,
+            faturamento = faturamentoPorMes[idx],
+            quantidade = quantidadePorMes[idx]
+        }).ToList();
+
+        var qtdTransacoes = transacoesVinculadas.Count;
+        decimal ticketMedio = qtdTransacoes > 0 ? Math.Round(totalFaturado / qtdTransacoes, 2) : 0;
+
+        return Ok(new
+        {
+            produto,
+            totalFaturado,
+            quantidadeTotal,
+            qtdTransacoes,
+            ticketMedio,
+            ultimaVenda = ultimaData?.ToString("yyyy-MM-ddTHH:mm:ss"),
+            ano = anoAlvo,
+            evolucaoMensal,
+            transacoes = transacoesVinculadas
+        });
+    }
+
     [HttpPost]
     public async Task<ActionResult<ProdutoServico>> Post([FromBody] ProdutoServicoCreateDto dto)
     {

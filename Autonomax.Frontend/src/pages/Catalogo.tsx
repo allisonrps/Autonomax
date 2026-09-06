@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   Trash2, Edit3, Save, X, Search, 
   ArrowDownWideNarrow, Plus, Package, 
   Wrench, ChevronDown, ChevronUp, DollarSign, 
   Boxes, Sparkles, Flame, CheckSquare, Square, 
-  RefreshCw, CheckCircle2, ArrowRight
+  RefreshCw, CheckCircle2, ArrowRight, BarChart3
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -656,18 +657,26 @@ export function Catalogo() {
                 >
                   {/* IDENTIFICAÇÃO DO ITEM */}
                   <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className={`w-11 h-11 rounded-lg flex items-center justify-center font-black text-lg border flex-shrink-0 ${
-                      item.ehServico 
-                        ? 'bg-blue-950/50 text-blue-400 border-blue-900/60' 
-                        : 'bg-teal-950/50 text-teal-400 border-teal-900/60'
-                    }`}>
+                    <Link
+                      to={`/catalogo/${item.id}`}
+                      className={`w-11 h-11 rounded-lg flex items-center justify-center font-black text-lg border flex-shrink-0 transition-transform hover:scale-105 ${
+                        item.ehServico 
+                          ? 'bg-blue-950/50 text-blue-400 border-blue-900/60 hover:border-blue-700' 
+                          : 'bg-teal-950/50 text-teal-400 border-teal-900/60 hover:border-teal-700'
+                      }`}
+                      title="Ver Análise & Vendas do Item"
+                    >
                       {item.ehServico ? <Wrench size={20} /> : <Package size={20} />}
-                    </div>
+                    </Link>
                     <div className="flex flex-col min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <h4 className="font-black text-gray-200 uppercase text-sm tracking-tight truncate">
+                        <Link 
+                          to={`/catalogo/${item.id}`}
+                          className="font-black text-gray-200 hover:text-emerald-400 uppercase text-sm tracking-tight truncate transition-colors"
+                          title="Ver Análise & Vendas do Item"
+                        >
                           {item.nome}
-                        </h4>
+                        </Link>
                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
                           item.ehServico 
                             ? 'bg-blue-950/40 text-blue-400 border-blue-900/50' 
@@ -686,7 +695,7 @@ export function Catalogo() {
                   </div>
 
                   {/* PREÇO E AÇÕES */}
-                  <div className="flex items-center justify-between md:justify-end gap-4">
+                  <div className="flex items-center justify-between md:justify-end gap-3">
                     {/* Preço Unitário */}
                     <div className="bg-gray-950 px-4 py-2 rounded-lg border border-gray-800 text-right min-w-[120px]">
                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">Preço Padrão</span>
@@ -697,6 +706,13 @@ export function Catalogo() {
 
                     {/* Botões de Ação */}
                     <div className="flex items-center gap-1">
+                      <Link 
+                        to={`/catalogo/${item.id}`}
+                        className="p-2 text-gray-500 hover:text-emerald-400 hover:bg-emerald-950/40 rounded-md transition-all border border-transparent hover:border-emerald-900/50 flex items-center justify-center bg-transparent"
+                        title="Ver Performance e Gráficos"
+                      >
+                        <BarChart3 size={16} />
+                      </Link>
                       <button 
                         onClick={() => { setEditandoId(item.id); setItemEdicao(item); }} 
                         className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-950/40 rounded-md transition-all border border-transparent hover:border-blue-900/50 cursor-pointer bg-transparent"
