@@ -8,5 +8,6 @@ public class ProdutoServico
     public string? Categoria { get; set; } // Tag / Categoria para classificação
     public decimal Preco { get; set; }
     public bool EhServico { get; set; } // True para Serviço, False para Produto
+    public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
     public int NegocioId { get; set; }
 }

@@ -142,6 +142,7 @@ public class ProdutosServicosController : ControllerBase
                     status = t.Status,
                     metodoPagamento = t.MetodoPagamento,
                     data = t.Data.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    clienteId = t.ClienteId,
                     cliente = t.Cliente != null ? new { id = t.Cliente.Id, nome = t.Cliente.Nome } : null,
                     itens = t.Itens?.Select(it => new { nome = it.Nome, quantidade = it.Quantidade }).ToList(),
                     quantidadeItem = qtdNestaTransacao
