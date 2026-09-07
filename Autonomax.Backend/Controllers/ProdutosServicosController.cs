@@ -187,6 +187,7 @@ public class ProdutosServicosController : ControllerBase
             {
                 Nome = dto.Nome.Trim(),
                 Descricao = dto.Descricao?.Trim(),
+                Categoria = dto.Categoria?.Trim(),
                 Preco = dto.Preco >= 0 ? dto.Preco : 0,
                 EhServico = dto.EhServico,
                 NegocioId = dto.NegocioId
@@ -210,8 +211,9 @@ public class ProdutosServicosController : ControllerBase
         var item = await _context.ProdutosServicos.FindAsync(id);
         if (item == null) return NotFound();
 
-        item.Nome = dto.Nome;
-        item.Descricao = dto.Descricao;
+        item.Nome = dto.Nome.Trim();
+        item.Descricao = dto.Descricao?.Trim();
+        item.Categoria = dto.Categoria?.Trim();
         item.Preco = dto.Preco;
         item.EhServico = dto.EhServico;
 
@@ -359,6 +361,7 @@ public class ProdutosServicosController : ControllerBase
             {
                 Nome = nomeTrim,
                 Descricao = itemDto.Descricao,
+                Categoria = itemDto.Categoria?.Trim(),
                 Preco = itemDto.Preco >= 0 ? itemDto.Preco : 0,
                 EhServico = itemDto.EhServico,
                 NegocioId = dto.NegocioId

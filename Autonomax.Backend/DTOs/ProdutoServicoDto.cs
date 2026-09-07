@@ -10,6 +10,8 @@ public class ProdutoServicoCreateDto
 
     public string? Descricao { get; set; }
 
+    public string? Categoria { get; set; }
+
     [Range(0, 9999999.99, ErrorMessage = "O preço deve ser zero ou maior.")]
     public decimal Preco { get; set; } = 0;
 
@@ -27,6 +29,8 @@ public class ProdutoServicoUpdateDto
 
     public string? Descricao { get; set; }
 
+    public string? Categoria { get; set; }
+
     [Range(0, 9999999.99, ErrorMessage = "O preço deve ser zero ou maior.")]
     public decimal Preco { get; set; } = 0;
 
@@ -38,6 +42,7 @@ public class ItemHistoricoSugestaoDto
     public string Nome { get; set; } = string.Empty;
     public int Ocorrencias { get; set; }
     public decimal PrecoSugerido { get; set; }
+    public string? Categoria { get; set; }
     public bool EhServico { get; set; }
     public bool JaCadastrado { get; set; }
 }
@@ -47,6 +52,7 @@ public class ProdutoServicoBatchItemDto
     [Required]
     public string Nome { get; set; } = string.Empty;
     public string? Descricao { get; set; }
+    public string? Categoria { get; set; }
     public decimal Preco { get; set; }
     public bool EhServico { get; set; } = false;
 }

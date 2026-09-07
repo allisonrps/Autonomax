@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { 
   ArrowLeft, Package, Wrench, Receipt, DollarSign,
   ChevronLeft, ChevronRight, TrendingUp,
-  Tag, CheckCircle2, ChevronDown, ChevronUp, Edit3,
+  Tag, ChevronDown, ChevronUp, Edit3,
   X, Save, Boxes, HandCoins, User, ArrowUpRight
 } from 'lucide-react';
 import { 
@@ -17,6 +17,7 @@ interface ProdutoServico {
   id: number;
   nome: string;
   descricao?: string;
+  categoria?: string;
   preco: number;
   ehServico: boolean;
   negocioId: number;
@@ -69,6 +70,7 @@ export function DetalhesProduto() {
   const [itemEdicao, setItemEdicao] = useState({
     nome: '',
     descricao: '',
+    categoria: '',
     preco: '',
     ehServico: false
   });
@@ -106,6 +108,7 @@ export function DetalhesProduto() {
         setItemEdicao({
           nome: response.data.produto.nome,
           descricao: response.data.produto.descricao || '',
+          categoria: response.data.produto.categoria || '',
           preco: String(response.data.produto.preco || ''),
           ehServico: response.data.produto.ehServico
         });
@@ -131,6 +134,7 @@ export function DetalhesProduto() {
       await api.put(`/ProdutosServicos/${id}`, {
         nome: itemEdicao.nome.trim(),
         descricao: itemEdicao.descricao.trim(),
+        categoria: itemEdicao.categoria?.trim() || null,
         preco: Number(itemEdicao.preco) || 0,
         ehServico: itemEdicao.ehServico
       });
@@ -203,6 +207,15 @@ export function DetalhesProduto() {
                   <h1 className="text-lg md:text-xl font-black text-white uppercase tracking-tight">
                     {produto.nome}
                   </h1>
+
+                  {/* Tag / Categoria */}
+                  {produto.categoria && (
+                    <span className="px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border bg-purple-950/40 text-purple-300 border-purple-900/50 flex items-center gap-1">
+                      <Tag size={11} /> {produto.categoria}
+                    </span>
+                  )}
+
+                  {/* Tipo */}
                   <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
                     produto.ehServico 
                       ? 'bg-blue-950/40 text-blue-400 border-blue-900/50' 
@@ -220,9 +233,8 @@ export function DetalhesProduto() {
             </div>
 
             <div className="flex items-center gap-3 self-end md:self-auto">
-              {/* Preço Cadastrado */}
-              <div className="bg-gray-950 px-4 py-2 rounded-lg border border-gray-800 text-right">
-                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">Preço Padrão</span>
+              {/* Preço Unitário (Sem o texto Preço Padrão) */}
+              <div className="bg-gray-950 px-4 py-2.5 rounded-lg border border-gray-800 text-right flex items-center justify-center">
                 <span className="text-base font-black text-emerald-400">
                   R$ {Number(produto.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -254,29 +266,25 @@ export function DetalhesProduto() {
               </div>
             </div>
 
-            {/* Quantidade Total Vendida */}
+            {/* Unidades Vendidas */}
             <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
               <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50">
                 <Boxes size={22} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Qtd. Total Vendida</p>
-                <p className="text-xl font-black text-teal-400">
-                  {quantidadeTotal} {quantidadeTotal === 1 ? 'unidade' : 'unidades'}
-                </p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unidades Vendidas</p>
+                <p className="text-xl font-black text-white">{quantidadeTotal}</p>
               </div>
             </div>
 
-            {/* Lançamentos Vinculados */}
+            {/* Total de Vendas (Transações) */}
             <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
               <div className="p-3 bg-blue-950/50 text-blue-400 rounded-lg border border-blue-900/50">
                 <Receipt size={22} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vendas / Lançamentos</p>
-                <p className="text-xl font-black text-blue-400">
-                  {qtdTransacoes} {qtdTransacoes === 1 ? 'venda' : 'vendas'}
-                </p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total de Vendas</p>
+                <p className="text-xl font-black text-blue-400">{qtdTransacoes}</p>
               </div>
             </div>
 
@@ -286,7 +294,7 @@ export function DetalhesProduto() {
                 <HandCoins size={22} />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ticket Médio p/ Venda</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ticket Médio</p>
                 <p className="text-xl font-black text-amber-400">
                   R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
@@ -294,61 +302,54 @@ export function DetalhesProduto() {
             </div>
           </div>
 
-          {/* PAINEL DO GRÁFICO MÊS A MÊS */}
-          <div className="bg-gray-900 p-5 md:p-6 rounded-xl border border-gray-800 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
-                  <TrendingUp size={20} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight">
-                    Evolução Mensal ({anoAtivo})
-                  </h3>
-                  <p className="text-[11px] text-gray-400 font-medium">
-                    Desempenho de vendas do item ao longo dos meses
-                  </p>
-                </div>
+          {/* GRÁFICO DE EVOLUÇÃO MENSAL COM SELETOR DE ANO */}
+          <div className="bg-gray-900 p-5 md:p-6 rounded-xl border border-gray-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">
+                  Performance Mês a Mês ({anoAtivo})
+                </h3>
               </div>
 
-              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
-                {/* Seletor de Tipo de Gráfico */}
-                <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800 text-[10px] font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end flex-wrap">
+                {/* Alternador de Métrica (Faturamento vs Quantidade) */}
+                <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800">
                   <button
                     type="button"
                     onClick={() => setTipoGrafico('faturamento')}
-                    className={`px-3 py-1.5 rounded transition-all border-none cursor-pointer ${
-                      tipoGrafico === 'faturamento' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-gray-200'
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer ${
+                      tipoGrafico === 'faturamento' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-gray-300'
                     }`}
                   >
-                    R$ Faturamento
+                    Faturamento (R$)
                   </button>
                   <button
                     type="button"
                     onClick={() => setTipoGrafico('quantidade')}
-                    className={`px-3 py-1.5 rounded transition-all border-none cursor-pointer ${
-                      tipoGrafico === 'quantidade' ? 'bg-teal-600 text-white' : 'text-gray-400 hover:text-gray-200'
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer ${
+                      tipoGrafico === 'quantidade' ? 'bg-teal-600 text-white' : 'text-gray-500 hover:text-gray-300'
                     }`}
                   >
-                    Quantidade
+                    Quantidade (Unid.)
                   </button>
                 </div>
 
                 {/* Seletor de Ano */}
-                <div className="flex items-center gap-1 bg-gray-950 border border-gray-800 p-1 rounded-lg">
+                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
                   <button
                     type="button"
-                    onClick={() => setAnoAtivo(a => a - 1)}
-                    className="p-1.5 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer"
+                    onClick={() => setAnoAtivo(prev => prev - 1)}
+                    className="p-1.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer rounded hover:bg-gray-900"
                     title="Ano Anterior"
                   >
                     <ChevronLeft size={16} />
                   </button>
-                  <span className="font-black text-xs px-2 text-white">{anoAtivo}</span>
+                  <span className="px-2 text-xs font-black text-white">{anoAtivo}</span>
                   <button
                     type="button"
-                    onClick={() => setAnoAtivo(a => a + 1)}
-                    className="p-1.5 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer"
+                    onClick={() => setAnoAtivo(prev => prev + 1)}
+                    className="p-1.5 text-gray-400 hover:text-white bg-transparent border-none cursor-pointer rounded hover:bg-gray-900"
                     title="Próximo Ano"
                   >
                     <ChevronRight size={16} />
@@ -357,183 +358,151 @@ export function DetalhesProduto() {
               </div>
             </div>
 
-            {/* Container do Gráfico */}
-            <div className="h-64 w-full pt-4">
+            {/* Gráfico Recharts */}
+            <div className="h-72 w-full pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 {tipoGrafico === 'faturamento' ? (
                   <AreaChart data={evolucaoMensal} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
+                      <linearGradient id="gradienteFaturamento" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                    <XAxis 
-                      dataKey="mes" 
-                      stroke="#9ca3af" 
-                      fontSize={11} 
-                      tickLine={false} 
-                      axisLine={false}
-                    />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis 
-                      stroke="#9ca3af" 
+                      stroke="#6b7280" 
                       fontSize={11} 
                       tickLine={false} 
                       axisLine={false}
-                      tickFormatter={(v) => `R$ ${v}`}
+                      tickFormatter={val => `R$ ${val}`} 
                     />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#030712', borderColor: '#374151', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
-                      formatter={(valor: any) => [`R$ ${Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Faturamento']}
+                      contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
+                      formatter={(value: any) => [`R$ ${Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Faturamento']}
+                      labelFormatter={(label) => `Mês de ${label}`}
                     />
                     <Area 
                       type="monotone" 
                       dataKey="faturamento" 
                       stroke="#10b981" 
-                      strokeWidth={2.5} 
+                      strokeWidth={3} 
                       fillOpacity={1} 
-                      fill="url(#colorFaturamento)" 
+                      fill="url(#gradienteFaturamento)" 
                     />
                   </AreaChart>
                 ) : (
                   <BarChart data={evolucaoMensal} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                    <XAxis 
-                      dataKey="mes" 
-                      stroke="#9ca3af" 
-                      fontSize={11} 
-                      tickLine={false} 
-                      axisLine={false}
-                    />
-                    <YAxis 
-                      stroke="#9ca3af" 
-                      fontSize={11} 
-                      tickLine={false} 
-                      axisLine={false}
-                    />
+                    <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#6b7280" fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip 
-                      contentStyle={{ backgroundColor: '#030712', borderColor: '#374151', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
-                      formatter={(valor: any) => [`${valor} un`, 'Quantidade']}
+                      contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '0.5rem', color: '#fff', fontSize: '12px' }}
+                      formatter={(value: any) => [`${value} unidades`, 'Qtd. Vendida']}
+                      labelFormatter={(label) => `Mês de ${label}`}
                     />
-                    <Bar 
-                      dataKey="quantidade" 
-                      fill="#14b8a6" 
-                      radius={[4, 4, 0, 0]} 
-                    />
+                    <Bar dataKey="quantidade" fill="#0d9488" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* ONDE FOI VENDIDO (LANÇAMENTOS VINCULADOS) */}
+          {/* ONDE FOI VENDIDO (CARDS DE TRANSAÇÕES VINCULADAS) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <Receipt size={18} className="text-emerald-400" />
-                <h2 className="text-sm font-black text-gray-200 uppercase tracking-wider">
-                  Vendas & Lançamentos Vinculados
-                </h2>
-              </div>
-              <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-950/40 border border-emerald-900/50 px-2.5 py-1 rounded-md">
-                {transacoes.length} {transacoes.length === 1 ? 'LANÇAMENTO' : 'LANÇAMENTOS'}
-              </span>
+              <h3 className="font-black text-gray-300 text-xs uppercase tracking-wider flex items-center gap-2">
+                <Receipt size={16} className="text-emerald-400" />
+                Onde Foi Vendido ({transacoes.length} Lançamentos)
+              </h3>
             </div>
 
             {transacoes.length === 0 ? (
-              <div className="bg-gray-900 p-12 rounded-xl border border-dashed border-gray-800 text-center">
-                <Receipt size={36} className="mx-auto text-gray-600 mb-2" />
-                <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Nenhuma venda encontrada para este item.</p>
-                <p className="text-gray-600 text-xs font-medium mt-1">Quando você registrar vendas com este item no fluxo de caixa, elas aparecerão aqui.</p>
+              <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 text-center">
+                <Receipt size={32} className="mx-auto text-gray-600 mb-2" />
+                <p className="text-xs font-bold text-gray-400 uppercase">Nenhuma venda registrada ainda</p>
+                <p className="text-[11px] text-gray-600 mt-1">
+                  Assim que você lançar vendas com este item no fluxo de caixa, os registros e clientes aparecerão aqui.
+                </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-2.5">
-                {transacoes.map((t) => {
-                  const dataObj = formatarDataLocal(t.data);
-                  const isAberta = itemAberto === t.id;
-
-                  return (
+              <div className="space-y-2">
+                {transacoes.map((t) => (
+                  <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+                    {/* Header do Card */}
                     <div 
-                      key={t.id} 
-                      className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden hover:border-gray-700 transition-all shadow-sm"
+                      onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)}
+                      className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 cursor-pointer hover:bg-gray-800/40 transition-colors"
                     >
-                      <button
-                        type="button"
-                        onClick={() => setItemAberto(isAberta ? null : t.id)}
-                        className="w-full flex items-center justify-between p-4 bg-transparent border-none cursor-pointer outline-none text-left"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          {/* Dia */}
-                          <div className="w-9 h-9 rounded-lg flex items-center justify-center border bg-emerald-950/40 border-emerald-900 text-emerald-400 flex-shrink-0">
-                            <span className="text-xs font-black">
-                              {dataObj.getDate().toString().padStart(2, '0')}
+                      <div className="flex items-start md:items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-950/40 border border-emerald-900/50 text-emerald-400 flex items-center justify-center flex-shrink-0 mt-0.5 md:mt-0">
+                          <ArrowUpRight size={18} />
+                        </div>
+                        
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-white text-sm">{t.descricao}</span>
+                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/60 border border-emerald-900/50 px-2 py-0.5 rounded">
+                              {t.quantidadeItem}x na venda
                             </span>
                           </div>
-
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
-                                {t.cliente?.nome || "Venda Avulsa"}
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-teal-950/40 text-teal-400 border border-teal-900/50">
-                                {t.quantidadeItem}x neste pedido
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-gray-500 font-medium">
-                              {dataObj.toLocaleDateString('pt-BR')} ({calcularTempoDesde(t.data)})
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className={`text-sm font-black tracking-tight ${
-                            t.status === 'Pendente' ? 'text-amber-400' : 'text-emerald-400'
-                          }`}>
-                            R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                          {isAberta ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
-                        </div>
-                      </button>
-
-                      {/* DETALHES EXPANSÍVEIS */}
-                      {isAberta && (
-                        <div className="px-4 pb-4 pt-1 space-y-3 bg-gray-950/30 border-t border-gray-800/60 animate-in slide-in-from-top duration-200">
-                          {/* Descrição dos itens da transação */}
-                          <div className="p-3 bg-gray-950/60 rounded-lg border border-gray-800 text-xs text-gray-300 font-medium">
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">Itens do Lançamento:</span>
-                            {t.descricao}
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 border ${
-                                t.status === 'Pago' 
-                                  ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400' 
-                                  : 'bg-amber-950/50 border-amber-900 text-amber-400'
-                              }`}>
-                                <CheckCircle2 size={11} /> {t.status}
-                              </span>
-
-                              <span className="bg-gray-950 border border-gray-800 px-2.5 py-1 rounded-md flex items-center gap-1 text-[9px] font-black uppercase text-gray-400">
-                                <Tag size={10} className="text-gray-500" /> {t.metodoPagamento}
-                              </span>
-                            </div>
-
+                          <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                            <span>{new Date(t.data).toLocaleDateString('pt-BR')} ({calcularTempoDesde(t.data)})</span>
                             {t.cliente && (
-                              <Link 
-                                to={`/clientes/${t.cliente.id}`} 
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-900/60 rounded-md text-[10px] font-black uppercase tracking-wider transition-colors"
-                              >
-                                <User size={12} /> Ver Perfil do Cliente <ArrowUpRight size={12} />
-                              </Link>
+                              <span className="text-gray-300 font-medium flex items-center gap-1">
+                                <User size={12} className="text-emerald-400" /> {t.cliente.nome}
+                              </span>
                             )}
                           </div>
                         </div>
-                      )}
+                      </div>
+
+                      <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 border-gray-800/60 pt-2 md:pt-0">
+                        <div className="text-right">
+                          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">Total Venda</span>
+                          <span className="text-sm font-black text-white">
+                            R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-wider ${
+                            t.status === 'Pago' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-900/50' : 'bg-amber-950/60 text-amber-400 border border-amber-900/50'
+                          }`}>
+                            {t.status}
+                          </span>
+
+                          <span className="px-2 py-1 bg-gray-950 text-gray-400 border border-gray-800 rounded text-[10px] font-bold uppercase">
+                            {t.metodoPagamento}
+                          </span>
+
+                          <button className="text-gray-500 hover:text-white bg-transparent border-none p-1">
+                            {itemAberto === t.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  );
-                })}
+
+                    {/* Detalhes Expansíveis */}
+                    {itemAberto === t.id && (
+                      <div className="bg-gray-950/60 p-4 border-t border-gray-800/80 text-xs space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Itens inclusos neste lançamento:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {t.itens && t.itens.length > 0 ? (
+                            t.itens.map((it, idx) => (
+                              <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-300">
+                                <strong className="text-emerald-400">{it.quantidade}x</strong> {it.nome}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-gray-500 italic">Itens discriminados na descrição: {t.descricao}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -565,13 +534,13 @@ export function DetalhesProduto() {
                   className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" 
                   value={itemEdicao.nome} 
                   onChange={e => setItemEdicao({...itemEdicao, nome: e.target.value})} 
-                  placeholder="Nome do produto ou serviço" 
+                  placeholder="Nome" 
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Preço Padrão (Opcional - R$)</label>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Preço (R$)</label>
                   <input 
                     type="number"
                     step="0.01"
@@ -579,6 +548,17 @@ export function DetalhesProduto() {
                     value={itemEdicao.preco} 
                     onChange={e => setItemEdicao({...itemEdicao, preco: e.target.value})} 
                     placeholder="0,00" 
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Tag / Categoria</label>
+                  <input 
+                    type="text"
+                    className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-purple-300 font-bold outline-none focus:border-purple-600 text-sm" 
+                    value={itemEdicao.categoria} 
+                    onChange={e => setItemEdicao({...itemEdicao, categoria: e.target.value})} 
+                    placeholder="Tag" 
                   />
                 </div>
 
