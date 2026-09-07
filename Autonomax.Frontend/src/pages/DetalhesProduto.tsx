@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
@@ -77,6 +77,10 @@ export function DetalhesProduto() {
   // Card de transação expandido
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<'faturamento' | 'quantidade'>('faturamento');
+
+  // Paginação das vendas
+  const [paginaVendas, setPaginaVendas] = useState(1);
+  const VENDAS_POR_PAGINA = 10;
 
   // Modal de edição do produto
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
@@ -247,6 +251,15 @@ export function DetalhesProduto() {
     return null;
   };
 
+  const { produto, totalFaturado, quantidadeTotal, ultimaVenda, evolucaoMensal, transacoes = [] } = dados || {};
+
+  // Paginação das vendas
+  const totalPaginasVendas = Math.ceil(transacoes.length / VENDAS_POR_PAGINA) || 1;
+  const transacoesPaginadas = useMemo(() => {
+    const inicio = (paginaVendas - 1) * VENDAS_POR_PAGINA;
+    return transacoes.slice(inicio, inicio + VENDAS_POR_PAGINA);
+  }, [transacoes, paginaVendas]);
+
   if (carregando) {
     return (
       <Layout>
@@ -258,7 +271,7 @@ export function DetalhesProduto() {
     );
   }
 
-  if (!dados || !dados.produto) {
+  if (!dados || !produto) {
     return (
       <Layout>
         <div className="min-h-screen bg-gray-950 pt-12 px-4 text-center">
@@ -277,8 +290,6 @@ export function DetalhesProduto() {
       </Layout>
     );
   }
-
-  const { produto, totalFaturado, quantidadeTotal, ultimaVenda, evolucaoMensal, transacoes } = dados;
 
   return (
     <Layout>
@@ -342,7 +353,7 @@ export function DetalhesProduto() {
             </div>
 
             <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 border-gray-800/80 pt-3 sm:pt-0">
-              {/* Preço Unitário (Sem o texto Preço Padrão) */}
+              {/* Preço Unitário */}
               <div className="bg-gray-950 px-4 py-2.5 rounded-lg border border-gray-800 text-center sm:text-right flex-1 sm:flex-initial">
                 <span className="text-sm sm:text-base font-black text-emerald-400">
                   R$ {Number(produto.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -371,7 +382,7 @@ export function DetalhesProduto() {
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Faturamento Total</p>
                 <p className="text-lg sm:text-xl font-black text-emerald-400">
-                  R$ {totalFaturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {totalFaturado?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -520,7 +531,7 @@ export function DetalhesProduto() {
             )}
           </div>
 
-          {/* ONDE FOI VENDIDO (CARDS DE VENDAS COM DATA À ESQUERDA E EXPANSÃO COMPLETA) */}
+          {/* ONDE FOI VENDIDO (CARDS DE VENDAS COM DATA À ESQUERDA, ITENS EM TAGS E PAGINAÇÃO) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="font-black text-gray-300 text-xs uppercase tracking-wider flex items-center gap-2">
@@ -539,7 +550,7 @@ export function DetalhesProduto() {
               </div>
             ) : (
               <div className="space-y-2">
-                {transacoes.map((t) => {
+                {transacoesPaginadas.map((t) => {
                   const dataObj = formatarDataLocal(t.data);
                   const isAberta = itemAberto === t.id;
 
@@ -586,39 +597,21 @@ export function DetalhesProduto() {
 
                       {/* DETALHES EXPANSÍVEIS AO CLICAR */}
                       {isAberta && (
-                        <div className="px-4 pb-4 pt-2 space-y-3 bg-gray-950/40 border-t border-gray-800/80 animate-in slide-in-from-top duration-200 text-xs">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-gray-400 border-b border-gray-800/60 pb-2">
-                            <div>
-                              <span className="text-gray-500 font-bold uppercase text-[10px] block">Descrição do Lançamento</span>
-                              <p className="text-white font-medium text-xs mt-0.5">{t.descricao}</p>
-                            </div>
-                            <div className="sm:text-right">
-                              <span className="text-gray-500 font-bold uppercase text-[10px] block">Total da Venda</span>
-                              <p className="text-emerald-400 font-black text-sm">
-                                R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </p>
-                            </div>
+                        <div className="px-4 pb-4 pt-2.5 space-y-3 bg-gray-950/40 border-t border-gray-800/80 animate-in slide-in-from-top duration-200 text-xs">
+                          {/* Itens inclusos nesta venda envolvidos diretamente em Tags */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {t.itens && t.itens.length > 0 ? (
+                              t.itens.map((it, idx) => (
+                                <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-300 text-xs">
+                                  <strong className="text-emerald-400">{it.quantidade}x</strong> {it.nome}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-300 text-xs">{t.descricao}</span>
+                            )}
                           </div>
 
-                          {/* Itens inclusos nesta venda */}
-                          <div>
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
-                              Itens inclusos nesta venda:
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {t.itens && t.itens.length > 0 ? (
-                                t.itens.map((it, idx) => (
-                                  <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-300 text-xs">
-                                    <strong className="text-emerald-400">{it.quantidade}x</strong> {it.nome}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-gray-400 italic text-xs">{t.descricao}</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Rodapé com badges e Ações: Ver Cliente, Editar, Deletar */}
+                          {/* Rodapé com badges e Ações: Ver Cliente (somente ícone), Editar, Deletar */}
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-800/60">
                             <div className="flex items-center gap-1.5">
                               <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider ${
@@ -635,10 +628,10 @@ export function DetalhesProduto() {
                               {t.clienteId && (
                                 <Link 
                                   to={`/clientes/${t.clienteId}`} 
-                                  className="px-2.5 py-1.5 rounded-md border text-emerald-400 bg-emerald-950/40 border-emerald-900 hover:bg-emerald-900/40 transition-all flex items-center gap-1 text-[10px] font-black uppercase tracking-wider"
-                                  title="Ver Detalhes do Cliente"
+                                  className="p-2 text-emerald-400 bg-emerald-950/40 border border-emerald-900 rounded-md cursor-pointer hover:bg-emerald-900/40 transition-all flex items-center justify-center"
+                                  title="Ver Cliente"
                                 >
-                                  <User size={12} /> <span>Ver Cliente</span>
+                                  <User size={14} />
                                 </Link>
                               )}
                               <button 
@@ -664,6 +657,52 @@ export function DetalhesProduto() {
                     </div>
                   );
                 })}
+
+                {/* CONTROLE DE PAGINAÇÃO DAS VENDAS */}
+                {totalPaginasVendas > 1 && (
+                  <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 mt-3">
+                    <span className="text-xs font-medium text-gray-400">
+                      Mostrando <strong className="text-white">{(paginaVendas - 1) * VENDAS_POR_PAGINA + 1}</strong> a <strong className="text-white">{Math.min(paginaVendas * VENDAS_POR_PAGINA, transacoes.length)}</strong> de <strong className="text-emerald-400">{transacoes.length}</strong> vendas
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={paginaVendas === 1}
+                        onClick={() => setPaginaVendas(prev => Math.max(prev - 1, 1))}
+                        className="px-3 py-1.5 bg-gray-950 border border-gray-800 rounded-md text-xs font-bold text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 transition-all"
+                      >
+                        <ChevronLeft size={14} /> Anterior
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPaginasVendas }, (_, i) => i + 1).map(num => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => setPaginaVendas(num)}
+                            className={`w-8 h-8 rounded-md text-xs font-black border transition-all cursor-pointer ${
+                              paginaVendas === num
+                                ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
+                                : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={paginaVendas === totalPaginasVendas}
+                        onClick={() => setPaginaVendas(prev => Math.min(prev + 1, totalPaginasVendas))}
+                        className="px-3 py-1.5 bg-gray-950 border border-gray-800 rounded-md text-xs font-bold text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 transition-all"
+                      >
+                        Próxima <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
