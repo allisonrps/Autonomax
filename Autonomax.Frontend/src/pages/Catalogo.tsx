@@ -10,6 +10,7 @@ import {
   Eye, EyeOff, Tag, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 export interface ProdutoServico {
   id: number;
@@ -701,10 +702,7 @@ export function Catalogo() {
           {/* LISTA DE ITENS DO CATÁLOGO COM PAGINAÇÃO */}
           <div className="flex flex-col gap-2.5">
             {carregando ? (
-              <div className="bg-gray-900 p-12 rounded-xl border border-gray-800 text-center">
-                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Carregando catálogo...</p>
-              </div>
+              <LoadingProgress message="Carregando catálogo..." compact />
             ) : itensFiltrados.length === 0 ? (
               <div className="bg-gray-900 p-12 rounded-xl border border-dashed border-gray-800 text-center">
                 <Boxes size={36} className="mx-auto text-gray-600 mb-3" />

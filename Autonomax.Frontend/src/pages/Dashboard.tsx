@@ -9,6 +9,7 @@ import {
   Filter, Coins, QrCode, CreditCard
 } from 'lucide-react';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Item { nome: string; quantidade: number; }
 interface Cliente { id: number; nome: string; }
@@ -45,6 +46,7 @@ export function Dashboard() {
   const [filtroAtivo, setFiltroAtivo] = useState<'Tudo' | 'Entrada' | 'Saida' | 'Pendente'>('Tudo');
 
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [carregando, setCarregando] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
@@ -72,6 +74,7 @@ export function Dashboard() {
 
   const carregarDados = useCallback(async () => {
     if (!negocioId) return;
+    setCarregando(true);
     try {
       const [resTrans, resCli, resFor, resProd] = await Promise.allSettled([
         api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`),
@@ -103,6 +106,8 @@ export function Dashboard() {
       }
     } catch (err) { 
       console.error("Erro ao carregar dados do dashboard:", err); 
+    } finally {
+      setCarregando(false);
     }
   }, [negocioId, mesAtivo, anoAtivo]);
 
@@ -502,7 +507,9 @@ export function Dashboard() {
             </div>
             
             <div className="flex flex-col gap-2">
-              {transacoesFiltradas.length === 0 ? (
+              {carregando ? (
+                <LoadingProgress message="Carregando lançamentos..." compact />
+              ) : transacoesFiltradas.length === 0 ? (
                 <div className="bg-gray-900 p-12 rounded-lg border border-dashed border-gray-800 text-center">
                   <p className="text-gray-500 font-bold text-xs uppercase tracking-wider">Nenhum lançamento encontrado.</p>
                 </div>

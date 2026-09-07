@@ -8,6 +8,7 @@ import {
   DollarSign, Activity, Plus
 } from 'lucide-react';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Fornecedor {
   id: number;
@@ -376,10 +377,7 @@ export function Fornecedores() {
           {/* LISTA DE FORNECEDORES */}
           <div className="flex flex-col gap-2.5">
             {carregando ? (
-              <div className="bg-gray-900 p-12 rounded-xl border border-gray-800 text-center">
-                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-gray-400 font-bold text-xs uppercase tracking-wider">Carregando parceiros...</p>
-              </div>
+              <LoadingProgress message="Carregando parceiros..." compact />
             ) : fornecedoresFiltrados.length === 0 ? (
               <div className="bg-gray-900 p-12 rounded-xl border border-dashed border-gray-800 text-center">
                 <Truck size={36} className="mx-auto text-gray-600 mb-3" />

@@ -107,4 +107,63 @@ public class ProdutosServicosTests
         // Deve ter removido o item que pertencia exclusivamente a despesas
         Assert.DoesNotContain(itensCadastrados, p => p.Nome.Equals("Aluguel Sala", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public async Task GetDetalhes_DeveCalcularFaturamentoIndividualEOrdenarPorDataDecrescente()
+    {
+        var db = GetDatabase();
+        int negocioId = 3;
+
+        var produto = new ProdutoServico
+        {
+            NegocioId = negocioId,
+            Nome = "Cartaz M",
+            Preco = 25m,
+            EhServico = false
+        };
+        db.ProdutosServicos.Add(produto);
+        await db.SaveChangesAsync();
+
+        // Transação antiga (venda com múltiplos itens, total R$ 500)
+        db.Transacoes.Add(new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "2x Cartaz M, 1x Letreiro Neon",
+            Valor = 500m,
+            Tipo = "Entrada",
+            Data = new DateTime(2026, 1, 10)
+        });
+
+        // Transação mais recente (venda avulsa, 3x Cartaz M, total R$ 75)
+        db.Transacoes.Add(new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "3x Cartaz M",
+            Valor = 75m,
+            Tipo = "Entrada",
+            Data = new DateTime(2026, 5, 20)
+        });
+
+        await db.SaveChangesAsync();
+
+        var controller = new ProdutosServicosController(db);
+        var result = await controller.GetDetalhes(produto.Id, negocioId, 2026) as OkObjectResult;
+
+        Assert.NotNull(result);
+        var jsonStr = System.Text.Json.JsonSerializer.Serialize(result.Value);
+        using var doc = System.Text.Json.JsonDocument.Parse(jsonStr);
+        var root = doc.RootElement;
+
+        // Quantidade total vendida = 2 + 3 = 5
+        Assert.Equal(5, root.GetProperty("quantidadeTotal").GetInt32());
+
+        // Faturamento individual = 5 * 25m = 125m (e NÃO a soma de 500 + 75 = 575)
+        Assert.Equal(125m, root.GetProperty("totalFaturado").GetDecimal());
+
+        // Primeira transação retornada deve ser a mais recente (20/05/2026)
+        var transacoes = root.GetProperty("transacoes");
+        Assert.Equal(2, transacoes.GetArrayLength());
+        var primeiraData = transacoes[0].GetProperty("data").GetString();
+        Assert.StartsWith("2026-05-20", primeiraData);
+    }
 }

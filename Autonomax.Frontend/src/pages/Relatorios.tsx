@@ -10,6 +10,7 @@ import {
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Item { nome: string; quantidade: number; }
 interface Transacao {
@@ -66,7 +67,11 @@ export function Relatorios() {
       return acc;
     }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
 
-  if (loading) return <Layout><div className="min-h-screen bg-gray-950 flex items-center justify-center text-emerald-500 font-black uppercase tracking-widest animate-pulse">Carregando Analítico...</div></Layout>;
+  if (loading) return (
+    <Layout>
+      <LoadingProgress message="Carregando dados analíticos..." />
+    </Layout>
+  );
 
   return (
     <Layout>

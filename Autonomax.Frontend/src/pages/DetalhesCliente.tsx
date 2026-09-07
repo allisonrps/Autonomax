@@ -3,11 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   ArrowLeft, User, Receipt, MapPin, Phone, FileDown,
-  AlertCircle, Loader2, TrendingUp, History,
+  AlertCircle, TrendingUp, History,
   ChevronDown, ChevronUp, CheckCircle2, Tag,
   CalendarDays, Edit3, Trash2, Save, X, DollarSign, HandCoins, Plus, Wallet
 } from 'lucide-react';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Item { nome: string; quantidade: number; }
 
@@ -151,10 +152,7 @@ export function DetalhesCliente() {
 
   if (carregando && !dados) return (
     <Layout>
-      <div className="flex flex-col items-center justify-center p-20 space-y-4 min-h-screen bg-gray-950 -mt-8">
-        <Loader2 className="animate-spin text-emerald-500" size={40} />
-        <p className="text-gray-500 animate-pulse font-black uppercase text-[10px] tracking-widest">Sincronizando...</p>
-      </div>
+      <LoadingProgress message="Sincronizando dados do cliente..." />
     </Layout>
   );
 

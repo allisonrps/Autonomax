@@ -8,6 +8,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Item { nome: string; quantidade: number; }
 
@@ -140,10 +141,7 @@ export function DetalhesFornecedor() {
   if (carregando) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center p-20 space-y-3">
-          <Loader2 className="animate-spin text-emerald-500" size={40} />
-          <p className="text-gray-400 text-xs uppercase font-bold tracking-wider">Carregando histórico do parceiro...</p>
-        </div>
+        <LoadingProgress message="Carregando histórico do parceiro..." />
       </Layout>
     );
   }

@@ -13,6 +13,7 @@ import {
   Tooltip, ResponsiveContainer, BarChart, Bar
 } from 'recharts';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface ProdutoServico {
   id: number;
@@ -34,6 +35,7 @@ interface TransacaoVinculada {
   id: number;
   descricao: string;
   valor: number;
+  valorItem?: number;
   tipo: string;
   status: string;
   metodoPagamento: string;
@@ -253,20 +255,22 @@ export function DetalhesProduto() {
 
   const { produto, totalFaturado, quantidadeTotal, ultimaVenda, evolucaoMensal, transacoes = [] } = dados || {};
 
+  // Garante que a ordenação seja sempre da última venda para a primeira (data mais recente primeiro)
+  const transacoesOrdenadas = useMemo(() => {
+    return [...transacoes].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+  }, [transacoes]);
+
   // Paginação das vendas
-  const totalPaginasVendas = Math.ceil(transacoes.length / VENDAS_POR_PAGINA) || 1;
+  const totalPaginasVendas = Math.ceil(transacoesOrdenadas.length / VENDAS_POR_PAGINA) || 1;
   const transacoesPaginadas = useMemo(() => {
     const inicio = (paginaVendas - 1) * VENDAS_POR_PAGINA;
-    return transacoes.slice(inicio, inicio + VENDAS_POR_PAGINA);
-  }, [transacoes, paginaVendas]);
+    return transacoesOrdenadas.slice(inicio, inicio + VENDAS_POR_PAGINA);
+  }, [transacoesOrdenadas, paginaVendas]);
 
   if (carregando) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-emerald-500 font-black uppercase tracking-widest gap-3">
-          <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs text-gray-400">Carregando análise do item...</p>
-        </div>
+        <LoadingProgress message="Carregando análise do item..." />
       </Layout>
     );
   }
@@ -584,11 +588,27 @@ export function DetalhesProduto() {
                           </div>
                         </div>
 
-                        {/* Valor Total da Venda e Flecha */}
+                        {/* Valor Individual do Item nesta Venda e Flecha */}
                         <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className="text-xs sm:text-sm font-black text-white tracking-tight">
-                            R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
+                          {(() => {
+                            const valorItemCalc = (t.valorItem !== undefined && t.valorItem > 0)
+                              ? t.valorItem
+                              : ((produto.preco > 0) ? (produto.preco * t.quantidadeItem) : t.valor);
+                            const ehDiferente = t.valor !== valorItemCalc;
+
+                            return (
+                              <div className="text-right">
+                                <span className="text-xs sm:text-sm font-black text-emerald-400 tracking-tight block">
+                                  R$ {Number(valorItemCalc).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                                {ehDiferente && (
+                                  <span className="text-[9px] text-gray-500 font-bold uppercase tracking-wider block">
+                                    Venda: R$ {Number(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                           <div className="text-gray-500">
                             {isAberta ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </div>

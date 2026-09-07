@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronUp, ArrowDownWideNarrow
 } from 'lucide-react';
 import api from '../services/api';
+import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Cliente {
   id: number;
@@ -24,6 +25,7 @@ interface Cliente {
 
 export function Clientes() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [carregando, setCarregando] = useState(false);
   const [formAberto, setFormAberto] = useState(false);
   const [novoCliente, setNovoCliente] = useState({ 
     nome: '', celular: '', endereco: '', cidade: '', estado: '', observacoes: '' 
@@ -41,10 +43,15 @@ export function Clientes() {
 
   async function carregarClientes() {
     if (!currentNegocioId) return;
+    setCarregando(true);
     try {
       const response = await api.get(`/Clientes/por-negocio/${currentNegocioId}`);
       setClientes(response.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+    } finally {
+      setCarregando(false);
+    }
   }
 
   const calcularDias = (dataISO: string | undefined) => {
@@ -220,7 +227,9 @@ export function Clientes() {
 
           {/* LISTA DE CLIENTES */}
           <div className="flex flex-col gap-2.5">
-            {clientesFiltrados.length === 0 ? (
+            {carregando ? (
+              <LoadingProgress message="Carregando clientes..." compact />
+            ) : clientesFiltrados.length === 0 ? (
               <div className="bg-gray-900 p-12 rounded-xl border border-dashed border-gray-800 text-center">
                 <p className="text-gray-500 font-bold text-xs uppercase tracking-wider">Nenhum cliente atende aos critérios atuais.</p>
               </div>

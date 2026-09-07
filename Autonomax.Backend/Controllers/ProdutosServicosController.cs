@@ -59,6 +59,7 @@ public class ProdutosServicosController : ControllerBase
             .Include(t => t.Cliente)
             .Include(t => t.Itens)
             .Where(t => t.NegocioId == negocioId && t.Tipo != "Saida" && t.Tipo != "Saída" && t.Tipo != "Despesa")
+            .OrderByDescending(t => t.Data)
             .ToListAsync();
 
         var nomeProduto = produto.Nome.Trim();
@@ -115,7 +116,14 @@ public class ProdutosServicosController : ControllerBase
 
             if (vinculado)
             {
-                totalFaturado += t.Valor;
+                // Cálculo individual do faturamento deste item nesta venda:
+                // Preço cadastrado do item x quantidade nesta transação.
+                // Se o preço for 0 (não preenchido) e houver apenas 1 item na transação, usa o valor da transação como fallback.
+                decimal valorItemIndividual = (produto.Preco > 0) 
+                    ? (produto.Preco * qtdNestaTransacao)
+                    : ((t.Itens == null || t.Itens.Count <= 1) ? t.Valor : 0);
+
+                totalFaturado += valorItemIndividual;
                 quantidadeTotal += qtdNestaTransacao;
 
                 if (ultimaData == null || t.Data > ultimaData)
@@ -128,7 +136,7 @@ public class ProdutosServicosController : ControllerBase
                     int mesIdx = t.Data.Month - 1;
                     if (mesIdx >= 0 && mesIdx < 12)
                     {
-                        faturamentoPorMes[mesIdx] += t.Valor;
+                        faturamentoPorMes[mesIdx] += valorItemIndividual;
                         quantidadePorMes[mesIdx] += qtdNestaTransacao;
                     }
                 }
@@ -138,6 +146,7 @@ public class ProdutosServicosController : ControllerBase
                     id = t.Id,
                     descricao = t.Descricao,
                     valor = t.Valor,
+                    valorItem = valorItemIndividual,
                     tipo = t.Tipo,
                     status = t.Status,
                     metodoPagamento = t.MetodoPagamento,
