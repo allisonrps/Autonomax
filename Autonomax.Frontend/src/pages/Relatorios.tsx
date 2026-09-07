@@ -57,7 +57,8 @@ export function Relatorios() {
 
   const rankingItens = Object.entries(transacoesDoAno.filter(t => t.tipo === 'Entrada').flatMap(t => t.itens || [])
     .reduce((acc: Record<string, number>, item) => {
-      const nome = item.nome.trim(); if (nome) acc[nome] = (acc[nome] || 0) + item.quantidade;
+      const nome = item.nome?.replace(/^[\d\s*xX•\-_/]+/, '').trim() || item.nome?.trim(); 
+      if (nome) acc[nome] = (acc[nome] || 0) + Math.max(1, item.quantidade || 1);
       return acc;
     }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
 

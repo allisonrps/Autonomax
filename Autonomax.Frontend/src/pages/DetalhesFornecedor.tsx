@@ -98,13 +98,45 @@ export function DetalhesFornecedor() {
     }
   };
 
+  const abrirEdicao = (t: Transacao) => {
+    let itensIniciais = (t.itens || []).map(it => {
+      const nomeLimpo = it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome;
+      return {
+        nome: nomeLimpo,
+        quantidade: Math.max(1, it.quantidade || 1)
+      };
+    });
+
+    if (itensIniciais.length === 0 && t.descricao) {
+      const partes = t.descricao.split(/[,;\n\r+/]/).map(p => p.trim()).filter(Boolean);
+      itensIniciais = partes.map(p => {
+        const match = p.match(/^\s*(?:(\d+)\s*[xX*•-]\s*|\s*(\d+)\s+)?(.+?)\s*$/);
+        const qtd = match ? Math.max(1, Number(match[1] || match[2] || 1)) : 1;
+        const nome = match ? match[3].replace(/^[\d\s*xX•\-_/]+/, '').trim() : p;
+        return { nome: nome || p, quantidade: qtd };
+      });
+    }
+
+    setEditando({
+      ...t,
+      itens: itensIniciais
+    });
+  };
+
   async function handleUpdateTransacao() {
     if (!editando) return;
     const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
+    const itensLimpos = (editando.itens || []).map(it => ({
+      ...it,
+      nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+      quantidade: Math.max(1, it.quantidade || 1)
+    }));
+
     const payload = {
       ...editando,
-      descricao: editando.itens && editando.itens.length > 0 
-        ? editando.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+      itens: itensLimpos,
+      descricao: itensLimpos.length > 0 
+        ? itensLimpos.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
         : editando.descricao,
       negocioId: Number(negocioId),
       data: dataAjustada.toISOString()
@@ -373,7 +405,7 @@ export function DetalhesFornecedor() {
 
                           <div className="flex gap-1.5">
                             <button 
-                              onClick={() => setEditando(t)} 
+                              onClick={() => abrirEdicao(t)} 
                               className="p-2 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-900/50 rounded-md transition-colors cursor-pointer"
                               title="Editar"
                             >

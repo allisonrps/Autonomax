@@ -81,8 +81,10 @@ public class ProdutosServicosController : ControllerBase
             // 1. Verifica itens na tabela ItensTransacao
             if (t.Itens != null && t.Itens.Count > 0)
             {
-                foreach (var it in t.Itens)
+                int matchIndex = -1;
+                for (int i = 0; i < t.Itens.Count; i++)
                 {
+                    var it = t.Itens[i];
                     var (corresponde, qtdCalculada, nomeLimpo) = AnalisarItemTransacao(it.Nome, it.Quantidade, nomeProduto);
                     var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : it.Nome;
                     var qtdItemFinal = Math.Max(1, Math.Max(it.Quantidade, qtdCalculada));
@@ -93,6 +95,23 @@ public class ProdutosServicosController : ControllerBase
                     {
                         vinculado = true;
                         qtdNestaTransacao += qtdItemFinal;
+                        matchIndex = itensFormatados.Count - 1;
+                    }
+                }
+
+                // Se houver correspondência ou se a descrição trouxer uma quantidade explícita maior (ex: "2X CARTAZ DUPLO")
+                if (!string.IsNullOrWhiteSpace(t.Descricao))
+                {
+                    var (correspDesc, qtdDesc, _) = AnalisarItemTransacao(t.Descricao, 1, nomeProduto);
+                    if (correspDesc && qtdDesc > qtdNestaTransacao)
+                    {
+                        vinculado = true;
+                        qtdNestaTransacao = qtdDesc;
+                        if (matchIndex >= 0 && matchIndex < itensFormatados.Count)
+                        {
+                            var oldIt = (dynamic)itensFormatados[matchIndex];
+                            itensFormatados[matchIndex] = new { nome = (string)oldIt.nome, quantidade = qtdDesc };
+                        }
                     }
                 }
             }
@@ -596,7 +615,25 @@ public class ProdutosServicosController : ControllerBase
                 context.ProdutosServicos.AddRange(novosProdutos);
             }
 
-            if (itensParaRemover.Count > 0 || novosProdutos.Count > 0)
+            // 3. Auto-reparo de integridade: corrige ItensTransacao no banco com quantidade zerada ou nomes com prefixos
+            var itensTransacaoParaCorrigir = await context.ItensTransacao
+                .Where(it => it.Quantidade <= 0)
+                .ToListAsync();
+
+            if (itensTransacaoParaCorrigir.Count > 0)
+            {
+                foreach (var itCorrigir in itensTransacaoParaCorrigir)
+                {
+                    var (qtdExtr, nomeLimpo) = ExtrairQtdENome(itCorrigir.Nome);
+                    itCorrigir.Quantidade = Math.Max(1, qtdExtr);
+                    if (!string.IsNullOrWhiteSpace(nomeLimpo))
+                    {
+                        itCorrigir.Nome = nomeLimpo;
+                    }
+                }
+            }
+
+            if (itensParaRemover.Count > 0 || novosProdutos.Count > 0 || itensTransacaoParaCorrigir.Count > 0)
             {
                 await context.SaveChangesAsync();
             }

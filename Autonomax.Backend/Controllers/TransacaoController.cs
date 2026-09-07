@@ -24,12 +24,15 @@ public class TransacoesController : ControllerBase
     [HttpGet("por-negocio/{negocioId:int}")] 
     public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoes(int negocioId)
     {
-        return await _context.Transacoes
+        var transacoes = await _context.Transacoes
             .Include(t => t.Cliente) 
             .Include(t => t.Itens)
             .Where(t => t.NegocioId == negocioId)
             .OrderByDescending(t => t.Data)
             .ToListAsync();
+
+        NormalizarItensTransacoes(transacoes);
+        return transacoes;
     }
 
     [HttpPost]
@@ -44,11 +47,31 @@ public class TransacoesController : ControllerBase
             transacao.Cliente = null;
             transacao.Fornecedor = null;
             
-            if (transacao.Itens != null)
+            if (transacao.Itens != null && transacao.Itens.Count > 0)
             {
                 foreach (var item in transacao.Itens)
                 {
-                    item.Transacao = null; 
+                    item.Transacao = null;
+                    var (qtdExtr, nomeLimpo) = ProdutosServicosController.ExtrairQtdENome(item.Nome);
+                    var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : item.Nome?.Trim();
+                    item.Nome = !string.IsNullOrWhiteSpace(nomeFinal) ? nomeFinal : "Item";
+                    item.Quantidade = Math.Max(1, Math.Max(item.Quantidade, qtdExtr));
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(transacao.Descricao))
+            {
+                transacao.Itens = new List<ItemTransacao>();
+                var partes = transacao.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var parte in partes)
+                {
+                    var pedaco = parte.Trim();
+                    if (string.IsNullOrWhiteSpace(pedaco)) continue;
+                    var (qtdExtr, nomeLimpo) = ProdutosServicosController.ExtrairQtdENome(pedaco);
+                    transacao.Itens.Add(new ItemTransacao
+                    {
+                        Nome = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : pedaco,
+                        Quantidade = Math.Max(1, qtdExtr)
+                    });
                 }
             }
 
@@ -69,6 +92,11 @@ public class TransacoesController : ControllerBase
                 .Include(t => t.Fornecedor)
                 .FirstOrDefaultAsync(t => t.Id == transacao.Id);
 
+            if (transacaoCriada != null)
+            {
+                NormalizarItensTransacoes(new[] { transacaoCriada });
+            }
+
             return Ok(transacaoCriada);
         }
         catch (Exception ex)
@@ -82,9 +110,63 @@ public class TransacoesController : ControllerBase
     public async Task<IActionResult> PutTransacao(int id, Transacao transacao)
     {
         if (id != transacao.Id) return BadRequest();
-        transacao.Cliente = null;
-        transacao.Fornecedor = null;
-        _context.Entry(transacao).State = EntityState.Modified;
+
+        var transacaoExistente = await _context.Transacoes
+            .Include(t => t.Itens)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (transacaoExistente == null) return NotFound();
+
+        transacaoExistente.Descricao = transacao.Descricao;
+        transacaoExistente.Valor = transacao.Valor;
+        transacaoExistente.Tipo = transacao.Tipo;
+        transacaoExistente.Status = transacao.Status;
+        transacaoExistente.MetodoPagamento = transacao.MetodoPagamento;
+        transacaoExistente.Data = transacao.Data;
+        transacaoExistente.ClienteId = transacao.ClienteId;
+        transacaoExistente.FornecedorId = transacao.FornecedorId;
+
+        // Atualiza a coleção de Itens associada
+        if (transacaoExistente.Itens != null && transacaoExistente.Itens.Count > 0)
+        {
+            _context.ItensTransacao.RemoveRange(transacaoExistente.Itens);
+            transacaoExistente.Itens.Clear();
+        }
+
+        transacaoExistente.Itens ??= new List<ItemTransacao>();
+
+        if (transacao.Itens != null && transacao.Itens.Count > 0)
+        {
+            foreach (var it in transacao.Itens)
+            {
+                var (qtdExtr, nomeLimpo) = ProdutosServicosController.ExtrairQtdENome(it.Nome);
+                var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : it.Nome?.Trim();
+                var qtdFinal = Math.Max(1, Math.Max(it.Quantidade, qtdExtr));
+                
+                transacaoExistente.Itens.Add(new ItemTransacao
+                {
+                    Nome = !string.IsNullOrWhiteSpace(nomeFinal) ? nomeFinal : "Item",
+                    Quantidade = qtdFinal,
+                    TransacaoId = id
+                });
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(transacao.Descricao))
+        {
+            var partes = transacao.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var parte in partes)
+            {
+                var pedaco = parte.Trim();
+                if (string.IsNullOrWhiteSpace(pedaco)) continue;
+                var (qtdExtr, nomeLimpo) = ProdutosServicosController.ExtrairQtdENome(pedaco);
+                transacaoExistente.Itens.Add(new ItemTransacao
+                {
+                    Nome = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : pedaco,
+                    Quantidade = Math.Max(1, qtdExtr),
+                    TransacaoId = id
+                });
+            }
+        }
 
         try 
         { 
@@ -116,6 +198,8 @@ public class TransacoesController : ControllerBase
             .OrderByDescending(t => t.Data)
             .ToListAsync();
 
+        NormalizarItensTransacoes(transacoes);
+
         return Ok(new { cliente, transacoes });
     }
 
@@ -135,19 +219,25 @@ public class TransacoesController : ControllerBase
             .OrderByDescending(t => t.Data)
             .ToListAsync();
 
+        NormalizarItensTransacoes(transacoes);
+
         return Ok(new { fornecedor, transacoes });
     }
 
     [HttpGet("por-periodo/{negocioId}")]
     public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoesPorPeriodo(int negocioId, [FromQuery] int mes, [FromQuery] int ano)
     {
-        return await _context.Transacoes
+        var transacoes = await _context.Transacoes
             .Include(t => t.Cliente)
             .Include(t => t.Fornecedor)
             .Include(t => t.Itens)
             .Where(t => t.NegocioId == negocioId && t.Data.Month == mes && t.Data.Year == ano)
             .OrderByDescending(t => t.Data)
             .ToListAsync();
+
+        NormalizarItensTransacoes(transacoes);
+
+        return transacoes;
     }
 
     [HttpDelete("{id}")]
@@ -158,6 +248,56 @@ public class TransacoesController : ControllerBase
         _context.Transacoes.Remove(transacao);
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+
+    public static void NormalizarItensTransacoes(IEnumerable<Transacao> transacoes)
+    {
+        if (transacoes == null) return;
+
+        foreach (var t in transacoes)
+        {
+            if (t.Itens != null && t.Itens.Count > 0)
+            {
+                foreach (var it in t.Itens)
+                {
+                    var (qtdExtr, nomeLimpo) = ProdutosServicosController.ExtrairQtdENome(it.Nome);
+                    var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : it.Nome?.Trim();
+                    it.Nome = !string.IsNullOrWhiteSpace(nomeFinal) ? nomeFinal : "Item";
+                    it.Quantidade = Math.Max(1, Math.Max(it.Quantidade, qtdExtr));
+                }
+
+                // Se houver apenas 1 item e a descrição contiver quantidade explícita maior (ex: "2X CARTAZ DUPLO")
+                if (t.Itens.Count == 1 && !string.IsNullOrWhiteSpace(t.Descricao))
+                {
+                    var (qtdDesc, _) = ProdutosServicosController.ExtrairQtdENome(t.Descricao);
+                    if (qtdDesc > t.Itens[0].Quantidade)
+                    {
+                        t.Itens[0].Quantidade = qtdDesc;
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(t.Descricao))
+            {
+                t.Itens = new List<ItemTransacao>();
+                var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var parte in partes)
+                {
+                    var pedaco = parte.Trim();
+                    if (string.IsNullOrWhiteSpace(pedaco)) continue;
+                    var (qtdExtr, nomeLimpo) = ProdutosServicosController.ExtrairQtdENome(pedaco);
+                    t.Itens.Add(new ItemTransacao
+                    {
+                        Nome = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : pedaco,
+                        Quantidade = Math.Max(1, qtdExtr),
+                        TransacaoId = t.Id
+                    });
+                }
+            }
+            else
+            {
+                t.Itens ??= new List<ItemTransacao>();
+            }
+        }
     }
 
 

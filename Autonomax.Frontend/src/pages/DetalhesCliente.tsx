@@ -111,12 +111,46 @@ export function DetalhesCliente() {
     }
   };
 
+  const abrirEdicao = (t: Transacao) => {
+    let itensIniciais = (t.itens || []).map(it => {
+      const nomeLimpo = it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome;
+      return {
+        nome: nomeLimpo,
+        quantidade: Math.max(1, it.quantidade || 1)
+      };
+    });
+
+    if (itensIniciais.length === 0 && t.descricao) {
+      const partes = t.descricao.split(/[,;\n\r+/]/).map(p => p.trim()).filter(Boolean);
+      itensIniciais = partes.map(p => {
+        const match = p.match(/^\s*(?:(\d+)\s*[xX*•-]\s*|\s*(\d+)\s+)?(.+?)\s*$/);
+        const qtd = match ? Math.max(1, Number(match[1] || match[2] || 1)) : 1;
+        const nome = match ? match[3].replace(/^[\d\s*xX•\-_/]+/, '').trim() : p;
+        return { nome: nome || p, quantidade: qtd };
+      });
+    }
+
+    setEditando({
+      ...t,
+      itens: itensIniciais
+    });
+  };
+
   async function handleUpdateTransacao() {
     if (!editando) return;
     const dataAjustada = new Date(editando.data.split('T')[0] + 'T12:00:00');
+    const itensLimpos = (editando.itens || []).map(it => ({
+      ...it,
+      nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+      quantidade: Math.max(1, it.quantidade || 1)
+    }));
+
     const payload = {
       ...editando,
-      descricao: editando.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
+      itens: itensLimpos,
+      descricao: itensLimpos.length > 0 
+        ? itensLimpos.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+        : editando.descricao,
       negocioId: Number(negocioId),
       data: dataAjustada.toISOString()
     };
@@ -304,7 +338,9 @@ export function DetalhesCliente() {
                       {itemAberto === t.id && (
                         <div className="px-4 md:px-5 pb-5 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
                           <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">
-                            {t.itens && t.itens.length > 0 ? t.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', ') : t.descricao}
+                            {t.itens && t.itens.length > 0 
+                              ? t.itens.map(it => `${Math.max(1, it.quantidade || 1)}x ${it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}`).join(', ') 
+                              : t.descricao}
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex items-center gap-1.5">
@@ -316,7 +352,7 @@ export function DetalhesCliente() {
                               </button>
                             </div>
                             <div className="flex gap-1.5">
-                              <button onClick={() => setEditando(t)} className="p-2 rounded-md border border-gray-800 transition-all cursor-pointer flex items-center justify-center text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/40"><Edit3 size={14}/></button>
+                              <button onClick={() => abrirEdicao(t)} className="p-2 rounded-md border border-gray-800 transition-all cursor-pointer flex items-center justify-center text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/40"><Edit3 size={14}/></button>
                               <button onClick={() => handleDelete(t.id)} className="p-2 text-red-400 bg-red-950/40 border border-red-900 rounded-md cursor-pointer hover:bg-red-900/30 transition-all flex items-center justify-center"><Trash2 size={14}/></button>
                             </div>
                           </div>

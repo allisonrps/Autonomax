@@ -252,8 +252,11 @@ export function DetalhesProduto() {
   function abrirEdicaoTransacao(t: TransacaoVinculada) {
     setTransacaoEditando(t);
     const itensClonados = t.itens && t.itens.length > 0
-      ? t.itens.map(it => ({ nome: it.nome, quantidade: Math.max(1, it.quantidade || 1) }))
-      : [{ nome: produto?.nome || t.descricao || 'Item', quantidade: Math.max(1, t.quantidadeItem || 1) }];
+      ? t.itens.map(it => ({ 
+          nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome, 
+          quantidade: Math.max(1, it.quantidade || 1) 
+        }))
+      : [{ nome: (produto?.nome || t.descricao || 'Item').replace(/^[\d\s*xX•\-_/]+/, '').trim() || 'Item', quantidade: Math.max(1, t.quantidadeItem || 1) }];
 
     setFormTransacaoEdicao({
       descricao: t.descricao,
@@ -271,8 +274,13 @@ export function DetalhesProduto() {
     if (!transacaoEditando) return;
     try {
       const dataAjustada = new Date(formTransacaoEdicao.data + 'T12:00:00');
-      const descricaoFinal = formTransacaoEdicao.itens.length > 0
-        ? formTransacaoEdicao.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+      const itensLimpos = formTransacaoEdicao.itens.map(it => ({
+        nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+        quantidade: Math.max(1, it.quantidade || 1)
+      }));
+
+      const descricaoFinal = itensLimpos.length > 0
+        ? itensLimpos.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
         : formTransacaoEdicao.descricao;
 
       await api.put(`/Transacoes/${transacaoEditando.id}`, {
@@ -284,10 +292,7 @@ export function DetalhesProduto() {
         data: dataAjustada.toISOString(),
         negocioId: Number(negocioId),
         clienteId: transacaoEditando.clienteId || null,
-        itens: formTransacaoEdicao.itens.map(it => ({
-          nome: it.nome,
-          quantidade: Math.max(1, it.quantidade || 1)
-        }))
+        itens: itensLimpos
       });
       setTransacaoEditando(null);
       carregarDados();
@@ -918,7 +923,7 @@ export function DetalhesProduto() {
                             {t.itens && t.itens.length > 0 ? (
                               t.itens.map((it, idx) => (
                                 <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-300 text-xs">
-                                  <strong className="text-emerald-400">{Math.max(1, it.quantidade || 1)}x</strong> {it.nome}
+                                  <strong className="text-emerald-400">{Math.max(1, it.quantidade || 1)}x</strong> {it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}
                                 </span>
                               ))
                             ) : (
