@@ -55,8 +55,13 @@ public class TransacoesController : ControllerBase
             _context.Transacoes.Add(transacao);
             await _context.SaveChangesAsync();
 
-            // Sincroniza automaticamente com o catálogo de produtos/serviços
-            await ProdutosServicosController.SincronizarItensDoHistoricoInternoAsync(_context, transacao.NegocioId);
+            // Sincroniza automaticamente com o catálogo de produtos/serviços (apenas Receitas/Entradas)
+            if (!string.Equals(transacao.Tipo, "Saida", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(transacao.Tipo, "Saída", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(transacao.Tipo, "Despesa", StringComparison.OrdinalIgnoreCase))
+            {
+                await ProdutosServicosController.SincronizarItensDoHistoricoInternoAsync(_context, transacao.NegocioId);
+            }
 
             var transacaoCriada = await _context.Transacoes
                 .Include(t => t.Itens)
@@ -84,7 +89,12 @@ public class TransacoesController : ControllerBase
         try 
         { 
             await _context.SaveChangesAsync(); 
-            await ProdutosServicosController.SincronizarItensDoHistoricoInternoAsync(_context, transacao.NegocioId);
+            if (!string.Equals(transacao.Tipo, "Saida", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(transacao.Tipo, "Saída", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(transacao.Tipo, "Despesa", StringComparison.OrdinalIgnoreCase))
+            {
+                await ProdutosServicosController.SincronizarItensDoHistoricoInternoAsync(_context, transacao.NegocioId);
+            }
         }
         catch (DbUpdateConcurrencyException)
         {

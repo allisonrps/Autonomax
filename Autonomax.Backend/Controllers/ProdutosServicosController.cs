@@ -58,7 +58,7 @@ public class ProdutosServicosController : ControllerBase
         var todasTransacoes = await _context.Transacoes
             .Include(t => t.Cliente)
             .Include(t => t.Itens)
-            .Where(t => t.NegocioId == negocioId)
+            .Where(t => t.NegocioId == negocioId && t.Tipo != "Saida" && t.Tipo != "Saída" && t.Tipo != "Despesa")
             .ToListAsync();
 
         var nomeProduto = produto.Nome.Trim();
@@ -247,7 +247,7 @@ public class ProdutosServicosController : ControllerBase
     {
         var transacoes = await _context.Transacoes
             .Include(t => t.Itens)
-            .Where(t => t.NegocioId == negocioId)
+            .Where(t => t.NegocioId == negocioId && t.Tipo != "Saida" && t.Tipo != "Saída" && t.Tipo != "Despesa")
             .ToListAsync();
 
         var produtosCadastrados = await _context.ProdutosServicos
@@ -383,19 +383,101 @@ public class ProdutosServicosController : ControllerBase
 
         try
         {
-            var transacoes = await context.Transacoes
+            var todasTransacoes = await context.Transacoes
                 .Include(t => t.Itens)
                 .Where(t => t.NegocioId == negocioId)
                 .ToListAsync();
 
-            if (transacoes.Count == 0) return;
+            if (todasTransacoes.Count == 0) return;
 
-            var existentes = await context.ProdutosServicos
+            // Separa Vendas (Receitas/Entradas) de Despesas (Saídas/Despesas)
+            var transacoesVendas = todasTransacoes
+                .Where(t => !t.Tipo.Equals("Saida", StringComparison.OrdinalIgnoreCase) 
+                         && !t.Tipo.Equals("Saída", StringComparison.OrdinalIgnoreCase) 
+                         && !t.Tipo.Equals("Despesa", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            var transacoesDespesas = todasTransacoes
+                .Where(t => t.Tipo.Equals("Saida", StringComparison.OrdinalIgnoreCase) 
+                         || t.Tipo.Equals("Saída", StringComparison.OrdinalIgnoreCase) 
+                         || t.Tipo.Equals("Despesa", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            // Extrai itens de Vendas/Receitas
+            var nomesEmVendas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var t in transacoesVendas)
+            {
+                if (t.Itens != null && t.Itens.Count > 0)
+                {
+                    foreach (var it in t.Itens)
+                    {
+                        if (!string.IsNullOrWhiteSpace(it.Nome))
+                        {
+                            var n = it.Nome.Trim();
+                            if (n.Length >= 2) nomesEmVendas.Add(n);
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(t.Descricao))
+                {
+                    var extraidos = ExtrairNomesDeItens(t.Descricao);
+                    foreach (var ex in extraidos)
+                    {
+                        if (ex.Length >= 2) nomesEmVendas.Add(ex);
+                    }
+                }
+            }
+
+            // Extrai itens de Despesas/Saídas
+            var nomesEmDespesas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var t in transacoesDespesas)
+            {
+                if (t.Itens != null && t.Itens.Count > 0)
+                {
+                    foreach (var it in t.Itens)
+                    {
+                        if (!string.IsNullOrWhiteSpace(it.Nome))
+                        {
+                            var n = it.Nome.Trim();
+                            if (n.Length >= 2) nomesEmDespesas.Add(n);
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(t.Descricao))
+                {
+                    var extraidos = ExtrairNomesDeItens(t.Descricao);
+                    foreach (var ex in extraidos)
+                    {
+                        if (ex.Length >= 2) nomesEmDespesas.Add(ex);
+                    }
+                }
+            }
+
+            var produtosAtuais = await context.ProdutosServicos
                 .Where(p => p.NegocioId == negocioId)
-                .Select(p => p.Nome.Trim())
                 .ToListAsync();
 
-            var setExistentes = new HashSet<string>(existentes, StringComparer.OrdinalIgnoreCase);
+            // 1. Limpeza automática: remove do catálogo itens importados que pertencem a despesas e não foram vendidos
+            var itensParaRemover = produtosAtuais
+                .Where(p => 
+                    (p.Descricao == "Importado do fluxo de caixa" || p.Preco == 0) &&
+                    !nomesEmVendas.Contains(p.Nome.Trim()) &&
+                    nomesEmDespesas.Contains(p.Nome.Trim())
+                )
+                .ToList();
+
+            if (itensParaRemover.Count > 0)
+            {
+                context.ProdutosServicos.RemoveRange(itensParaRemover);
+                foreach (var rem in itensParaRemover)
+                {
+                    produtosAtuais.Remove(rem);
+                }
+            }
+
+            var setExistentes = new HashSet<string>(produtosAtuais.Select(p => p.Nome.Trim()), StringComparer.OrdinalIgnoreCase);
 
             var palavrasChaveServico = new[] { 
                 "servico", "serviço", "consultoria", "manutencao", "manutenção", 
@@ -405,61 +487,32 @@ public class ProdutosServicosController : ControllerBase
 
             var novosProdutos = new List<ProdutoServico>();
 
-            foreach (var t in transacoes)
+            // 2. Cadastra automaticamente no catálogo apenas os itens vendidos
+            foreach (var nomeVenda in nomesEmVendas)
             {
-                // 1. Processa ItensTransacao
-                if (t.Itens != null && t.Itens.Count > 0)
+                if (!setExistentes.Contains(nomeVenda))
                 {
-                    foreach (var it in t.Itens)
+                    var ehServ = palavrasChaveServico.Any(p => nomeVenda.ToLower().Contains(p));
+
+                    novosProdutos.Add(new ProdutoServico
                     {
-                        if (string.IsNullOrWhiteSpace(it.Nome)) continue;
-                        var nome = it.Nome.Trim();
-                        if (nome.Length < 2) continue;
-
-                        if (!setExistentes.Contains(nome))
-                        {
-                            var ehServ = palavrasChaveServico.Any(p => nome.ToLower().Contains(p));
-
-                            novosProdutos.Add(new ProdutoServico
-                            {
-                                Nome = nome,
-                                Preco = 0,
-                                EhServico = ehServ,
-                                NegocioId = negocioId,
-                                Descricao = "Importado do fluxo de caixa"
-                            });
-                            setExistentes.Add(nome);
-                        }
-                    }
-                }
-
-                // 2. Processa Descrição Textual (ex: "2x CARTAZ G, 2x CARTAZ M" ou "CARTAZ M")
-                if (!string.IsNullOrWhiteSpace(t.Descricao))
-                {
-                    var nomesExtraidos = ExtrairNomesDeItens(t.Descricao);
-                    foreach (var nomeExtraido in nomesExtraidos)
-                    {
-                        if (!setExistentes.Contains(nomeExtraido))
-                        {
-                            var ehServ = palavrasChaveServico.Any(p => nomeExtraido.ToLower().Contains(p));
-
-                            novosProdutos.Add(new ProdutoServico
-                            {
-                                Nome = nomeExtraido,
-                                Preco = 0,
-                                EhServico = ehServ,
-                                NegocioId = negocioId,
-                                Descricao = "Importado do fluxo de caixa"
-                            });
-                            setExistentes.Add(nomeExtraido);
-                        }
-                    }
+                        Nome = nomeVenda,
+                        Preco = 0,
+                        EhServico = ehServ,
+                        NegocioId = negocioId,
+                        Descricao = "Importado do fluxo de caixa"
+                    });
+                    setExistentes.Add(nomeVenda);
                 }
             }
 
             if (novosProdutos.Count > 0)
             {
                 context.ProdutosServicos.AddRange(novosProdutos);
+            }
+
+            if (itensParaRemover.Count > 0 || novosProdutos.Count > 0)
+            {
                 await context.SaveChangesAsync();
             }
         }

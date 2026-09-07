@@ -329,16 +329,34 @@ export function Dashboard() {
             {formAberto && (
               <div className="p-5 md:p-6 space-y-4 bg-gray-900">
                 
+                {/* SELETOR PRINCIPAL DE TIPO: RECEITA VS DESPESA */}
+                <div className="bg-gray-950 p-1.5 rounded-lg flex gap-1.5 border border-gray-800">
+                  <button 
+                    type="button" 
+                    onClick={() => setNovaTransacao({ ...novaTransacao, tipo: 'Entrada' })} 
+                    className={`flex-1 py-2.5 rounded-md font-black text-xs uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950' : 'bg-transparent text-gray-500 hover:text-gray-300'}`}
+                  >
+                    <ArrowUpRight size={15} /> Receita / Venda
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setNovaTransacao({ ...novaTransacao, tipo: 'Saida' })} 
+                    className={`flex-1 py-2.5 rounded-md font-black text-xs uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 ${novaTransacao.tipo === 'Saida' ? 'bg-red-600 text-white shadow-md shadow-red-950' : 'bg-transparent text-gray-500 hover:text-gray-300'}`}
+                  >
+                    <ArrowDownRight size={15} /> Despesa / Saída
+                  </button>
+                </div>
+
                 {/* ENTRADA DOS PRODUTOS / SELEÇÃO DO CATÁLOGO */}
                 <div className="space-y-2">
-                  {produtosServicos.length > 0 && (
+                  {novaTransacao.tipo === 'Entrada' && produtosServicos.length > 0 && (
                     <div className="flex items-center gap-2">
                       <select 
                         value={itemCatalogoId} 
                         onChange={e => handleSelecionarDoCatalogo(e.target.value)}
                         className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600 cursor-pointer"
                       >
-                        <option value="">⚡ Selecionar do Catálogo (Preço automático)...</option>
+                        <option value="">⚡ Selecionar do Catálogo de Produtos/Serviços (Preço automático)...</option>
                         {produtosServicos.map(ps => (
                           <option key={ps.id} value={ps.id}>
                             {ps.ehServico ? '🛠️ [Serviço]' : '📦 [Produto]'} {ps.nome} — R$ {Number(ps.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -350,8 +368,8 @@ export function Dashboard() {
 
                   <div className="flex flex-col md:flex-row gap-2">
                     <input 
-                      placeholder="Descreva o produto ou serviço..." 
-                      className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-white focus:border-emerald-500 font-medium text-sm transition-all placeholder-gray-600" 
+                      placeholder={novaTransacao.tipo === 'Entrada' ? "Descreva o produto ou serviço vendido..." : "Descreva a despesa ou insumo comprado..."} 
+                      className={`flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-white font-medium text-sm transition-all placeholder-gray-600 ${novaTransacao.tipo === 'Entrada' ? 'focus:border-emerald-500' : 'focus:border-red-500'}`} 
                       value={novoItem.item} 
                       onChange={e => { setNovoItem({...novoItem, item: e.target.value}); setItemCatalogoId(''); }} 
                     />
@@ -376,7 +394,7 @@ export function Dashboard() {
                       <button 
                         type="button"
                         onClick={handleAdicionarItem} 
-                        className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer flex items-center justify-center transition-all"
+                        className={`text-white px-4 rounded-md border cursor-pointer flex items-center justify-center transition-all ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-800' : 'bg-red-700 hover:bg-red-600 border-red-800'}`}
                         title="Adicionar item"
                       >
                         <Plus size={18} />
@@ -390,10 +408,10 @@ export function Dashboard() {
                   <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 flex flex-wrap gap-2 items-center">
                     {itensTemporarios.map((it, idx) => (
                       <div key={idx} className="flex items-center gap-2 bg-gray-900 border border-gray-800 px-3 py-1 rounded-md">
-                        <span className="text-emerald-400 font-black text-xs">{it.qtd}x</span>
+                        <span className={`font-black text-xs ${novaTransacao.tipo === 'Entrada' ? 'text-emerald-400' : 'text-red-400'}`}>{it.qtd}x</span>
                         <span className="text-gray-300 text-xs font-medium">{it.item}</span>
                         {Boolean(it.precoUnitario && it.precoUnitario > 0) && (
-                          <span className="text-[10px] font-bold text-emerald-400 bg-gray-950 px-1.5 py-0.5 rounded border border-gray-800">
+                          <span className={`text-[10px] font-bold bg-gray-950 px-1.5 py-0.5 rounded border border-gray-800 ${novaTransacao.tipo === 'Entrada' ? 'text-emerald-400' : 'text-red-400'}`}>
                             R$ {(it.qtd * it.precoUnitario!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                         )}
@@ -413,13 +431,7 @@ export function Dashboard() {
                 {/* CONTROLADORES COMPACTOS */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
                   
-                  <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-2">
-                    {/* Toggle de Tipo */}
-                    <div className="bg-gray-950 p-1 rounded-md flex gap-1 border border-gray-800">
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, tipo: 'Entrada' })} className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-600 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`}>Receita</button>
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, tipo: 'Saida' })} className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${novaTransacao.tipo === 'Saida' ? 'bg-red-600 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`}>Despesa</button>
-                    </div>
-
+                  <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-2">
                     {/* Toggle de Status */}
                     <div className="bg-gray-950 p-1 rounded-md flex gap-1 border border-gray-800">
                       <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, status: 'Pago' })} className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${novaTransacao.status === 'Pago' ? 'bg-emerald-600 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`}>Pago</button>
@@ -454,8 +466,11 @@ export function Dashboard() {
 
                 </div>
 
-                <button onClick={handleAddTransacao} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-md font-black uppercase tracking-wider text-xs border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all">
-                  Salvar Transação <Target size={14} />
+                <button 
+                  onClick={handleAddTransacao} 
+                  className={`w-full py-3.5 rounded-md font-black uppercase tracking-wider text-xs border cursor-pointer flex items-center justify-center gap-2 transition-all ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-700' : 'bg-red-600 hover:bg-red-500 text-white border-red-700'}`}
+                >
+                  {novaTransacao.tipo === 'Entrada' ? 'Salvar Receita' : 'Salvar Despesa'} <Target size={14} />
                 </button>
 
               </div>
