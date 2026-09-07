@@ -63,10 +63,6 @@ public class ProdutosServicosController : ControllerBase
             .ToListAsync();
 
         var nomeProduto = produto.Nome.Trim();
-        var regexQtd = new System.Text.RegularExpressions.Regex(
-            @"(?:(\d+)\s*[xX*]\s*)?" + System.Text.RegularExpressions.Regex.Escape(nomeProduto), 
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled
-        );
 
         var transacoesVinculadas = new List<object>();
         decimal totalFaturado = 0;
@@ -80,51 +76,76 @@ public class ProdutosServicosController : ControllerBase
         {
             bool vinculado = false;
             int qtdNestaTransacao = 0;
+            var itensFormatados = new List<object>();
 
             // 1. Verifica itens na tabela ItensTransacao
             if (t.Itens != null && t.Itens.Count > 0)
             {
-                var itensCorrespondentes = t.Itens
-                    .Where(it => it.Nome.Trim().Equals(nomeProduto, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                if (itensCorrespondentes.Count > 0)
+                foreach (var it in t.Itens)
                 {
-                    vinculado = true;
-                    qtdNestaTransacao = itensCorrespondentes.Sum(it => it.Quantidade > 0 ? it.Quantidade : 1);
+                    var (corresponde, qtdCalculada, nomeLimpo) = AnalisarItemTransacao(it.Nome, it.Quantidade, nomeProduto);
+                    var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : it.Nome;
+                    var qtdItemFinal = Math.Max(1, it.Quantidade > 0 ? it.Quantidade : qtdCalculada);
+
+                    itensFormatados.Add(new { nome = nomeFinal, quantidade = qtdItemFinal });
+
+                    if (corresponde)
+                    {
+                        vinculado = true;
+                        qtdNestaTransacao += qtdItemFinal;
+                    }
                 }
             }
 
-            // 2. Verifica descrição textual se não vinculado ainda
+            // 2. Se não vinculado por Itens, analisa a descrição textual
             if (!vinculado && !string.IsNullOrWhiteSpace(t.Descricao))
             {
-                var match = regexQtd.Match(t.Descricao);
-                if (match.Success)
+                var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                if (partes.Length > 0)
                 {
-                    vinculado = true;
-                    var qtdStr = match.Groups[1].Value;
-                    if (!string.IsNullOrEmpty(qtdStr) && int.TryParse(qtdStr, out var qParsed))
+                    foreach (var parte in partes)
                     {
-                        qtdNestaTransacao = qParsed > 0 ? qParsed : 1;
+                        var pedaco = parte.Trim();
+                        if (string.IsNullOrWhiteSpace(pedaco)) continue;
+
+                        var (qtdExtr, nomeLimpo) = ExtrairQtdENome(pedaco);
+                        var (corresponde, qtdCorresp, _) = AnalisarItemTransacao(pedaco, qtdExtr, nomeProduto);
+
+                        var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : pedaco;
+                        itensFormatados.Add(new { nome = nomeFinal, quantidade = Math.Max(1, qtdExtr) });
+
+                        if (corresponde)
+                        {
+                            vinculado = true;
+                            qtdNestaTransacao += Math.Max(1, qtdCorresp);
+                        }
                     }
-                    else
+                }
+
+                if (!vinculado)
+                {
+                    var (correspondeGeral, qtdGeral, nomeGeral) = AnalisarItemTransacao(t.Descricao, 1, nomeProduto);
+                    if (correspondeGeral)
                     {
-                        qtdNestaTransacao = 1;
+                        vinculado = true;
+                        qtdNestaTransacao = Math.Max(1, qtdGeral);
+                        itensFormatados.Clear();
+                        itensFormatados.Add(new { nome = !string.IsNullOrWhiteSpace(nomeGeral) ? nomeGeral : nomeProduto, quantidade = qtdNestaTransacao });
                     }
                 }
             }
 
             if (vinculado)
             {
+                int qtdItemFinalTransacao = Math.Max(1, qtdNestaTransacao);
+
                 // Cálculo individual do faturamento deste item nesta venda:
-                // Preço cadastrado do item x quantidade nesta transação.
-                // Se o preço for 0 (não preenchido) e houver apenas 1 item na transação, usa o valor da transação como fallback.
                 decimal valorItemIndividual = (produto.Preco > 0) 
-                    ? (produto.Preco * qtdNestaTransacao)
+                    ? (produto.Preco * qtdItemFinalTransacao)
                     : ((t.Itens == null || t.Itens.Count <= 1) ? t.Valor : 0);
 
                 totalFaturado += valorItemIndividual;
-                quantidadeTotal += qtdNestaTransacao;
+                quantidadeTotal += qtdItemFinalTransacao;
 
                 if (ultimaData == null || t.Data > ultimaData)
                 {
@@ -137,11 +158,13 @@ public class ProdutosServicosController : ControllerBase
                     if (mesIdx >= 0 && mesIdx < 12)
                     {
                         faturamentoPorMes[mesIdx] += valorItemIndividual;
-                        quantidadePorMes[mesIdx] += qtdNestaTransacao;
+                        quantidadePorMes[mesIdx] += qtdItemFinalTransacao;
                     }
                 }
 
-                int qtdCalculada = qtdNestaTransacao > 0 ? qtdNestaTransacao : 1;
+                var itensRetorno = itensFormatados.Count > 0 
+                    ? itensFormatados 
+                    : new List<object> { new { nome = nomeProduto, quantidade = qtdItemFinalTransacao } };
 
                 transacoesVinculadas.Add(new
                 {
@@ -155,8 +178,8 @@ public class ProdutosServicosController : ControllerBase
                     data = t.Data.ToString("yyyy-MM-ddTHH:mm:ss"),
                     clienteId = t.ClienteId,
                     cliente = t.Cliente != null ? new { id = t.Cliente.Id, nome = t.Cliente.Nome } : null,
-                    itens = t.Itens?.Select(it => new { nome = it.Nome, quantidade = it.Quantidade > 0 ? it.Quantidade : 1 }).ToList(),
-                    quantidadeItem = qtdCalculada
+                    itens = itensRetorno,
+                    quantidadeItem = qtdItemFinalTransacao
                 });
             }
         }
@@ -607,5 +630,116 @@ public class ProdutosServicosController : ControllerBase
         }
 
         return resultado;
+    }
+
+    public static string NormalizarTexto(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+        var normalizedString = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var stringBuilder = new System.Text.StringBuilder();
+
+        foreach (var c in normalizedString)
+        {
+            var unicodeCategory = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (unicodeCategory != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                stringBuilder.Append(c);
+            }
+        }
+
+        return stringBuilder.ToString().Normalize(System.Text.NormalizationForm.FormC).Trim();
+    }
+
+    public static (int quantidade, string nomeLimpo) ExtrairQtdENome(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return (1, string.Empty);
+        var s = texto.Trim();
+
+        // 1. Prefixo: "2x Cartaz", "2 * Cartaz", "2- Cartaz", "2 Cartaz", "2 un Cartaz"
+        var matchPrefix = System.Text.RegularExpressions.Regex.Match(
+            s, 
+            @"^\s*(?:(\d+)\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*|(\d+)\s+)(.+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+        if (matchPrefix.Success)
+        {
+            var qStr = !string.IsNullOrEmpty(matchPrefix.Groups[1].Value) ? matchPrefix.Groups[1].Value : matchPrefix.Groups[2].Value;
+            if (int.TryParse(qStr, out var q) && q > 0)
+            {
+                var cleanName = matchPrefix.Groups[3].Value.Trim();
+                cleanName = System.Text.RegularExpressions.Regex.Replace(cleanName, @"^[\d\s*xX•\-_/]+", "").Trim();
+                if (!string.IsNullOrEmpty(cleanName))
+                {
+                    return (q, cleanName);
+                }
+            }
+        }
+
+        // 2. Sufixo: "Cartaz 2x", "Cartaz (2x)", "Cartaz - 2x", "Cartaz 2 un", "Cartaz (2 unid)", "Cartaz 2 unidades", "Cartaz x 2", "Cartaz (2)", "Cartaz 2"
+        var matchSuffix = System.Text.RegularExpressions.Regex.Match(
+            s,
+            @"^(.+?)(?:\s*[\(\-\[]?\s*(?:(\d+)\s*(?:x|un|unid|unidade|unidades|peças|pecas|pcs|pc)\b|(?:x|qtd)\s*(\d+)|\((\d+)\))\s*[\)\-\]]?|\s+(\d+))\s*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+        if (matchSuffix.Success)
+        {
+            string qStr = "";
+            for (int i = 2; i <= 5; i++)
+            {
+                if (!string.IsNullOrEmpty(matchSuffix.Groups[i].Value))
+                {
+                    qStr = matchSuffix.Groups[i].Value;
+                    break;
+                }
+            }
+            if (int.TryParse(qStr, out var q) && q > 0)
+            {
+                var cleanName = matchSuffix.Groups[1].Value.Trim();
+                if (!string.IsNullOrEmpty(cleanName))
+                {
+                    return (q, cleanName);
+                }
+            }
+        }
+
+        // Sem quantidade explícita
+        var cleanFinal = System.Text.RegularExpressions.Regex.Replace(s, @"^[\d\s*xX•\-_/]+", "").Trim();
+        return (1, !string.IsNullOrEmpty(cleanFinal) ? cleanFinal : s);
+    }
+
+    public static (bool corresponde, int quantidade, string nomeLimpo) AnalisarItemTransacao(string? nomeItem, int qtdOriginal, string nomeProdutoAlvo)
+    {
+        if (string.IsNullOrWhiteSpace(nomeItem) || string.IsNullOrWhiteSpace(nomeProdutoAlvo))
+            return (false, 0, string.Empty);
+
+        var targetNorm = NormalizarTexto(nomeProdutoAlvo);
+        var (qtdExtraida, nomeLimpo) = ExtrairQtdENome(nomeItem);
+        var itemNorm = NormalizarTexto(nomeLimpo);
+
+        // Correspondência exata ou por contenção
+        bool match = itemNorm.Equals(targetNorm, StringComparison.OrdinalIgnoreCase)
+                  || itemNorm.Contains(targetNorm, StringComparison.OrdinalIgnoreCase)
+                  || targetNorm.Contains(itemNorm, StringComparison.OrdinalIgnoreCase);
+
+        if (!match)
+        {
+            var originalNorm = NormalizarTexto(nomeItem);
+            if (originalNorm.Contains(targetNorm, StringComparison.OrdinalIgnoreCase))
+            {
+                match = true;
+            }
+        }
+
+        if (!match) return (false, 0, nomeLimpo);
+
+        int finalQtd = 1;
+        if (qtdOriginal > 1)
+            finalQtd = qtdOriginal;
+        else if (qtdExtraida > 0)
+            finalQtd = qtdExtraida;
+        else if (qtdOriginal > 0)
+            finalQtd = qtdOriginal;
+
+        return (true, Math.Max(1, finalQtd), nomeLimpo);
     }
 }

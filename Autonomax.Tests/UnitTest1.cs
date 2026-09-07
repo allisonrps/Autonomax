@@ -216,4 +216,89 @@ public class ProdutosServicosTests
         Assert.Equal(50m, historico[0].GetProperty("precoAntigo").GetDecimal());
         Assert.Equal(65m, historico[0].GetProperty("precoNovo").GetDecimal());
     }
+
+    [Fact]
+    public async Task GetDetalhes_DeveExtrairQuantidadesComPrecisaoDePrefixosSufixosEItens()
+    {
+        var db = GetDatabase();
+        int negocioId = 5;
+
+        var produto = new ProdutoServico
+        {
+            NegocioId = negocioId,
+            Nome = "Adesivo Vinil",
+            Preco = 10m,
+            EhServico = false
+        };
+        db.ProdutosServicos.Add(produto);
+        await db.SaveChangesAsync();
+
+        // Venda 1: Sufixo "Adesivo Vinil 3x"
+        db.Transacoes.Add(new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "Adesivo Vinil 3x",
+            Valor = 30m,
+            Tipo = "Entrada",
+            Data = DateTime.Now
+        });
+
+        // Venda 2: Prefixo "4x Adesivo Vinil"
+        db.Transacoes.Add(new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "4x Adesivo Vinil, 1x Banner",
+            Valor = 80m,
+            Tipo = "Entrada",
+            Data = DateTime.Now
+        });
+
+        // Venda 3: Sufixo parenteses "Adesivo Vinil (5 un)"
+        db.Transacoes.Add(new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "Adesivo Vinil (5 un)",
+            Valor = 50m,
+            Tipo = "Entrada",
+            Data = DateTime.Now
+        });
+
+        // Venda 4: Tabela Itens com nome contendo prefixo e quantidade 0
+        var t4 = new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "Venda balcão",
+            Valor = 20m,
+            Tipo = "Entrada",
+            Data = DateTime.Now
+        };
+        t4.Itens.Add(new ItemTransacao { Nome = "2x Adesivo Vinil", Quantidade = 0 });
+        db.Transacoes.Add(t4);
+
+        await db.SaveChangesAsync();
+
+        var controller = new ProdutosServicosController(db);
+        var result = await controller.GetDetalhes(produto.Id, negocioId, DateTime.Now.Year) as OkObjectResult;
+
+        Assert.NotNull(result);
+        var jsonStr = System.Text.Json.JsonSerializer.Serialize(result.Value);
+        using var doc = System.Text.Json.JsonDocument.Parse(jsonStr);
+        var root = doc.RootElement;
+
+        // Total quantidade = 3 + 4 + 5 + 2 = 14
+        Assert.Equal(14, root.GetProperty("quantidadeTotal").GetInt32());
+
+        // Total faturado individual = 14 * 10m = 140m
+        Assert.Equal(140m, root.GetProperty("totalFaturado").GetDecimal());
+
+        var transacoes = root.GetProperty("transacoes");
+        Assert.Equal(4, transacoes.GetArrayLength());
+
+        // Cada transação vinculada deve ter quantidadeItem maior que zero correspondente
+        foreach (var t in transacoes.EnumerateArray())
+        {
+            var qtd = t.GetProperty("quantidadeItem").GetInt32();
+            Assert.True(qtd > 0, $"Quantidade não pode ser 0 ou negativa: {qtd}");
+        }
+    }
 }
