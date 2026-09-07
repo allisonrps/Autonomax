@@ -85,7 +85,7 @@ public class ProdutosServicosController : ControllerBase
                 {
                     var (corresponde, qtdCalculada, nomeLimpo) = AnalisarItemTransacao(it.Nome, it.Quantidade, nomeProduto);
                     var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : it.Nome;
-                    var qtdItemFinal = Math.Max(1, it.Quantidade > 0 ? it.Quantidade : qtdCalculada);
+                    var qtdItemFinal = Math.Max(1, Math.Max(it.Quantidade, qtdCalculada));
 
                     itensFormatados.Add(new { nome = nomeFinal, quantidade = qtdItemFinal });
 
@@ -100,6 +100,7 @@ public class ProdutosServicosController : ControllerBase
             // 2. Se não vinculado por Itens, analisa a descrição textual
             if (!vinculado && !string.IsNullOrWhiteSpace(t.Descricao))
             {
+                itensFormatados.Clear();
                 var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
                 if (partes.Length > 0)
                 {
@@ -112,12 +113,13 @@ public class ProdutosServicosController : ControllerBase
                         var (corresponde, qtdCorresp, _) = AnalisarItemTransacao(pedaco, qtdExtr, nomeProduto);
 
                         var nomeFinal = !string.IsNullOrWhiteSpace(nomeLimpo) ? nomeLimpo : pedaco;
-                        itensFormatados.Add(new { nome = nomeFinal, quantidade = Math.Max(1, qtdExtr) });
+                        var qtdFinalPedaco = Math.Max(1, Math.Max(qtdExtr, qtdCorresp));
+                        itensFormatados.Add(new { nome = nomeFinal, quantidade = qtdFinalPedaco });
 
                         if (corresponde)
                         {
                             vinculado = true;
-                            qtdNestaTransacao += Math.Max(1, qtdCorresp);
+                            qtdNestaTransacao += qtdFinalPedaco;
                         }
                     }
                 }
@@ -730,16 +732,16 @@ public class ProdutosServicosController : ControllerBase
             }
         }
 
-        if (!match) return (false, 0, nomeLimpo);
+        if (!match) return (false, 0, !string.IsNullOrEmpty(nomeLimpo) ? nomeLimpo : nomeItem.Trim());
 
         int finalQtd = 1;
-        if (qtdOriginal > 1)
+        if (qtdOriginal > 0 && qtdExtraida > 0)
+            finalQtd = Math.Max(qtdOriginal, qtdExtraida);
+        else if (qtdOriginal > 0)
             finalQtd = qtdOriginal;
         else if (qtdExtraida > 0)
             finalQtd = qtdExtraida;
-        else if (qtdOriginal > 0)
-            finalQtd = qtdOriginal;
 
-        return (true, Math.Max(1, finalQtd), nomeLimpo);
+        return (true, Math.Max(1, finalQtd), !string.IsNullOrEmpty(nomeLimpo) ? nomeLimpo : nomeItem.Trim());
     }
 }

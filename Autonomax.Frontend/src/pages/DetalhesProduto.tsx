@@ -5,7 +5,7 @@ import {
   ArrowLeft, Package, Wrench, Receipt, DollarSign,
   ChevronLeft, ChevronRight, TrendingUp, Calendar,
   Tag, ChevronDown, ChevronUp, Edit3, Trash2,
-  X, Save, Boxes, User, History,
+  X, Save, Boxes, User, History, Eye, EyeOff, Filter, Plus,
   QrCode, Coins, CreditCard
 } from 'lucide-react';
 import { 
@@ -74,6 +74,22 @@ interface DadosDetalhesProduto {
   transacoes: TransacaoVinculada[];
 }
 
+function formatarDataISO(data: Date): string {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function obterPrimeiroDiaMesAtual(): string {
+  const agora = new Date();
+  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function obterHoje(): string {
+  return formatarDataISO(new Date());
+}
+
 export function DetalhesProduto() {
   const { id } = useParams<{ id: string }>();
   const negocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
@@ -82,6 +98,9 @@ export function DetalhesProduto() {
   const [dados, setDados] = useState<DadosDetalhesProduto | null>(null);
   const [carregando, setCarregando] = useState(true);
   
+  // KPIs ocultos por padrão com botão de olho
+  const [kpisVisiveis, setKpisVisiveis] = useState(false);
+
   // Card de Performance / Gráfico recolhido por padrão
   const [graficoAberto, setGraficoAberto] = useState(false);
   
@@ -92,9 +111,15 @@ export function DetalhesProduto() {
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<'faturamento' | 'quantidade'>('faturamento');
 
-  // Paginação das vendas
+  // Filtro de período para os lançamentos (Padrão: início do mês atual até a data atual)
+  const [filtroDataInicio, setFiltroDataInicio] = useState(obterPrimeiroDiaMesAtual());
+  const [filtroDataFim, setFiltroDataFim] = useState(obterHoje());
+  const [filtroPeriodoAtivo, setFiltroPeriodoAtivo] = useState(true);
+  const [presetAtivo, setPresetAtivo] = useState<'mes_atual' | '30_dias' | 'ano' | 'todos' | 'personalizado'>('mes_atual');
+
+  // Paginação das vendas (20 itens por página por padrão)
   const [paginaVendas, setPaginaVendas] = useState(1);
-  const VENDAS_POR_PAGINA = 10;
+  const VENDAS_POR_PAGINA = 20;
 
   // Modal de edição do produto
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
@@ -113,8 +138,10 @@ export function DetalhesProduto() {
     valor: '',
     data: '',
     status: 'Pago',
-    metodoPagamento: 'Pix'
+    metodoPagamento: 'Pix',
+    itens: [] as ItemVenda[]
   });
+  const [novoItemTransacaoEdicao, setNovoItemTransacaoEdicao] = useState({ nome: '', qtd: 1 });
 
   const formatarDataLocal = (dataISO: string) => {
     const data = new Date(dataISO);
@@ -165,6 +192,30 @@ export function DetalhesProduto() {
     carregarDados();
   }, [carregarDados]);
 
+  // Aplicar Presets de Período
+  const handleAplicarPreset = (preset: 'mes_atual' | '30_dias' | 'ano' | 'todos') => {
+    setPresetAtivo(preset);
+    setPaginaVendas(1);
+
+    if (preset === 'mes_atual') {
+      setFiltroDataInicio(obterPrimeiroDiaMesAtual());
+      setFiltroDataFim(obterHoje());
+      setFiltroPeriodoAtivo(true);
+    } else if (preset === '30_dias') {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      setFiltroDataInicio(formatarDataISO(d));
+      setFiltroDataFim(obterHoje());
+      setFiltroPeriodoAtivo(true);
+    } else if (preset === 'ano') {
+      setFiltroDataInicio(`${anoAtivo}-01-01`);
+      setFiltroDataFim(`${anoAtivo}-12-31`);
+      setFiltroPeriodoAtivo(true);
+    } else if (preset === 'todos') {
+      setFiltroPeriodoAtivo(false);
+    }
+  };
+
   async function handleSalvarEdicao() {
     if (!id || !itemEdicao.nome.trim()) {
       alert("O nome é obrigatório.");
@@ -197,16 +248,22 @@ export function DetalhesProduto() {
     }
   }
 
-  // Abrir modal de edição da transação
+  // Abrir modal de edição da transação com suporte a lista de itens
   function abrirEdicaoTransacao(t: TransacaoVinculada) {
     setTransacaoEditando(t);
+    const itensClonados = t.itens && t.itens.length > 0
+      ? t.itens.map(it => ({ nome: it.nome, quantidade: Math.max(1, it.quantidade || 1) }))
+      : [{ nome: produto?.nome || t.descricao || 'Item', quantidade: Math.max(1, t.quantidadeItem || 1) }];
+
     setFormTransacaoEdicao({
       descricao: t.descricao,
       valor: String(t.valor),
       data: t.data.split('T')[0],
       status: t.status,
-      metodoPagamento: t.metodoPagamento
+      metodoPagamento: t.metodoPagamento,
+      itens: itensClonados
     });
+    setNovoItemTransacaoEdicao({ nome: '', qtd: 1 });
   }
 
   // Salvar alteração da transação
@@ -214,15 +271,23 @@ export function DetalhesProduto() {
     if (!transacaoEditando) return;
     try {
       const dataAjustada = new Date(formTransacaoEdicao.data + 'T12:00:00');
+      const descricaoFinal = formTransacaoEdicao.itens.length > 0
+        ? formTransacaoEdicao.itens.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+        : formTransacaoEdicao.descricao;
+
       await api.put(`/Transacoes/${transacaoEditando.id}`, {
         ...transacaoEditando,
-        descricao: formTransacaoEdicao.descricao,
+        descricao: descricaoFinal,
         valor: Number(formTransacaoEdicao.valor) || 0,
         status: formTransacaoEdicao.status,
         metodoPagamento: formTransacaoEdicao.metodoPagamento,
         data: dataAjustada.toISOString(),
         negocioId: Number(negocioId),
-        clienteId: transacaoEditando.clienteId || null
+        clienteId: transacaoEditando.clienteId || null,
+        itens: formTransacaoEdicao.itens.map(it => ({
+          nome: it.nome,
+          quantidade: Math.max(1, it.quantidade || 1)
+        }))
       });
       setTransacaoEditando(null);
       carregarDados();
@@ -267,17 +332,26 @@ export function DetalhesProduto() {
 
   const { produto, totalFaturado, quantidadeTotal, ultimaVenda, evolucaoMensal, historicoPrecos = [], transacoes = [] } = dados || {};
 
-  // Garante que a ordenação seja sempre da última venda para a primeira (data mais recente primeiro)
-  const transacoesOrdenadas = useMemo(() => {
-    return [...transacoes].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }, [transacoes]);
+  // Ordenação decrescente e filtragem por período
+  const transacoesFiltradas = useMemo(() => {
+    let lista = [...transacoes].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  // Paginação das vendas
-  const totalPaginasVendas = Math.ceil(transacoesOrdenadas.length / VENDAS_POR_PAGINA) || 1;
+    if (filtroPeriodoAtivo && filtroDataInicio && filtroDataFim) {
+      lista = lista.filter(t => {
+        const dataTransacao = t.data.split('T')[0];
+        return dataTransacao >= filtroDataInicio && dataTransacao <= filtroDataFim;
+      });
+    }
+
+    return lista;
+  }, [transacoes, filtroPeriodoAtivo, filtroDataInicio, filtroDataFim]);
+
+  // Paginação das vendas (20 itens por página)
+  const totalPaginasVendas = Math.ceil(transacoesFiltradas.length / VENDAS_POR_PAGINA) || 1;
   const transacoesPaginadas = useMemo(() => {
     const inicio = (paginaVendas - 1) * VENDAS_POR_PAGINA;
-    return transacoesOrdenadas.slice(inicio, inicio + VENDAS_POR_PAGINA);
-  }, [transacoesOrdenadas, paginaVendas]);
+    return transacoesFiltradas.slice(inicio, inicio + VENDAS_POR_PAGINA);
+  }, [transacoesFiltradas, paginaVendas]);
 
   if (carregando) {
     return (
@@ -388,44 +462,64 @@ export function DetalhesProduto() {
             </div>
           </div>
 
-          {/* GRID DE KPIS (LIMPO, IMPACTANTE E SEM REDUNDÂNCIAS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Faturamento Total */}
-            <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
-                <DollarSign size={22} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Faturamento Total</p>
-                <p className="text-lg sm:text-xl font-black text-emerald-400">
-                  R$ {totalFaturado?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
+          {/* SEÇÃO DE KPIS (OCULTA POR PADRÃO COM BOTÃO DO OLHO) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <DollarSign size={16} className="text-emerald-400" />
+                Indicadores Chave (KPIs)
+              </span>
+              <button
+                type="button"
+                onClick={() => setKpisVisiveis(!kpisVisiveis)}
+                className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white rounded-lg border border-gray-800 transition-all text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm"
+                title={kpisVisiveis ? "Ocultar Indicadores" : "Exibir Indicadores"}
+              >
+                {kpisVisiveis ? <EyeOff size={15} className="text-gray-400" /> : <Eye size={15} className="text-emerald-400" />}
+                <span>{kpisVisiveis ? 'Ocultar Indicadores' : 'Ver Indicadores'}</span>
+              </button>
             </div>
 
-            {/* Unidades Vendidas */}
-            <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50">
-                <Boxes size={22} />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unidades Vendidas</p>
-                <p className="text-lg sm:text-xl font-black text-white">{quantidadeTotal}</p>
-              </div>
-            </div>
+            {kpisVisiveis && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in slide-in-from-top duration-200">
+                {/* Faturamento Total */}
+                <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                  <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 flex-shrink-0">
+                    <DollarSign size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Faturamento Total</p>
+                    <p className="text-lg sm:text-xl font-black text-emerald-400 truncate">
+                      R$ {totalFaturado?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
 
-            {/* Última Venda */}
-            <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-              <div className="p-3 bg-amber-950/50 text-amber-400 rounded-lg border border-amber-900/50">
-                <Calendar size={22} />
+                {/* Unidades Vendidas */}
+                <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                  <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50 flex-shrink-0">
+                    <Boxes size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Unidades Vendidas</p>
+                    <p className="text-lg sm:text-xl font-black text-white truncate">{quantidadeTotal}</p>
+                  </div>
+                </div>
+
+                {/* Última Venda */}
+                <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                  <div className="p-3 bg-amber-950/50 text-amber-400 rounded-lg border border-amber-900/50 flex-shrink-0">
+                    <Calendar size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Última Venda</p>
+                    <p className="text-sm sm:text-base font-black text-amber-400 truncate">
+                      {ultimaVenda ? `${new Date(ultimaVenda).toLocaleDateString('pt-BR')} (${calcularTempoDesde(ultimaVenda)})` : 'Nenhuma venda'}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Última Venda</p>
-                <p className="text-base sm:text-lg font-black text-amber-400">
-                  {ultimaVenda ? `${new Date(ultimaVenda).toLocaleDateString('pt-BR')} (${calcularTempoDesde(ultimaVenda)})` : 'Nenhuma venda'}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* CARD DE PERFORMANCE MÊS A MÊS (OCULTO POR PADRÃO COM FLECHINHA) */}
@@ -647,21 +741,109 @@ export function DetalhesProduto() {
             )}
           </div>
 
+          {/* FILTRO DE PERÍODO DOS LANÇAMENTOS */}
+          <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 shadow-sm space-y-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Filter size={16} className="text-emerald-400" />
+                <h4 className="text-xs font-black text-gray-200 uppercase tracking-wider">
+                  Filtrar Lançamentos por Período
+                </h4>
+              </div>
+
+              {/* Presets rápidos */}
+              <div className="flex items-center gap-1.5 bg-gray-950 p-1 rounded-lg border border-gray-800 flex-wrap w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => handleAplicarPreset('mes_atual')}
+                  className={`flex-1 sm:flex-initial px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer ${
+                    filtroPeriodoAtivo && presetAtivo === 'mes_atual' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  Mês Atual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAplicarPreset('30_dias')}
+                  className={`flex-1 sm:flex-initial px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer ${
+                    filtroPeriodoAtivo && presetAtivo === '30_dias' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  30 Dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAplicarPreset('ano')}
+                  className={`flex-1 sm:flex-initial px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer ${
+                    filtroPeriodoAtivo && presetAtivo === 'ano' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  Ano ({anoAtivo})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAplicarPreset('todos')}
+                  className={`flex-1 sm:flex-initial px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer ${
+                    !filtroPeriodoAtivo ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  Todos
+                </button>
+              </div>
+            </div>
+
+            {/* Inputs de Data Inicial e Data Final */}
+            {filtroPeriodoAtivo && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-800/60">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    Data Inicial
+                  </label>
+                  <input
+                    type="date"
+                    value={filtroDataInicio}
+                    onChange={e => {
+                      setFiltroDataInicio(e.target.value);
+                      setPresetAtivo('personalizado');
+                      setPaginaVendas(1);
+                    }}
+                    className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-white font-bold text-xs outline-none focus:border-emerald-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    Data Final
+                  </label>
+                  <input
+                    type="date"
+                    value={filtroDataFim}
+                    onChange={e => {
+                      setFiltroDataFim(e.target.value);
+                      setPresetAtivo('personalizado');
+                      setPaginaVendas(1);
+                    }}
+                    className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-white font-bold text-xs outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* ONDE FOI VENDIDO (CARDS DE VENDAS COM DATA À ESQUERDA, ITENS EM TAGS E PAGINAÇÃO) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <h3 className="font-black text-gray-300 text-xs uppercase tracking-wider flex items-center gap-2">
                 <Receipt size={16} className="text-emerald-400" />
-                Onde Foi Vendido ({transacoes.length} Lançamentos)
+                Onde Foi Vendido ({transacoesFiltradas.length} {transacoesFiltradas.length === 1 ? 'Lançamento' : 'Lançamentos'})
               </h3>
             </div>
 
-            {transacoes.length === 0 ? (
+            {transacoesFiltradas.length === 0 ? (
               <div className="bg-gray-900 p-8 rounded-xl border border-gray-800 text-center">
                 <Receipt size={32} className="mx-auto text-gray-600 mb-2" />
-                <p className="text-xs font-bold text-gray-400 uppercase">Nenhuma venda registrada ainda</p>
+                <p className="text-xs font-bold text-gray-400 uppercase">Nenhuma venda encontrada no período selecionado</p>
                 <p className="text-[11px] text-gray-600 mt-1">
-                  Assim que você lançar vendas com este item no fluxo de caixa, os registros e clientes aparecerão aqui.
+                  Altere o período nos filtros acima ou lance novas vendas com este item no fluxo de caixa.
                 </p>
               </div>
             ) : (
@@ -791,14 +973,14 @@ export function DetalhesProduto() {
                   );
                 })}
 
-                {/* CONTROLE DE PAGINAÇÃO DAS VENDAS */}
+                {/* CONTROLE DE PAGINAÇÃO DAS VENDAS RESPONSIVO */}
                 {totalPaginasVendas > 1 && (
-                  <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 mt-3">
-                    <span className="text-xs font-medium text-gray-400">
-                      Mostrando <strong className="text-white">{(paginaVendas - 1) * VENDAS_POR_PAGINA + 1}</strong> a <strong className="text-white">{Math.min(paginaVendas * VENDAS_POR_PAGINA, transacoes.length)}</strong> de <strong className="text-emerald-400">{transacoes.length}</strong> vendas
+                  <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 mt-3 shadow-sm">
+                    <span className="text-xs font-medium text-gray-400 text-center sm:text-left">
+                      Mostrando <strong className="text-white">{(paginaVendas - 1) * VENDAS_POR_PAGINA + 1}</strong> a <strong className="text-white">{Math.min(paginaVendas * VENDAS_POR_PAGINA, transacoesFiltradas.length)}</strong> de <strong className="text-emerald-400">{transacoesFiltradas.length}</strong> vendas
                     </span>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-center">
                       <button
                         type="button"
                         disabled={paginaVendas === 1}
@@ -808,21 +990,57 @@ export function DetalhesProduto() {
                         <ChevronLeft size={14} /> Anterior
                       </button>
 
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPaginasVendas }, (_, i) => i + 1).map(num => (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => setPaginaVendas(num)}
-                            className={`w-8 h-8 rounded-md text-xs font-black border transition-all cursor-pointer ${
-                              paginaVendas === num
-                                ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
-                                : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
-                            }`}
-                          >
-                            {num}
-                          </button>
-                        ))}
+                      {/* Mobile: Pág. X de Y */}
+                      <span className="sm:hidden px-2 text-xs font-black text-gray-300">
+                        {paginaVendas} / {totalPaginasVendas}
+                      </span>
+
+                      {/* Desktop: Paginação com janela inteligente */}
+                      <div className="hidden sm:flex items-center gap-1">
+                        {(() => {
+                          const paginas: (number | string)[] = [];
+                          const maxVisiveis = 5;
+                          
+                          if (totalPaginasVendas <= maxVisiveis) {
+                            for (let i = 1; i <= totalPaginasVendas; i++) paginas.push(i);
+                          } else {
+                            paginas.push(1);
+                            let inicio = Math.max(2, paginaVendas - 1);
+                            let fim = Math.min(totalPaginasVendas - 1, paginaVendas + 1);
+
+                            if (paginaVendas <= 3) {
+                              inicio = 2;
+                              fim = 4;
+                            } else if (paginaVendas >= totalPaginasVendas - 2) {
+                              inicio = totalPaginasVendas - 3;
+                              fim = totalPaginasVendas - 1;
+                            }
+
+                            if (inicio > 2) paginas.push('...');
+                            for (let i = inicio; i <= fim; i++) paginas.push(i);
+                            if (fim < totalPaginasVendas - 1) paginas.push('...');
+                            paginas.push(totalPaginasVendas);
+                          }
+
+                          return paginas.map((num, idx) => (
+                            typeof num === 'string' ? (
+                              <span key={`dots-${idx}`} className="px-1.5 text-gray-600 text-xs font-black select-none">...</span>
+                            ) : (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setPaginaVendas(num)}
+                                className={`w-8 h-8 rounded-md text-xs font-black border transition-all cursor-pointer ${
+                                  paginaVendas === num
+                                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
+                                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                                }`}
+                              >
+                                {num}
+                              </button>
+                            )
+                          ));
+                        })()}
                       </div>
 
                       <button
@@ -843,11 +1061,11 @@ export function DetalhesProduto() {
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO DO PRODUTO */}
+      {/* MODAL DE EDIÇÃO DO PRODUTO (RESPONSIVO NO MOBILE) */}
       {modalEdicaoAberto && (
-        <div className="fixed inset-0 bg-gray-950/70 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="bg-gray-900 w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-lg md:rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in slide-in-from-bottom md:zoom-in duration-200">
-            <div className="bg-gray-950 px-6 py-5 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-gray-900 w-full max-w-lg max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in zoom-in-95 duration-150">
+            <div className="bg-gray-950 px-4 sm:px-6 py-4 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Edit3 size={18} className="text-emerald-400"/>
                 <h3 className="text-xs font-black text-gray-200 uppercase tracking-widest">Ajustar Item</h3>
@@ -861,24 +1079,24 @@ export function DetalhesProduto() {
               </button>
             </div>
             
-            <div className="p-6 md:p-8 space-y-4 overflow-y-auto flex-1">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Nome do Item *</label>
                 <input 
-                  className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" 
+                  className="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white font-medium outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" 
                   value={itemEdicao.nome} 
                   onChange={e => setItemEdicao({...itemEdicao, nome: e.target.value})} 
-                  placeholder="Nome" 
+                  placeholder="Nome do produto ou serviço" 
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Preço (R$)</label>
                   <input 
                     type="number"
                     step="0.01"
-                    className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-emerald-400 font-black outline-none focus:border-emerald-600 text-sm" 
+                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-emerald-400 font-black outline-none focus:border-emerald-600 text-sm" 
                     value={itemEdicao.preco} 
                     onChange={e => setItemEdicao({...itemEdicao, preco: e.target.value})} 
                     placeholder="0,00" 
@@ -889,21 +1107,21 @@ export function DetalhesProduto() {
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Tag / Categoria</label>
                   <input 
                     type="text"
-                    className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-purple-300 font-bold outline-none focus:border-purple-600 text-sm" 
+                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-purple-300 font-bold outline-none focus:border-purple-600 text-sm" 
                     value={itemEdicao.categoria} 
                     onChange={e => setItemEdicao({...itemEdicao, categoria: e.target.value})} 
-                    placeholder="Tag" 
+                    placeholder="Ex: Impressão" 
                   />
                 </div>
 
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Tipo</label>
-                  <div className="flex bg-gray-950 p-1 rounded-md border border-gray-800 h-[48px] items-center">
+                  <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800 h-[46px] items-center">
                     <button
                       type="button"
                       onClick={() => setItemEdicao({...itemEdicao, ehServico: false})}
-                      className={`flex-1 py-2 rounded font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${
-                        !itemEdicao.ehServico ? 'bg-teal-600 text-white' : 'text-gray-500'
+                      className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${
+                        !itemEdicao.ehServico ? 'bg-teal-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
                       }`}
                     >
                       Produto
@@ -911,8 +1129,8 @@ export function DetalhesProduto() {
                     <button
                       type="button"
                       onClick={() => setItemEdicao({...itemEdicao, ehServico: true})}
-                      className={`flex-1 py-2 rounded font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${
-                        itemEdicao.ehServico ? 'bg-blue-600 text-white' : 'text-gray-500'
+                      className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${
+                        itemEdicao.ehServico ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
                       }`}
                     >
                       Serviço
@@ -924,18 +1142,20 @@ export function DetalhesProduto() {
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Descrição</label>
                 <textarea 
-                  className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-white font-medium resize-none outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" 
+                  className="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white font-medium resize-none outline-none focus:border-emerald-600 placeholder-gray-600 text-sm" 
                   rows={3} 
                   value={itemEdicao.descricao} 
                   onChange={e => setItemEdicao({...itemEdicao, descricao: e.target.value})} 
-                  placeholder="Descrição..." 
+                  placeholder="Descrição opcional..." 
                 />
               </div>
-              
+            </div>
+
+            <div className="bg-gray-950 p-4 sm:px-6 border-t border-gray-800 flex-shrink-0">
               <button 
                 type="button"
                 onClick={handleSalvarEdicao} 
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 mt-2 rounded-md font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-lg font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
               >
                 Salvar Alterações <Save size={16}/>
               </button>
@@ -944,11 +1164,11 @@ export function DetalhesProduto() {
         </div>
       )}
 
-      {/* MODAL DE EDIÇÃO DE TRANSAÇÃO VINCULADA */}
+      {/* MODAL DE EDIÇÃO DE TRANSAÇÃO VINCULADA (RESPONSIVO NO MOBILE COM SUPORTE A ITENS) */}
       {transacaoEditando && (
-        <div className="fixed inset-0 bg-gray-950/70 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="bg-gray-900 w-full md:max-w-xl h-[90vh] md:h-auto md:max-h-[90vh] rounded-t-lg md:rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in slide-in-from-bottom md:zoom-in duration-200">
-            <div className="bg-gray-950 px-6 py-5 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-gray-900 w-full max-w-lg max-h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in zoom-in-95 duration-150">
+            <div className="bg-gray-950 px-4 sm:px-6 py-4 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Edit3 size={18} className="text-emerald-400"/>
                 <h3 className="text-xs font-black text-gray-200 uppercase tracking-widest">Ajustar Transação de Venda</h3>
@@ -962,23 +1182,93 @@ export function DetalhesProduto() {
               </button>
             </div>
             
-            <div className="p-6 md:p-8 space-y-4 overflow-y-auto flex-1">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              {/* ITENS DA TRANSAÇÃO */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                  Itens da Venda
+                </label>
+                <div className="flex gap-2">
+                  <input 
+                    placeholder="Adicionar item..." 
+                    className="flex-1 p-2.5 bg-gray-950 border border-gray-800 rounded-lg outline-none text-xs font-medium text-white focus:border-emerald-600 placeholder-gray-600" 
+                    value={novoItemTransacaoEdicao.nome} 
+                    onChange={e => setNovoItemTransacaoEdicao({...novoItemTransacaoEdicao, nome: e.target.value})} 
+                  />
+                  <input 
+                    type="number" 
+                    min="1" 
+                    className="w-16 p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-center font-black text-xs text-white focus:border-emerald-600" 
+                    value={novoItemTransacaoEdicao.qtd} 
+                    onChange={e => setNovoItemTransacaoEdicao({...novoItemTransacaoEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})} 
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (novoItemTransacaoEdicao.nome.trim()) {
+                        const novosItens = [
+                          ...formTransacaoEdicao.itens,
+                          { nome: novoItemTransacaoEdicao.nome.trim(), quantidade: Math.max(1, novoItemTransacaoEdicao.qtd || 1) }
+                        ];
+                        setFormTransacaoEdicao({
+                          ...formTransacaoEdicao,
+                          itens: novosItens,
+                          descricao: novosItens.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                        });
+                        setNovoItemTransacaoEdicao({ nome: '', qtd: 1 });
+                      }
+                    }} 
+                    className="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 rounded-lg border border-emerald-800 cursor-pointer transition-colors flex items-center justify-center"
+                  >
+                    <Plus size={16}/>
+                  </button>
+                </div>
+
+                {/* Tags de itens da venda */}
+                <div className="min-h-[50px] p-2.5 bg-gray-950 rounded-lg border border-gray-800 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                  {formTransacaoEdicao.itens.length === 0 ? (
+                    <span className="text-gray-600 text-xs italic">Nenhum item adicionado</span>
+                  ) : (
+                    formTransacaoEdicao.itens.map((it, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 px-2.5 py-1 rounded-md">
+                        <span className="text-emerald-400 font-black text-[10px]">{Math.max(1, it.quantidade || 1)}x</span>
+                        <span className="text-gray-300 text-xs font-medium">{it.nome}</span>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const filtrados = formTransacaoEdicao.itens.filter((_, i) => i !== idx);
+                            setFormTransacaoEdicao({
+                              ...formTransacaoEdicao,
+                              itens: filtrados,
+                              descricao: filtrados.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                            });
+                          }} 
+                          className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer ml-1 p-0.5"
+                        >
+                          <X size={12}/>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Descrição</label>
                 <input 
-                  className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-white font-medium outline-none focus:border-emerald-600 text-sm" 
+                  className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-white font-medium outline-none focus:border-emerald-600 text-xs" 
                   value={formTransacaoEdicao.descricao} 
                   onChange={e => setFormTransacaoEdicao({...formTransacaoEdicao, descricao: e.target.value})} 
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Valor Total (R$)</label>
                   <input 
                     type="number"
                     step="0.01"
-                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-emerald-400 font-black outline-none focus:border-emerald-600 text-sm" 
+                    className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-emerald-400 font-black outline-none focus:border-emerald-600 text-sm" 
                     value={formTransacaoEdicao.valor} 
                     onChange={e => setFormTransacaoEdicao({...formTransacaoEdicao, valor: e.target.value})} 
                   />
@@ -988,22 +1278,22 @@ export function DetalhesProduto() {
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Data</label>
                   <input 
                     type="date"
-                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-gray-300 font-bold outline-none focus:border-emerald-600 text-sm" 
+                    className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-gray-300 font-bold outline-none focus:border-emerald-600 text-xs" 
                     value={formTransacaoEdicao.data} 
                     onChange={e => setFormTransacaoEdicao({...formTransacaoEdicao, data: e.target.value})} 
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Status</label>
-                  <div className="flex bg-gray-950 p-1 rounded-md border border-gray-800 gap-1">
+                  <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800 gap-1 h-[42px] items-center">
                     <button 
                       type="button" 
                       onClick={() => setFormTransacaoEdicao({...formTransacaoEdicao, status: 'Pago'})}
-                      className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider border-none cursor-pointer ${
-                        formTransacaoEdicao.status === 'Pago' ? 'bg-emerald-600 text-white' : 'bg-transparent text-gray-500'
+                      className={`flex-1 py-1.5 rounded-md font-black text-[10px] uppercase tracking-wider border-none cursor-pointer ${
+                        formTransacaoEdicao.status === 'Pago' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-transparent text-gray-500 hover:text-gray-300'
                       }`}
                     >
                       Pago
@@ -1011,8 +1301,8 @@ export function DetalhesProduto() {
                     <button 
                       type="button" 
                       onClick={() => setFormTransacaoEdicao({...formTransacaoEdicao, status: 'Pendente'})}
-                      className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider border-none cursor-pointer ${
-                        formTransacaoEdicao.status === 'Pendente' ? 'bg-amber-500 text-white' : 'bg-transparent text-gray-500'
+                      className={`flex-1 py-1.5 rounded-md font-black text-[10px] uppercase tracking-wider border-none cursor-pointer ${
+                        formTransacaoEdicao.status === 'Pendente' ? 'bg-amber-500 text-white shadow-sm' : 'bg-transparent text-gray-500 hover:text-gray-300'
                       }`}
                     >
                       Pendente
@@ -1022,42 +1312,47 @@ export function DetalhesProduto() {
 
                 <div>
                   <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">Método de Pagamento</label>
-                  <div className="flex bg-gray-950 p-1 rounded-md border border-gray-800 gap-1">
+                  <div className="flex bg-gray-950 p-1 rounded-lg border border-gray-800 gap-1 h-[42px] items-center">
                     <button 
                       type="button" 
                       onClick={() => setFormTransacaoEdicao({...formTransacaoEdicao, metodoPagamento: 'Pix'})}
-                      className={`flex-1 py-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${
-                        formTransacaoEdicao.metodoPagamento === 'Pix' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500'
+                      className={`flex-1 py-1.5 rounded-md transition-all border-none cursor-pointer flex items-center justify-center text-xs font-bold ${
+                        formTransacaoEdicao.metodoPagamento === 'Pix' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500 hover:text-gray-300'
                       }`}
+                      title="Pix"
                     >
-                      <QrCode size={14} />
+                      <QrCode size={14} className="mr-1" /> Pix
                     </button>
                     <button 
                       type="button" 
                       onClick={() => setFormTransacaoEdicao({...formTransacaoEdicao, metodoPagamento: 'Dinheiro'})}
-                      className={`flex-1 py-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${
-                        formTransacaoEdicao.metodoPagamento === 'Dinheiro' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500'
+                      className={`flex-1 py-1.5 rounded-md transition-all border-none cursor-pointer flex items-center justify-center text-xs font-bold ${
+                        formTransacaoEdicao.metodoPagamento === 'Dinheiro' || formTransacaoEdicao.metodoPagamento === 'A Vista' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500 hover:text-gray-300'
                       }`}
+                      title="Dinheiro"
                     >
-                      <Coins size={14} />
+                      <Coins size={14} className="mr-1" /> Dinheiro
                     </button>
                     <button 
                       type="button" 
                       onClick={() => setFormTransacaoEdicao({...formTransacaoEdicao, metodoPagamento: 'Cartão'})}
-                      className={`flex-1 py-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${
-                        formTransacaoEdicao.metodoPagamento === 'Cartão' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500'
+                      className={`flex-1 py-1.5 rounded-md transition-all border-none cursor-pointer flex items-center justify-center text-xs font-bold ${
+                        formTransacaoEdicao.metodoPagamento === 'Cartão' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500 hover:text-gray-300'
                       }`}
+                      title="Cartão"
                     >
-                      <CreditCard size={14} />
+                      <CreditCard size={14} className="mr-1" /> Cartão
                     </button>
                   </div>
                 </div>
               </div>
-              
+            </div>
+            
+            <div className="bg-gray-950 p-4 sm:px-6 border-t border-gray-800 flex-shrink-0">
               <button 
                 type="button"
                 onClick={handleSalvarEdicaoTransacao} 
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 mt-2 rounded-md font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-lg font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all shadow-md active:scale-[0.99]"
               >
                 Salvar Transação <Save size={16}/>
               </button>
