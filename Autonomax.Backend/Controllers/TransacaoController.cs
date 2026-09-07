@@ -266,13 +266,54 @@ public class TransacoesController : ControllerBase
                     it.Quantidade = Math.Max(1, Math.Max(it.Quantidade, qtdExtr));
                 }
 
-                // Se houver apenas 1 item e a descrição contiver quantidade explícita maior (ex: "2X CARTAZ DUPLO")
-                if (t.Itens.Count == 1 && !string.IsNullOrWhiteSpace(t.Descricao))
+                // Cruza com as quantidades descritas em t.Descricao para garantir exatidão
+                if (!string.IsNullOrWhiteSpace(t.Descricao))
                 {
-                    var (qtdDesc, _) = ProdutosServicosController.ExtrairQtdENome(t.Descricao);
-                    if (qtdDesc > t.Itens[0].Quantidade)
+                    var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                    
+                    if (t.Itens.Count == 1 && partes.Length >= 1)
                     {
-                        t.Itens[0].Quantidade = qtdDesc;
+                        var (qtdDesc, _) = ProdutosServicosController.ExtrairQtdENome(t.Descricao);
+                        if (qtdDesc > t.Itens[0].Quantidade)
+                        {
+                            t.Itens[0].Quantidade = qtdDesc;
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < t.Itens.Count; i++)
+                        {
+                            var it = t.Itens[i];
+                            var itNorm = ProdutosServicosController.NormalizarTexto(it.Nome);
+
+                            // Se o número de partes bater com o número de itens, checa por índice primeiro
+                            if (i < partes.Length)
+                            {
+                                var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(partes[i]);
+                                var pNorm = ProdutosServicosController.NormalizarTexto(nomeP);
+                                if (string.IsNullOrEmpty(pNorm) || pNorm.Equals(itNorm, StringComparison.OrdinalIgnoreCase) || itNorm.Contains(pNorm) || pNorm.Contains(itNorm))
+                                {
+                                    if (qtdP > it.Quantidade)
+                                    {
+                                        it.Quantidade = qtdP;
+                                    }
+                                }
+                            }
+
+                            // Checa contra todas as partes
+                            foreach (var parte in partes)
+                            {
+                                var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(parte);
+                                var pNorm = ProdutosServicosController.NormalizarTexto(nomeP);
+                                if (!string.IsNullOrEmpty(pNorm) && (pNorm.Equals(itNorm, StringComparison.OrdinalIgnoreCase) || itNorm.Contains(pNorm) || pNorm.Contains(itNorm)))
+                                {
+                                    if (qtdP > it.Quantidade)
+                                    {
+                                        it.Quantidade = qtdP;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -307,9 +348,12 @@ public async Task<IActionResult> GerarRelatorioCliente(int id)
     // 1. Busca os dados no Banco
     var cliente = await _context.Clientes
         .Include(c => c.Transacoes)
+            .ThenInclude(t => t.Itens)
         .FirstOrDefaultAsync(c => c.Id == id);
 
     if (cliente == null) return NotFound("Cliente não encontrado.");
+
+    NormalizarItensTransacoes(cliente.Transacoes);
 
     // 2. Mapeia para o DTO de Relatório
     var dadosRelatorio = new RelatorioClienteDto
@@ -322,7 +366,9 @@ public async Task<IActionResult> GerarRelatorioCliente(int id)
             .Select(t => new TransacaoItemDto
             {
                 Data = t.Data,
-                Descricao = t.Descricao,
+                Descricao = (t.Itens != null && t.Itens.Count > 0)
+                    ? string.Join(", ", t.Itens.Select(i => $"{Math.Max(1, i.Quantidade)}x {i.Nome}"))
+                    : t.Descricao,
                 Valor = t.Valor
             }).ToList()
     };
@@ -341,9 +387,12 @@ public async Task<IActionResult> GerarRelatorioFornecedor(int id)
     // 1. Busca os dados no Banco
     var fornecedor = await _context.Fornecedores
         .Include(f => f.Transacoes)
+            .ThenInclude(t => t.Itens)
         .FirstOrDefaultAsync(f => f.Id == id);
 
     if (fornecedor == null) return NotFound("Parceiro não encontrado.");
+
+    NormalizarItensTransacoes(fornecedor.Transacoes);
 
     // 2. Mapeia para o DTO de Relatório
     var dadosRelatorio = new RelatorioFornecedorDto
@@ -358,7 +407,9 @@ public async Task<IActionResult> GerarRelatorioFornecedor(int id)
             .Select(t => new TransacaoItemDto
             {
                 Data = t.Data,
-                Descricao = t.Descricao,
+                Descricao = (t.Itens != null && t.Itens.Count > 0)
+                    ? string.Join(", ", t.Itens.Select(i => $"{Math.Max(1, i.Quantidade)}x {i.Nome}"))
+                    : t.Descricao,
                 Valor = t.Valor
             }).ToList()
     };
@@ -375,13 +426,15 @@ public async Task<IActionResult> GerarRelatorioFornecedor(int id)
 [HttpGet("fluxo-caixa/relatorio-pdf")]
 public async Task<IActionResult> GerarRelatorioFluxoCaixa([FromQuery] int negocioId, [FromQuery] int mes, [FromQuery] int ano)
 {
-    // ADICIONAMOS OS INCLUDES AQUI PARA TRAZER OS NOMES
     var transacoes = await _context.Transacoes
         .Include(t => t.Cliente)
         .Include(t => t.Fornecedor)
+        .Include(t => t.Itens)
         .Where(t => t.NegocioId == negocioId && t.Data.Month == mes && t.Data.Year == ano)
         .OrderBy(t => t.Data)
         .ToListAsync();
+
+    NormalizarItensTransacoes(transacoes);
 
     var dados = new FluxoCaixaDto
     {
@@ -391,11 +444,12 @@ public async Task<IActionResult> GerarRelatorioFluxoCaixa([FromQuery] int negoci
         Lancamentos = transacoes.Select(t => new FluxoItemDto
         {
             Data = t.Data,
-            Descricao = t.Descricao,
+            Descricao = (t.Itens != null && t.Itens.Count > 0)
+                ? string.Join(", ", t.Itens.Select(i => $"{Math.Max(1, i.Quantidade)}x {i.Nome}"))
+                : t.Descricao,
             Tipo = t.Tipo,
             Status = t.Status,
             MetodoPagamento = t.MetodoPagamento,
-            // LÓGICA DE PARCEIRO: Se for Entrada busca Cliente, se for Saída busca Fornecedor
             Parceiro = t.Tipo == "Entrada" 
                 ? (t.Cliente?.Nome ?? "Venda Avulsa") 
                 : (t.Fornecedor?.Nome ?? "Gasto Geral"),

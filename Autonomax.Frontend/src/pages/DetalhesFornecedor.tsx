@@ -358,6 +358,17 @@ export function DetalhesFornecedor() {
                   const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
                   const ano = dataObj.getFullYear();
 
+                  const itensExibicao = (t.itens && t.itens.length > 0)
+                    ? t.itens.map(it => ({
+                        nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+                        quantidade: Math.max(1, it.quantidade || 1)
+                      }))
+                    : [];
+
+                  const textoResumoItens = itensExibicao.length > 0
+                    ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                    : t.descricao;
+
                   return (
                     <div key={t.id} className="bg-gray-900 rounded-xl border border-gray-800 hover:border-gray-700 overflow-hidden transition-all shadow-sm">
                       <button 
@@ -370,7 +381,7 @@ export function DetalhesFornecedor() {
                             <span className="text-[9px] font-bold text-red-500/80">{mes}/{ano.toString().slice(-2)}</span>
                           </div>
                           <div>
-                            <span className="text-xs font-black text-gray-200 uppercase block">{t.descricao}</span>
+                            <span className="text-xs font-black text-gray-200 uppercase block">{textoResumoItens}</span>
                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase mt-0.5">
                               <span>{t.metodoPagamento || 'Pix'}</span>
                               <span>•</span>
@@ -387,10 +398,19 @@ export function DetalhesFornecedor() {
 
                       {itemAberto === t.id && (
                         <div className="px-4 pb-4 pt-3 bg-gray-950/50 border-t border-gray-800/80 space-y-3 animate-in slide-in-from-top duration-200">
-                          <div className="p-3 bg-gray-950/70 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">
-                            {t.itens && t.itens.length > 0 
-                              ? t.itens.map(it => `${Math.max(1, it.quantidade || 1)}x ${it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}`).join(', ') 
-                              : t.descricao}
+                          <div className="p-3 bg-gray-950/70 rounded-md border border-gray-800">
+                            {itensExibicao.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {itensExibicao.map((it, idx) => (
+                                  <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-xs font-bold text-gray-200 flex items-center gap-1.5 shadow-sm">
+                                    <span className="text-red-400 font-black text-xs">{it.quantidade}x</span>
+                                    <span>{it.nome}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 font-medium">{t.descricao}</span>
+                            )}
                           </div>
                           <div className="flex flex-wrap justify-between items-center gap-3">
                             <div className="flex items-center gap-2">

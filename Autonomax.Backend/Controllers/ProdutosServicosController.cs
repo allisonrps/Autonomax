@@ -694,10 +694,10 @@ public class ProdutosServicosController : ControllerBase
         if (string.IsNullOrWhiteSpace(texto)) return (1, string.Empty);
         var s = texto.Trim();
 
-        // 1. Prefixo com multiplicador explícito: "2x Cartaz", "2X Cartaz", "2 * Cartaz", "2- Cartaz", "2 un Cartaz", "2 unid Cartaz", "2 unidades Cartaz"
+        // 1. Prefixo com multiplicador explícito: "2x Cartaz", "2X Cartaz", "2 * Cartaz", "2- Cartaz", "2 un Cartaz", "2 unid Cartaz", "2 unidades Cartaz", "2xCartaz"
         var matchPrefixExplicit = System.Text.RegularExpressions.Regex.Match(
             s, 
-            @"^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)\s+(.+)$",
+            @"^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)\s*(.+)$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase
         );
         if (matchPrefixExplicit.Success)

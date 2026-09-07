@@ -301,4 +301,66 @@ public class ProdutosServicosTests
             Assert.True(qtd > 0, $"Quantidade não pode ser 0 ou negativa: {qtd}");
         }
     }
+
+    [Fact]
+    public async Task NormalizarItensTransacoes_DeveCorrigirMultiplosItensEQuantidadesCorretamente()
+    {
+        var db = GetDatabase();
+        int negocioId = 6;
+
+        var tMulti = new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "2x Cartaz Duplo, 3x Adesivo Vinil",
+            Valor = 120m,
+            Tipo = "Entrada",
+            Data = new DateTime(2026, 7, 20)
+        };
+        tMulti.Itens.Add(new ItemTransacao { Nome = "Cartaz Duplo", Quantidade = 0 });
+        tMulti.Itens.Add(new ItemTransacao { Nome = "Adesivo Vinil", Quantidade = 1 });
+        db.Transacoes.Add(tMulti);
+        await db.SaveChangesAsync();
+
+        var transacoes = await db.Transacoes.Include(t => t.Itens).ToListAsync();
+        TransacoesController.NormalizarItensTransacoes(transacoes);
+
+        var itens = transacoes[0].Itens;
+        Assert.Equal(2, itens.Count);
+
+        // Item 1 deve ter quantidade 2
+        Assert.Equal("Cartaz Duplo", itens[0].Nome);
+        Assert.Equal(2, itens[0].Quantidade);
+
+        // Item 2 deve ter quantidade 3
+        Assert.Equal("Adesivo Vinil", itens[1].Nome);
+        Assert.Equal(3, itens[1].Quantidade);
+    }
+
+    [Fact]
+    public async Task GetTransacoesPorPeriodo_DeveRetornarTransacoesComItensNormalizados()
+    {
+        var db = GetDatabase();
+        int negocioId = 7;
+
+        var transacao = new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "2X CARTAZ DUPLO",
+            Valor = 82m,
+            Tipo = "Entrada",
+            Data = new DateTime(2026, 7, 20)
+        };
+        transacao.Itens.Add(new ItemTransacao { Nome = "1x CARTAZ DUPLO", Quantidade = 1 });
+        db.Transacoes.Add(transacao);
+        await db.SaveChangesAsync();
+
+        var controller = new TransacoesController(db);
+        var result = await controller.GetTransacoesPorPeriodo(negocioId, 7, 2026);
+
+        var lista = result.Value as List<Transacao>;
+        Assert.NotNull(lista);
+        Assert.Single(lista);
+        Assert.Equal(2, lista[0].Itens[0].Quantidade);
+        Assert.Equal("CARTAZ DUPLO", lista[0].Itens[0].Nome);
+    }
 }

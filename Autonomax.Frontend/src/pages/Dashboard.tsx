@@ -154,11 +154,24 @@ export function Dashboard() {
 
   const handleAdicionarItem = () => {
     if (!novoItem.item.trim()) return;
+    let itemNome = novoItem.item.trim();
+    let qtdNum = Number(novoItem.qtd) || 1;
+    
+    // Detecta se usuário digitou prefixo de quantidade no nome (ex: "2x Cartaz" ou "2 Cartazes")
+    const matchQtd = itemNome.match(/^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*(.+)$/i);
+    if (matchQtd && matchQtd[2]) {
+      const qExtr = parseInt(matchQtd[1], 10);
+      if (qExtr > 0) {
+        qtdNum = Math.max(qtdNum, qExtr);
+        itemNome = matchQtd[2].trim();
+      }
+    }
+    itemNome = itemNome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || itemNome;
     const precoNum = Number(novoItem.precoUnitario) || 0;
-    const qtdNum = Number(novoItem.qtd) || 1;
+
     const novosItens = [
       ...itensTemporarios, 
-      { item: novoItem.item.trim(), qtd: qtdNum, precoUnitario: precoNum }
+      { item: itemNome, qtd: Math.max(1, qtdNum), precoUnitario: precoNum }
     ];
     setItensTemporarios(novosItens);
 
@@ -187,8 +200,16 @@ export function Dashboard() {
     if (itensTemporarios.length === 0) return alert("Adicione pelo menos um item.");
     if (!novaTransacao.valor) return alert("Informe o valor.");
     const dataAjustada = new Date(novaTransacao.data + 'T12:00:00');
+    const itensFormatados = itensTemporarios.map(it => {
+      const nomeLimpo = it.item.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.item;
+      return {
+        nome: nomeLimpo,
+        quantidade: Math.max(1, it.qtd || 1)
+      };
+    });
+
     const payload = {
-      descricao: itensTemporarios.map(it => `${it.qtd}x ${it.item}`).join(', '),
+      descricao: itensFormatados.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
       valor: Number(novaTransacao.valor), 
       tipo: novaTransacao.tipo,
       status: novaTransacao.status, 
@@ -197,7 +218,7 @@ export function Dashboard() {
       clienteId: novaTransacao.tipo === 'Entrada' ? Number(novaTransacao.clienteId) || null : null,
       fornecedorId: novaTransacao.tipo === 'Saida' ? Number(novaTransacao.fornecedorId) || null : null,
       data: dataAjustada.toISOString(),
-      itens: itensTemporarios.map(it => ({ nome: it.item, quantidade: Math.max(1, it.qtd || 1) }))
+      itens: itensFormatados
     };
     try {
       await api.post('/Transacoes', payload);
@@ -231,6 +252,28 @@ export function Dashboard() {
       ...t,
       itens: itensIniciais
     });
+  };
+
+  const handleAdicionarItemEdicao = () => {
+    if (!novoItemEdicao.nome.trim() || !editando) return;
+    let itemNome = novoItemEdicao.nome.trim();
+    let qtdNum = Math.max(1, Number(novoItemEdicao.qtd) || 1);
+    
+    const matchQtd = itemNome.match(/^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*(.+)$/i);
+    if (matchQtd && matchQtd[2]) {
+      const qExtr = parseInt(matchQtd[1], 10);
+      if (qExtr > 0) {
+        qtdNum = Math.max(qtdNum, qExtr);
+        itemNome = matchQtd[2].trim();
+      }
+    }
+    itemNome = itemNome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || itemNome;
+
+    setEditando({
+      ...editando,
+      itens: [...editando.itens, { nome: itemNome, quantidade: qtdNum }]
+    });
+    setNovoItemEdicao({ nome: '', qtd: 1 });
   };
 
   async function handleUpdateTransacao() {
@@ -551,20 +594,38 @@ export function Dashboard() {
                 transacoesFiltradas.map(t => {
                   const isEntrada = t.tipo === 'Entrada';
                   const dataObj = formatarDataLocal(t.data);
+                  const itensExibicao = (t.itens && t.itens.length > 0)
+                    ? t.itens.map(it => ({
+                        nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+                        quantidade: Math.max(1, it.quantidade || 1)
+                      }))
+                    : [];
+
+                  const textoResumoItens = itensExibicao.length > 0
+                    ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                    : t.descricao;
+
                   return (
                     <div key={t.id} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
                       <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 bg-transparent border-none cursor-pointer outline-none text-left">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-md flex items-center justify-center border ${isEntrada ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-red-950/40 border-red-900 text-red-400'}`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-8 h-8 rounded-md flex items-center justify-center border flex-shrink-0 ${isEntrada ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-red-950/40 border-red-900 text-red-400'}`}>
                             <span className="text-xs font-black">
                               {dataObj.getDate().toString().padStart(2, '0')}
                             </span>
                           </div>
-                          <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate max-w-[150px] md:max-w-none">
-                            {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
-                          </span>
+                          <div className="flex flex-col min-w-0 pr-2">
+                            <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
+                              {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
+                            </span>
+                            {textoResumoItens && (
+                              <span className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
+                                {textoResumoItens}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-shrink-0">
                           <span className={`text-sm font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-400' : isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>
                             {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
@@ -574,10 +635,19 @@ export function Dashboard() {
 
                       {itemAberto === t.id && (
                         <div className="px-4 pb-4 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
-                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">
-                            {t.itens && t.itens.length > 0 
-                              ? t.itens.map(it => `${Math.max(1, it.quantidade || 1)}x ${it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}`).join(', ') 
-                              : t.descricao}
+                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800">
+                            {itensExibicao.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {itensExibicao.map((it, idx) => (
+                                  <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-xs font-bold text-gray-200 flex items-center gap-1.5 shadow-sm">
+                                    <span className={`font-black text-xs ${isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>{it.quantidade}x</span>
+                                    <span>{it.nome}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 font-medium">{t.descricao}</span>
+                            )}
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5">
@@ -622,9 +692,9 @@ export function Dashboard() {
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Itens da Transação</label>
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
-                    <input placeholder="Item..." className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-xs font-medium focus:border-emerald-600 text-white" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} />
+                    <input placeholder="Item..." className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-xs font-medium focus:border-emerald-600 text-white" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemEdicao(); } }} />
                     <input type="number" min="1" className="w-14 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})} />
-                    <button onClick={() => { if(novoItemEdicao.nome && editando) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: Math.max(1, novoItemEdicao.qtd || 1)}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-700 text-white px-4 rounded-md border border-emerald-800 cursor-pointer"><Plus size={16}/></button>
+                    <button type="button" onClick={handleAdicionarItemEdicao} className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer transition-colors"><Plus size={16}/></button>
                   </div>
                   <div className="min-h-[80px] p-3 bg-gray-950 rounded-md border border-gray-800 flex flex-wrap gap-1.5">
                     {editando.itens.map((it, idx) => (

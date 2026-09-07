@@ -317,6 +317,17 @@ export function DetalhesCliente() {
               ) : (
                 transacoes.map(t => {
                   const dataObj = formatarDataLocal(t.data);
+                  const itensExibicao = (t.itens && t.itens.length > 0)
+                    ? t.itens.map(it => ({
+                        nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+                        quantidade: Math.max(1, it.quantidade || 1)
+                      }))
+                    : [];
+
+                  const textoResumoItens = itensExibicao.length > 0
+                    ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                    : t.descricao;
+
                   return (
                     <div key={t.id} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
                       <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 md:p-5 bg-transparent border-none cursor-pointer outline-none">
@@ -325,7 +336,7 @@ export function DetalhesCliente() {
                             <span className="text-xs font-black text-emerald-400 leading-none">{dataObj.getDate().toString().padStart(2, '0')}</span>
                             <span className="text-[9px] font-bold text-emerald-500/70 uppercase leading-none mt-0.5">{dataObj.toLocaleString('pt-BR', { month: 'short' }).replace('.', '')}</span>
                           </div>
-                          <span className="text-xs font-black text-gray-200 truncate max-w-[180px] md:max-w-none text-left uppercase tracking-tight">{t.descricao}</span>
+                          <span className="text-xs font-black text-gray-200 truncate max-w-[180px] md:max-w-none text-left uppercase tracking-tight">{textoResumoItens}</span>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className={`text-sm font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-400' : 'text-emerald-400'}`}>
@@ -337,10 +348,19 @@ export function DetalhesCliente() {
 
                       {itemAberto === t.id && (
                         <div className="px-4 md:px-5 pb-5 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
-                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">
-                            {t.itens && t.itens.length > 0 
-                              ? t.itens.map(it => `${Math.max(1, it.quantidade || 1)}x ${it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}`).join(', ') 
-                              : t.descricao}
+                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800">
+                            {itensExibicao.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {itensExibicao.map((it, idx) => (
+                                  <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-xs font-bold text-gray-200 flex items-center gap-1.5 shadow-sm">
+                                    <span className="text-emerald-400 font-black text-xs">{it.quantidade}x</span>
+                                    <span>{it.nome}</span>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 font-medium">{t.descricao}</span>
+                            )}
                           </div>
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div className="flex items-center gap-1.5">
