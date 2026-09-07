@@ -694,49 +694,59 @@ public class ProdutosServicosController : ControllerBase
         if (string.IsNullOrWhiteSpace(texto)) return (1, string.Empty);
         var s = texto.Trim();
 
-        // 1. Prefixo: "2x Cartaz", "2 * Cartaz", "2- Cartaz", "2 Cartaz", "2 un Cartaz"
-        var matchPrefix = System.Text.RegularExpressions.Regex.Match(
+        // 1. Prefixo com multiplicador explícito: "2x Cartaz", "2X Cartaz", "2 * Cartaz", "2- Cartaz", "2 un Cartaz", "2 unid Cartaz", "2 unidades Cartaz"
+        var matchPrefixExplicit = System.Text.RegularExpressions.Regex.Match(
             s, 
-            @"^\s*(?:(\d+)\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*|(\d+)\s+)(.+)$",
+            @"^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)\s+(.+)$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase
         );
-        if (matchPrefix.Success)
+        if (matchPrefixExplicit.Success)
         {
-            var qStr = !string.IsNullOrEmpty(matchPrefix.Groups[1].Value) ? matchPrefix.Groups[1].Value : matchPrefix.Groups[2].Value;
-            if (int.TryParse(qStr, out var q) && q > 0)
+            if (int.TryParse(matchPrefixExplicit.Groups[1].Value, out var q) && q > 0)
             {
-                var cleanName = matchPrefix.Groups[3].Value.Trim();
-                cleanName = System.Text.RegularExpressions.Regex.Replace(cleanName, @"^[\d\s*xX•\-_/]+", "").Trim();
-                if (!string.IsNullOrEmpty(cleanName))
+                var clean = matchPrefixExplicit.Groups[2].Value.Trim();
+                clean = System.Text.RegularExpressions.Regex.Replace(clean, @"^[\d\s*xX•\-_/]+", "").Trim();
+                if (!string.IsNullOrEmpty(clean) && !decimal.TryParse(clean, out _) && clean.Length >= 2)
                 {
-                    return (q, cleanName);
+                    return (q, clean);
                 }
             }
         }
 
-        // 2. Sufixo: "Cartaz 2x", "Cartaz (2x)", "Cartaz - 2x", "Cartaz 2 un", "Cartaz (2 unid)", "Cartaz 2 unidades", "Cartaz x 2", "Cartaz (2)", "Cartaz 2"
+        // 2. Prefixo simples com espaço: "2 Cartaz" (só aceita se o restante começar com letra)
+        var matchPrefixSimple = System.Text.RegularExpressions.Regex.Match(
+            s, 
+            @"^\s*(\d{1,4})\s+([a-zA-Z\u00C0-\u00FF].+)$"
+        );
+        if (matchPrefixSimple.Success)
+        {
+            if (int.TryParse(matchPrefixSimple.Groups[1].Value, out var q) && q > 0)
+            {
+                var clean = matchPrefixSimple.Groups[2].Value.Trim();
+                clean = System.Text.RegularExpressions.Regex.Replace(clean, @"^[\d\s*xX•\-_/]+", "").Trim();
+                if (!string.IsNullOrEmpty(clean) && !decimal.TryParse(clean, out _) && clean.Length >= 2)
+                {
+                    return (q, clean);
+                }
+            }
+        }
+
+        // 3. Sufixo com multiplicador ou parênteses: "Cartaz 2x", "Cartaz (2x)", "Cartaz - 2x", "Cartaz 2 un", "Cartaz (2)", "Cartaz (2 unid)"
         var matchSuffix = System.Text.RegularExpressions.Regex.Match(
             s,
-            @"^(.+?)(?:\s*[\(\-\[]?\s*(?:(\d+)\s*(?:x|un|unid|unidade|unidades|peças|pecas|pcs|pc)\b|(?:x|qtd)\s*(\d+)|\((\d+)\))\s*[\)\-\]]?|\s+(\d+))\s*$",
+            @"^(.+?)\s*(?:[\(\-\[]\s*(\d{1,4})\s*(?:x|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*[\)\-\]]|\s+(\d{1,4})\s*(?:x|un|unid|unidade|unidades|peças|pecas|pcs|pc))\s*$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase
         );
         if (matchSuffix.Success)
         {
-            string qStr = "";
-            for (int i = 2; i <= 5; i++)
-            {
-                if (!string.IsNullOrEmpty(matchSuffix.Groups[i].Value))
-                {
-                    qStr = matchSuffix.Groups[i].Value;
-                    break;
-                }
-            }
+            var qStr = !string.IsNullOrEmpty(matchSuffix.Groups[2].Value) ? matchSuffix.Groups[2].Value : matchSuffix.Groups[3].Value;
             if (int.TryParse(qStr, out var q) && q > 0)
             {
-                var cleanName = matchSuffix.Groups[1].Value.Trim();
-                if (!string.IsNullOrEmpty(cleanName))
+                var clean = matchSuffix.Groups[1].Value.Trim();
+                clean = System.Text.RegularExpressions.Regex.Replace(clean, @"^[\d\s*xX•\-_/]+", "").Trim();
+                if (!string.IsNullOrEmpty(clean) && !decimal.TryParse(clean, out _) && clean.Length >= 2)
                 {
-                    return (q, cleanName);
+                    return (q, clean);
                 }
             }
         }
@@ -753,17 +763,16 @@ public class ProdutosServicosController : ControllerBase
 
         var targetNorm = NormalizarTexto(nomeProdutoAlvo);
         var (qtdExtraida, nomeLimpo) = ExtrairQtdENome(nomeItem);
-        var itemNorm = NormalizarTexto(nomeLimpo);
+        var itemNorm = NormalizarTexto(!string.IsNullOrEmpty(nomeLimpo) ? nomeLimpo : nomeItem);
 
-        // Correspondência exata ou por contenção
-        bool match = itemNorm.Equals(targetNorm, StringComparison.OrdinalIgnoreCase)
-                  || itemNorm.Contains(targetNorm, StringComparison.OrdinalIgnoreCase)
-                  || targetNorm.Contains(itemNorm, StringComparison.OrdinalIgnoreCase);
+        // 1. Correspondência exata normalizada (ex: "CARTAZ DUPLO" == "CARTAZ DUPLO")
+        bool match = itemNorm.Equals(targetNorm, StringComparison.OrdinalIgnoreCase);
 
+        // 2. Se não for exata com nomeLimpo, tenta com o nomeItem original normalizado
         if (!match)
         {
             var originalNorm = NormalizarTexto(nomeItem);
-            if (originalNorm.Contains(targetNorm, StringComparison.OrdinalIgnoreCase))
+            if (originalNorm.Equals(targetNorm, StringComparison.OrdinalIgnoreCase))
             {
                 match = true;
             }

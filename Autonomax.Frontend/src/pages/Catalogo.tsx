@@ -7,7 +7,7 @@ import {
   Wrench, ChevronDown, ChevronUp,
   Boxes, Sparkles, Flame, CheckSquare, Square, 
   RefreshCw, CheckCircle2, ArrowRight, BarChart3,
-  Eye, EyeOff, Tag, ChevronLeft, ChevronRight
+  Tag, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -384,43 +384,66 @@ export function Catalogo() {
             </div>
           )}
           
-          {/* KPIS DO CATÁLOGO (OCULTOS POR PADRÃO, REVELÁVEIS COM O OLHINHO) */}
-          {mostrarKpis && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-200">
-              {/* Total de Itens */}
-              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
-                  <Boxes size={22} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total no Catálogo</p>
-                  <p className="text-xl font-black text-white">{metricas.totalItens}</p>
-                </div>
+          {/* CARD DE KPIS DO CATÁLOGO (EXPANSÍVEL COM FLECHINHA, OCULTO POR PADRÃO) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-sm overflow-hidden">
+            <button 
+              type="button"
+              onClick={() => setMostrarKpis(!mostrarKpis)}
+              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-gray-800/60 transition-colors border-none outline-none cursor-pointer bg-transparent text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <BarChart3 size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">
+                  Indicadores do Catálogo
+                </h3>
               </div>
+              <div className="flex items-center gap-2 text-gray-400">
+                <span className="text-[10px] font-bold uppercase text-gray-500 hidden sm:inline">
+                  {mostrarKpis ? 'Ocultar Indicadores' : 'Ver Indicadores'}
+                </span>
+                {mostrarKpis ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+            </button>
 
-              {/* Total Produtos */}
-              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50">
-                  <Package size={22} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produtos Físicos</p>
-                  <p className="text-xl font-black text-teal-400">{metricas.totalProdutos}</p>
-                </div>
-              </div>
+            {mostrarKpis && (
+              <div className="p-4 sm:p-6 border-t border-gray-800/80 animate-in slide-in-from-top duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Total de Itens */}
+                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                    <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
+                      <Boxes size={22} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total no Catálogo</p>
+                      <p className="text-xl font-black text-white">{metricas.totalItens}</p>
+                    </div>
+                  </div>
 
-              {/* Total Serviços */}
-              <div className="bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                <div className="p-3 bg-blue-950/50 text-blue-400 rounded-lg border border-blue-900/50">
-                  <Wrench size={22} />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Serviços</p>
-                  <p className="text-xl font-black text-blue-400">{metricas.totalServicos}</p>
+                  {/* Total Produtos */}
+                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                    <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50">
+                      <Package size={22} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produtos Físicos</p>
+                      <p className="text-xl font-black text-teal-400">{metricas.totalProdutos}</p>
+                    </div>
+                  </div>
+
+                  {/* Total Serviços */}
+                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                    <div className="p-3 bg-blue-950/50 text-blue-400 rounded-lg border border-blue-900/50">
+                      <Wrench size={22} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Serviços</p>
+                      <p className="text-xl font-black text-blue-400">{metricas.totalServicos}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* BANNER INTELIGENTE: ITENS DETECTADOS NO HISTÓRICO DE VENDAS */}
           {itensNaoCadastradosNoHistorico.length > 0 && (
@@ -462,21 +485,6 @@ export function Catalogo() {
               </div>
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap">Catálogo</h2>
-                <button 
-                  type="button"
-                  onClick={() => setMostrarKpis(!mostrarKpis)} 
-                  className={`p-2 rounded-md border transition-all cursor-pointer flex items-center gap-1.5 ${
-                    mostrarKpis 
-                      ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' 
-                      : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
-                  }`}
-                  title={mostrarKpis ? "Ocultar Indicadores (KPIs)" : "Revelar Indicadores (KPIs)"}
-                >
-                  {mostrarKpis ? <EyeOff size={15} /> : <Eye size={15} />}
-                  <span className="text-[10px] font-black uppercase hidden sm:inline">
-                    {mostrarKpis ? "Ocultar KPIs" : "Ver KPIs"}
-                  </span>
-                </button>
               </div>
 
               {/* Botão de Importação */}

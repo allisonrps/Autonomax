@@ -5,7 +5,7 @@ import {
   ArrowLeft, Package, Wrench, Receipt, DollarSign,
   ChevronLeft, ChevronRight, TrendingUp, Calendar,
   Tag, ChevronDown, ChevronUp, Edit3, Trash2,
-  X, Save, Boxes, User, History, Eye, EyeOff, Filter, Plus,
+  X, Save, Boxes, User, History, Filter, Plus,
   QrCode, Coins, CreditCard
 } from 'lucide-react';
 import { 
@@ -467,60 +467,65 @@ export function DetalhesProduto() {
             </div>
           </div>
 
-          {/* SEÇÃO DE KPIS (OCULTA POR PADRÃO COM BOTÃO DO OLHO) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-black text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                <DollarSign size={16} className="text-emerald-400" />
-                Indicadores Chave (KPIs)
-              </span>
-              <button
-                type="button"
-                onClick={() => setKpisVisiveis(!kpisVisiveis)}
-                className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white rounded-lg border border-gray-800 transition-all text-xs font-bold flex items-center gap-2 cursor-pointer shadow-sm"
-                title={kpisVisiveis ? "Ocultar Indicadores" : "Exibir Indicadores"}
-              >
-                {kpisVisiveis ? <EyeOff size={15} className="text-gray-400" /> : <Eye size={15} className="text-emerald-400" />}
-                <span>{kpisVisiveis ? 'Ocultar Indicadores' : 'Ver Indicadores'}</span>
-              </button>
-            </div>
+          {/* CARD DE INDICADORES / KPIS (EXPANSÍVEL COM FLECHINHA, OCULTO POR PADRÃO) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-sm overflow-hidden">
+            <button 
+              type="button"
+              onClick={() => setKpisVisiveis(!kpisVisiveis)}
+              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-gray-800/60 transition-colors border-none outline-none cursor-pointer bg-transparent text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <DollarSign size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">
+                  Indicadores Chave (KPIs)
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 text-gray-400">
+                <span className="text-[10px] font-bold uppercase text-gray-500 hidden sm:inline">
+                  {kpisVisiveis ? 'Ocultar Indicadores' : 'Ver Indicadores'}
+                </span>
+                {kpisVisiveis ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+            </button>
 
             {kpisVisiveis && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in slide-in-from-top duration-200">
-                {/* Faturamento Total */}
-                <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                  <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 flex-shrink-0">
-                    <DollarSign size={22} />
+              <div className="p-4 sm:p-6 border-t border-gray-800/80 animate-in slide-in-from-top duration-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Faturamento Total */}
+                  <div className="bg-gray-950 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                    <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 flex-shrink-0">
+                      <DollarSign size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Faturamento Total</p>
+                      <p className="text-lg sm:text-xl font-black text-emerald-400 truncate">
+                        R$ {Number(totalFaturado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Faturamento Total</p>
-                    <p className="text-lg sm:text-xl font-black text-emerald-400 truncate">
-                      R$ {totalFaturado?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                </div>
 
-                {/* Unidades Vendidas */}
-                <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                  <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50 flex-shrink-0">
-                    <Boxes size={22} />
+                  {/* Unidades Vendidas */}
+                  <div className="bg-gray-950 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                    <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50 flex-shrink-0">
+                      <Boxes size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Unidades Vendidas</p>
+                      <p className="text-lg sm:text-xl font-black text-white truncate">{quantidadeTotal}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Unidades Vendidas</p>
-                    <p className="text-lg sm:text-xl font-black text-white truncate">{quantidadeTotal}</p>
-                  </div>
-                </div>
 
-                {/* Última Venda */}
-                <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                  <div className="p-3 bg-amber-950/50 text-amber-400 rounded-lg border border-amber-900/50 flex-shrink-0">
-                    <Calendar size={22} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Última Venda</p>
-                    <p className="text-sm sm:text-base font-black text-amber-400 truncate">
-                      {ultimaVenda ? `${new Date(ultimaVenda).toLocaleDateString('pt-BR')} (${calcularTempoDesde(ultimaVenda)})` : 'Nenhuma venda'}
-                    </p>
+                  {/* Última Venda */}
+                  <div className="bg-gray-950 p-4 sm:p-5 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
+                    <div className="p-3 bg-amber-950/50 text-amber-400 rounded-lg border border-amber-900/50 flex-shrink-0">
+                      <Calendar size={22} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Última Venda</p>
+                      <p className="text-sm sm:text-base font-black text-amber-400 truncate">
+                        {ultimaVenda ? `${new Date(ultimaVenda).toLocaleDateString('pt-BR')} (${calcularTempoDesde(ultimaVenda)})` : 'Nenhuma venda'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

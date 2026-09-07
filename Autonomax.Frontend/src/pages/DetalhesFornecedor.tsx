@@ -386,38 +386,45 @@ export function DetalhesFornecedor() {
                       </button>
 
                       {itemAberto === t.id && (
-                        <div className="px-4 pb-4 pt-2 bg-gray-950/50 border-t border-gray-800/80 flex flex-wrap justify-between items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => handleAlternarStatus(t)} 
-                              className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border cursor-pointer transition-colors ${
-                                t.status === 'Pago' 
-                                  ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' 
-                                  : 'bg-amber-950/50 border-amber-900 text-amber-400 hover:bg-amber-900/50'
-                              }`}
-                            >
-                              <CheckCircle2 size={12}/> {t.status}
-                            </button>
-                            <span className="text-[10px] font-bold text-gray-500 bg-gray-900 px-3 py-1.5 rounded-md border border-gray-800 uppercase">
-                              {t.metodoPagamento}
-                            </span>
+                        <div className="px-4 pb-4 pt-3 bg-gray-950/50 border-t border-gray-800/80 space-y-3 animate-in slide-in-from-top duration-200">
+                          <div className="p-3 bg-gray-950/70 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">
+                            {t.itens && t.itens.length > 0 
+                              ? t.itens.map(it => `${Math.max(1, it.quantidade || 1)}x ${it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}`).join(', ') 
+                              : t.descricao}
                           </div>
+                          <div className="flex flex-wrap justify-between items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => handleAlternarStatus(t)} 
+                                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border cursor-pointer transition-colors ${
+                                  t.status === 'Pago' 
+                                    ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' 
+                                    : 'bg-amber-950/50 border-amber-900 text-amber-400 hover:bg-amber-900/50'
+                                }`}
+                              >
+                                <CheckCircle2 size={12}/> {t.status}
+                              </button>
+                              <span className="text-[10px] font-bold text-gray-500 bg-gray-900 px-3 py-1.5 rounded-md border border-gray-800 uppercase">
+                                {t.metodoPagamento}
+                              </span>
+                            </div>
 
-                          <div className="flex gap-1.5">
-                            <button 
-                              onClick={() => abrirEdicao(t)} 
-                              className="p-2 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-900/50 rounded-md transition-colors cursor-pointer"
-                              title="Editar"
-                            >
-                              <Edit3 size={14}/>
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(t.id)} 
-                              className="p-2 bg-red-950/40 text-red-400 hover:bg-red-900/50 border border-red-900/50 rounded-md transition-colors cursor-pointer"
-                              title="Excluir"
-                            >
-                              <Trash2 size={14}/>
-                            </button>
+                            <div className="flex gap-1.5">
+                              <button 
+                                onClick={() => abrirEdicao(t)} 
+                                className="p-2 bg-emerald-950/40 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-900/50 rounded-md transition-colors cursor-pointer"
+                                title="Editar"
+                              >
+                                <Edit3 size={14}/>
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(t.id)} 
+                                className="p-2 bg-red-950/40 text-red-400 hover:bg-red-900/50 border border-red-900/50 rounded-md transition-colors cursor-pointer"
+                                title="Excluir"
+                              >
+                                <Trash2 size={14}/>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}

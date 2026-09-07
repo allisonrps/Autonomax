@@ -574,7 +574,11 @@ export function Dashboard() {
 
                       {itemAberto === t.id && (
                         <div className="px-4 pb-4 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
-                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">{t.descricao}</div>
+                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 text-xs text-gray-400 font-medium">
+                            {t.itens && t.itens.length > 0 
+                              ? t.itens.map(it => `${Math.max(1, it.quantidade || 1)}x ${it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome}`).join(', ') 
+                              : t.descricao}
+                          </div>
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5">
                               <button onClick={() => handleAlternarStatus(t)} className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 border cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' : 'bg-amber-950/50 border-amber-900 text-amber-400 hover:bg-amber-900/50'}`}>
