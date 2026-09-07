@@ -1,4 +1,4 @@
-﻿using Autonomax.Backend.Models;
+using Autonomax.Backend.Models;
 using Microsoft.EntityFrameworkCore; 
 
 namespace Autonomax.Backend.Data;
@@ -15,16 +15,24 @@ public class AppDbContext : DbContext
     public DbSet<ItemTransacao> ItensTransacao { get; set; }
     public DbSet<LogSeguranca> LogsSeguranca { get; set; }
     public DbSet<Fornecedor> Fornecedores { get; set; }
+    public DbSet<HistoricoPrecoProduto> HistoricoPrecosProdutos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    modelBuilder.Entity<Transacao>()
-        .Property(t => t.Valor)
-        .HasPrecision(18, 2);
+    {
+        modelBuilder.Entity<Transacao>()
+            .Property(t => t.Valor)
+            .HasPrecision(18, 2);
 
-    modelBuilder.Entity<ProdutoServico>()
-        .Property(p => p.Preco)
-        .HasPrecision(18, 2);
-}
+        modelBuilder.Entity<ProdutoServico>()
+            .Property(p => p.Preco)
+            .HasPrecision(18, 2);
 
+        modelBuilder.Entity<HistoricoPrecoProduto>()
+            .Property(h => h.PrecoAntigo)
+            .HasPrecision(18, 2);
+
+        modelBuilder.Entity<HistoricoPrecoProduto>()
+            .Property(h => h.PrecoNovo)
+            .HasPrecision(18, 2);
+    }
 }

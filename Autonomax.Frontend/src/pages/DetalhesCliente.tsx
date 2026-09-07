@@ -350,13 +350,13 @@ export function DetalhesCliente() {
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
                     <input placeholder="Produto ou Serviço..." className="flex-1 p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none text-xs font-medium text-white focus:border-emerald-600 placeholder-gray-600" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} />
-                    <input type="number" className="w-16 p-3.5 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white focus:border-emerald-600" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Number(e.target.value)})} />
-                    <button onClick={() => { if(novoItemEdicao.nome && editando) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: novoItemEdicao.qtd}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer transition-colors"><Plus size={16}/></button>
+                    <input type="number" min="1" className="w-16 p-3.5 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white focus:border-emerald-600" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})} />
+                    <button onClick={() => { if(novoItemEdicao.nome && editando) { setEditando({...editando, itens: [...editando.itens, {nome: novoItemEdicao.nome, quantidade: Math.max(1, novoItemEdicao.qtd || 1)}]}); setNovoItemEdicao({nome:'', qtd:1}); }}} className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer transition-colors"><Plus size={16}/></button>
                   </div>
                   <div className="min-h-[80px] p-3 bg-gray-950 rounded-md border border-gray-800 flex flex-wrap gap-2">
                     {editando.itens.map((it, idx) => (
                       <div key={idx} className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 px-3 py-1.5 rounded-md">
-                        <span className="text-emerald-400 font-black text-[10px]">{it.quantidade}x</span><span className="text-gray-300 text-[11px] font-medium">{it.nome}</span>
+                        <span className="text-emerald-400 font-black text-[10px]">{Math.max(1, it.quantidade || 1)}x</span><span className="text-gray-300 text-[11px] font-medium">{it.nome}</span>
                         <button onClick={() => setEditando({...editando, itens: editando.itens.filter((_, i) => i !== idx)})} className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer ml-1"><X size={12}/></button>
                       </div>
                     ))}

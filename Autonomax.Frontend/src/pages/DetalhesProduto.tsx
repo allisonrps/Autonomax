@@ -5,7 +5,7 @@ import {
   ArrowLeft, Package, Wrench, Receipt, DollarSign,
   ChevronLeft, ChevronRight, TrendingUp, Calendar,
   Tag, ChevronDown, ChevronUp, Edit3, Trash2,
-  X, Save, Boxes, User,
+  X, Save, Boxes, User, History,
   QrCode, Coins, CreditCard
 } from 'lucide-react';
 import { 
@@ -53,6 +53,14 @@ interface MesEvolucao {
   quantidade: number;
 }
 
+interface HistoricoPreco {
+  id: number;
+  precoAntigo: number;
+  precoNovo: number;
+  dataAlteracao: string;
+  motivo?: string;
+}
+
 interface DadosDetalhesProduto {
   produto: ProdutoServico;
   totalFaturado: number;
@@ -62,6 +70,7 @@ interface DadosDetalhesProduto {
   ultimaVenda?: string;
   ano: number;
   evolucaoMensal: MesEvolucao[];
+  historicoPrecos?: HistoricoPreco[];
   transacoes: TransacaoVinculada[];
 }
 
@@ -75,6 +84,9 @@ export function DetalhesProduto() {
   
   // Card de Performance / Gráfico recolhido por padrão
   const [graficoAberto, setGraficoAberto] = useState(false);
+  
+  // Card de Histórico de Preços recolhido por padrão
+  const [historicoAberto, setHistoricoAberto] = useState(false);
   
   // Card de transação expandido
   const [itemAberto, setItemAberto] = useState<number | null>(null);
@@ -253,7 +265,7 @@ export function DetalhesProduto() {
     return null;
   };
 
-  const { produto, totalFaturado, quantidadeTotal, ultimaVenda, evolucaoMensal, transacoes = [] } = dados || {};
+  const { produto, totalFaturado, quantidadeTotal, ultimaVenda, evolucaoMensal, historicoPrecos = [], transacoes = [] } = dados || {};
 
   // Garante que a ordenação seja sempre da última venda para a primeira (data mais recente primeiro)
   const transacoesOrdenadas = useMemo(() => {
@@ -535,6 +547,106 @@ export function DetalhesProduto() {
             )}
           </div>
 
+          {/* CARD DE HISTÓRICO DE PREÇOS (OCULTO POR PADRÃO COM FLECHINHA) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-sm overflow-hidden">
+            <button 
+              type="button"
+              onClick={() => setHistoricoAberto(!historicoAberto)}
+              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-gray-800/60 transition-colors border-none outline-none cursor-pointer bg-transparent text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <History size={18} className="text-emerald-400" />
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider flex items-center gap-2">
+                  Histórico de Alteração de Preços
+                  {historicoPrecos.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-950 text-emerald-400 border border-emerald-900">
+                      {historicoPrecos.length} {historicoPrecos.length === 1 ? 'registro' : 'registros'}
+                    </span>
+                  )}
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 text-gray-400">
+                <span className="text-[10px] font-bold uppercase text-gray-500 hidden sm:inline">
+                  {historicoAberto ? 'Ocultar Histórico' : 'Ver Histórico'}
+                </span>
+                {historicoAberto ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </div>
+            </button>
+
+            {historicoAberto && (
+              <div className="p-4 sm:p-6 border-t border-gray-800/80 space-y-3 animate-in slide-in-from-top duration-200">
+                {historicoPrecos.length === 0 ? (
+                  <div className="bg-gray-950 p-6 rounded-lg border border-dashed border-gray-800 text-center">
+                    <p className="text-xs text-gray-400 font-medium">
+                      Nenhuma alteração de preço registrada ainda para este item.
+                    </p>
+                    <p className="text-[11px] text-gray-600 mt-1">
+                      Sempre que você editar o valor deste produto/serviço, o registro com data, hora e percentual de reajuste ficará salvo automaticamente aqui.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {historicoPrecos.map((h) => {
+                      const dataHist = new Date(h.dataAlteracao);
+                      const teveAumento = h.precoNovo > h.precoAntigo;
+                      const percentual = h.precoAntigo > 0 
+                        ? (((h.precoNovo - h.precoAntigo) / h.precoAntigo) * 100).toFixed(1)
+                        : null;
+
+                      return (
+                        <div 
+                          key={h.id} 
+                          className="bg-gray-950 p-3.5 rounded-lg border border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-gray-900 border border-gray-800 text-gray-400 flex-shrink-0">
+                              <History size={14} />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-bold text-gray-400 line-through">
+                                  R$ {Number(h.precoAntigo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                                <span className="text-xs text-gray-600">→</span>
+                                <span className="text-xs font-black text-emerald-400">
+                                  R$ {Number(h.precoNovo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+
+                                {percentual !== null ? (
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                                    teveAumento 
+                                      ? 'bg-emerald-950/60 text-emerald-400 border-emerald-900/50' 
+                                      : 'bg-amber-950/60 text-amber-400 border-amber-900/50'
+                                  }`}>
+                                    {Number(percentual) > 0 ? `+${percentual}%` : `${percentual}%`}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-950/60 text-blue-400 border border-blue-900/50">
+                                    Preço Inicial
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                {h.motivo || 'Alteração de valor'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-left sm:text-right">
+                            <span className="text-[10px] font-bold text-gray-400 block">
+                              {dataHist.toLocaleDateString('pt-BR')} às {dataHist.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* ONDE FOI VENDIDO (CARDS DE VENDAS COM DATA À ESQUERDA, ITENS EM TAGS E PAGINAÇÃO) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
@@ -557,6 +669,7 @@ export function DetalhesProduto() {
                 {transacoesPaginadas.map((t) => {
                   const dataObj = formatarDataLocal(t.data);
                   const isAberta = itemAberto === t.id;
+                  const qtdItem = Math.max(1, t.quantidadeItem || 1);
 
                   return (
                     <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all shadow-sm">
@@ -583,7 +696,7 @@ export function DetalhesProduto() {
                               {t.cliente?.nome || "Venda Avulsa"}
                             </span>
                             <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-950/60 text-emerald-400 border border-emerald-900/50 flex-shrink-0">
-                              {t.quantidadeItem}x
+                              {qtdItem}x
                             </span>
                           </div>
                         </div>
@@ -593,7 +706,7 @@ export function DetalhesProduto() {
                           {(() => {
                             const valorItemCalc = (t.valorItem !== undefined && t.valorItem > 0)
                               ? t.valorItem
-                              : ((produto.preco > 0) ? (produto.preco * t.quantidadeItem) : t.valor);
+                              : ((produto.preco > 0) ? (produto.preco * qtdItem) : t.valor);
                             const ehDiferente = t.valor !== valorItemCalc;
 
                             return (
@@ -623,7 +736,7 @@ export function DetalhesProduto() {
                             {t.itens && t.itens.length > 0 ? (
                               t.itens.map((it, idx) => (
                                 <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-gray-300 text-xs">
-                                  <strong className="text-emerald-400">{it.quantidade}x</strong> {it.nome}
+                                  <strong className="text-emerald-400">{Math.max(1, it.quantidade || 1)}x</strong> {it.nome}
                                 </span>
                               ))
                             ) : (

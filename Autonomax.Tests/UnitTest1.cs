@@ -1,5 +1,6 @@
 using Autonomax.Backend.Controllers;
 using Autonomax.Backend.Data;
+using Autonomax.Backend.DTOs;
 using Autonomax.Backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -165,5 +166,54 @@ public class ProdutosServicosTests
         Assert.Equal(2, transacoes.GetArrayLength());
         var primeiraData = transacoes[0].GetProperty("data").GetString();
         Assert.StartsWith("2026-05-20", primeiraData);
+    }
+
+    [Fact]
+    public async Task AlterarPrecoProduto_DeveRegistrarHistoricoDeAlteracao()
+    {
+        var db = GetDatabase();
+        int negocioId = 4;
+        var controller = new ProdutosServicosController(db);
+
+        // 1. Cadastra novo item com preço inicial R$ 50
+        var createResult = await controller.Post(new ProdutoServicoCreateDto
+        {
+            Nome = "Banner Frontlight",
+            Preco = 50m,
+            EhServico = false,
+            NegocioId = negocioId
+        });
+
+        var createdOk = Assert.IsType<OkObjectResult>(createResult.Result);
+        var itemCriado = Assert.IsType<ProdutoServico>(createdOk.Value);
+
+        // Verifica se registrou preço inicial
+        var historicoInicial = await db.HistoricoPrecosProdutos
+            .Where(h => h.ProdutoServicoId == itemCriado.Id)
+            .ToListAsync();
+        Assert.Single(historicoInicial);
+        Assert.Equal(0m, historicoInicial[0].PrecoAntigo);
+        Assert.Equal(50m, historicoInicial[0].PrecoNovo);
+
+        // 2. Altera o preço para R$ 65
+        await controller.Put(itemCriado.Id, new ProdutoServicoUpdateDto
+        {
+            Nome = "Banner Frontlight",
+            Preco = 65m,
+            EhServico = false
+        });
+
+        // 3. Consulta detalhes para verificar se histórico vem populado
+        var detalhesResult = await controller.GetDetalhes(itemCriado.Id, negocioId, 2026) as OkObjectResult;
+        Assert.NotNull(detalhesResult);
+
+        var jsonStr = System.Text.Json.JsonSerializer.Serialize(detalhesResult.Value);
+        using var doc = System.Text.Json.JsonDocument.Parse(jsonStr);
+        var historico = doc.RootElement.GetProperty("historicoPrecos");
+
+        Assert.Equal(2, historico.GetArrayLength());
+        // Mais recente deve ser a alteração de 50 para 65
+        Assert.Equal(50m, historico[0].GetProperty("precoAntigo").GetDecimal());
+        Assert.Equal(65m, historico[0].GetProperty("precoNovo").GetDecimal());
     }
 }

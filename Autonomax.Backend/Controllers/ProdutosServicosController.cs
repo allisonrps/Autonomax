@@ -141,6 +141,8 @@ public class ProdutosServicosController : ControllerBase
                     }
                 }
 
+                int qtdCalculada = qtdNestaTransacao > 0 ? qtdNestaTransacao : 1;
+
                 transacoesVinculadas.Add(new
                 {
                     id = t.Id,
@@ -153,8 +155,8 @@ public class ProdutosServicosController : ControllerBase
                     data = t.Data.ToString("yyyy-MM-ddTHH:mm:ss"),
                     clienteId = t.ClienteId,
                     cliente = t.Cliente != null ? new { id = t.Cliente.Id, nome = t.Cliente.Nome } : null,
-                    itens = t.Itens?.Select(it => new { nome = it.Nome, quantidade = it.Quantidade }).ToList(),
-                    quantidadeItem = qtdNestaTransacao
+                    itens = t.Itens?.Select(it => new { nome = it.Nome, quantidade = it.Quantidade > 0 ? it.Quantidade : 1 }).ToList(),
+                    quantidadeItem = qtdCalculada
                 });
             }
         }
@@ -171,6 +173,19 @@ public class ProdutosServicosController : ControllerBase
         var qtdTransacoes = transacoesVinculadas.Count;
         decimal ticketMedio = qtdTransacoes > 0 ? Math.Round(totalFaturado / qtdTransacoes, 2) : 0;
 
+        var historicoPrecos = await _context.HistoricoPrecosProdutos
+            .Where(h => h.ProdutoServicoId == id)
+            .OrderByDescending(h => h.DataAlteracao)
+            .Select(h => new
+            {
+                id = h.Id,
+                precoAntigo = h.PrecoAntigo,
+                precoNovo = h.PrecoNovo,
+                dataAlteracao = h.DataAlteracao.ToString("yyyy-MM-ddTHH:mm:ss"),
+                motivo = h.Motivo
+            })
+            .ToListAsync();
+
         return Ok(new
         {
             produto,
@@ -181,6 +196,7 @@ public class ProdutosServicosController : ControllerBase
             ultimaVenda = ultimaData?.ToString("yyyy-MM-ddTHH:mm:ss"),
             ano = anoAlvo,
             evolucaoMensal,
+            historicoPrecos,
             transacoes = transacoesVinculadas
         });
     }
@@ -206,6 +222,20 @@ public class ProdutosServicosController : ControllerBase
             _context.ProdutosServicos.Add(item);
             await _context.SaveChangesAsync();
 
+            if (item.Preco > 0)
+            {
+                _context.HistoricoPrecosProdutos.Add(new HistoricoPrecoProduto
+                {
+                    ProdutoServicoId = item.Id,
+                    PrecoAntigo = 0,
+                    PrecoNovo = item.Preco,
+                    DataAlteracao = DateTime.UtcNow,
+                    Motivo = "Preço inicial de cadastro",
+                    NegocioId = item.NegocioId
+                });
+                await _context.SaveChangesAsync();
+            }
+
             return Ok(item);
         }
         catch (Exception ex)
@@ -221,13 +251,30 @@ public class ProdutosServicosController : ControllerBase
         var item = await _context.ProdutosServicos.FindAsync(id);
         if (item == null) return NotFound();
 
+        var precoAnterior = item.Preco;
+        var novoPreco = dto.Preco >= 0 ? dto.Preco : 0;
+        bool precoAlterado = precoAnterior != novoPreco;
+
         item.Nome = dto.Nome.Trim();
         item.Descricao = dto.Descricao?.Trim();
         item.Categoria = dto.Categoria?.Trim();
-        item.Preco = dto.Preco;
+        item.Preco = novoPreco;
         item.EhServico = dto.EhServico;
 
         _context.Entry(item).State = EntityState.Modified;
+
+        if (precoAlterado)
+        {
+            _context.HistoricoPrecosProdutos.Add(new HistoricoPrecoProduto
+            {
+                ProdutoServicoId = item.Id,
+                PrecoAntigo = precoAnterior,
+                PrecoNovo = novoPreco,
+                DataAlteracao = DateTime.UtcNow,
+                Motivo = precoAnterior == 0 ? "Definição do preço" : "Alteração de valor",
+                NegocioId = item.NegocioId
+            });
+        }
 
         try
         {
