@@ -56,7 +56,7 @@ export function Fornecedores() {
   }
 
   const calcularDias = (dataISO: string | undefined) => {
-    if (!dataISO || dataISO.startsWith('0001')) return '---';
+    if (!dataISO || dataISO.startsWith('0001')) return '-';
     const data = new Date(dataISO);
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -64,9 +64,8 @@ export function Fornecedores() {
     dataRef.setHours(0, 0, 0, 0);
     const diffTime = hoje.getTime() - dataRef.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'Hoje';
-    if (diffDays === 1) return 'Ontem';
-    return `${diffDays}d atrás`;
+    if (diffDays <= 0) return '0';
+    return `${diffDays}`;
   };
 
   async function handleAddFornecedor() {
@@ -449,7 +448,7 @@ export function Fornecedores() {
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
                       <span className="text-[11px] font-black text-orange-400">
-                        {f.qtdLancamentos || 0} {f.qtdLancamentos === 1 ? 'lanç.' : 'lanç.'}
+                        {f.qtdLancamentos || 0}
                       </span>
                     </div>
 
@@ -460,7 +459,7 @@ export function Fornecedores() {
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
                       <span className="text-[11px] font-black text-red-400">
-                        R$ {(f.totalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {(f.totalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
 
