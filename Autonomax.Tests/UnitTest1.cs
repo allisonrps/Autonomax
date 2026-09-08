@@ -363,4 +363,43 @@ public class ProdutosServicosTests
         Assert.Equal(2, lista[0].Itens[0].Quantidade);
         Assert.Equal("CARTAZ DUPLO", lista[0].Itens[0].Nome);
     }
+
+    [Fact]
+    public async Task GetDetalhes_DeveIdentificarQuantidadeCorreta_QuandoDescricaoPossuiMultiplosItens()
+    {
+        var db = GetDatabase();
+        int negocioId = 8;
+
+        var produto = new ProdutoServico
+        {
+            Nome = "Pluma Colchoes",
+            Preco = 50m,
+            NegocioId = negocioId
+        };
+        db.ProdutosServicos.Add(produto);
+        await db.SaveChangesAsync();
+
+        var transacao = new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "2x Pluma Colchoes, 1x Banner",
+            Valor = 150m,
+            Tipo = "Entrada",
+            Data = new DateTime(2026, 8, 15)
+        };
+        transacao.Itens.Add(new ItemTransacao { Nome = "Pluma Colchoes", Quantidade = 1 });
+        transacao.Itens.Add(new ItemTransacao { Nome = "Banner", Quantidade = 1 });
+        db.Transacoes.Add(transacao);
+        await db.SaveChangesAsync();
+
+        var controller = new ProdutosServicosController(db);
+        var result = await controller.GetDetalhes(produto.Id, negocioId, 2026) as Microsoft.AspNetCore.Mvc.OkObjectResult;
+
+        Assert.NotNull(result);
+        var json = System.Text.Json.JsonSerializer.Serialize(result.Value);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        Assert.Equal(2, root.GetProperty("quantidadeTotal").GetInt32());
+        Assert.Equal(100m, root.GetProperty("totalFaturado").GetDecimal());
+    }
 }

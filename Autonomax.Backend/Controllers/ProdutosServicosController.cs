@@ -99,18 +99,26 @@ public class ProdutosServicosController : ControllerBase
                     }
                 }
 
-                // Se houver correspondência ou se a descrição trouxer uma quantidade explícita maior (ex: "2X CARTAZ DUPLO")
+                // Cruza com as quantidades descritas em t.Descricao (splitando por separadores)
+                // para garantir que a quantidade correta seja capturada mesmo em descrições multi-item
                 if (!string.IsNullOrWhiteSpace(t.Descricao))
                 {
-                    var (correspDesc, qtdDesc, _) = AnalisarItemTransacao(t.Descricao, 1, nomeProduto);
-                    if (correspDesc && qtdDesc > qtdNestaTransacao)
+                    var partesDesc = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var parteDesc in partesDesc)
                     {
-                        vinculado = true;
-                        qtdNestaTransacao = qtdDesc;
-                        if (matchIndex >= 0 && matchIndex < itensFormatados.Count)
+                        var pedacoDesc = parteDesc.Trim();
+                        if (string.IsNullOrWhiteSpace(pedacoDesc)) continue;
+
+                        var (correspDesc, qtdDesc, _) = AnalisarItemTransacao(pedacoDesc, 1, nomeProduto);
+                        if (correspDesc && qtdDesc > qtdNestaTransacao)
                         {
-                            var oldIt = (dynamic)itensFormatados[matchIndex];
-                            itensFormatados[matchIndex] = new { nome = (string)oldIt.nome, quantidade = qtdDesc };
+                            vinculado = true;
+                            qtdNestaTransacao = qtdDesc;
+                            if (matchIndex >= 0 && matchIndex < itensFormatados.Count)
+                            {
+                                var oldIt = (dynamic)itensFormatados[matchIndex];
+                                itensFormatados[matchIndex] = new { nome = (string)oldIt.nome, quantidade = qtdDesc };
+                            }
                         }
                     }
                 }
