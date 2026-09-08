@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, LayoutDashboard, Users, 
@@ -100,50 +100,50 @@ export function Layout({ children }: { children: React.ReactNode }) {
           sidebarCollapsed ? 'w-20' : 'w-64'
         }`}
       >
-        {/* TOPO DA SIDEBAR: LOGO + BOTÃO DE RECOLHER */}
-        <div className="h-20 px-4 border-b border-gray-800/80 flex items-center justify-between flex-shrink-0">
+        {/* TOPO DA SIDEBAR: LOGO (AMPLIADO 200% E CENTRALIZADO) + BOTÃO DE RECOLHER */}
+        <div className="relative min-h-[110px] py-4 px-3 border-b border-gray-800/80 flex items-center justify-center flex-shrink-0 bg-gray-900/50">
           {!sidebarCollapsed ? (
-            <Link to="/perfil" className="flex items-center gap-3 min-w-0 max-w-[180px]">
+            <Link to="/perfil" className="flex items-center justify-center w-full max-w-[210px] h-20 transition-transform hover:scale-[1.02]">
               {negocioSelecionado?.logoUrl ? (
-                <div className="h-9 max-w-[150px] flex items-center">
+                <div className="w-full h-full flex items-center justify-center">
                   <img 
                     src={negocioSelecionado.logoUrl} 
                     alt={negocioSelecionado.nome} 
-                    className="max-h-9 max-w-full object-contain rounded"
+                    className="max-h-20 max-w-full object-contain rounded-lg shadow-sm"
                   />
                 </div>
               ) : (
                 <img 
                   src={logoImg} 
                   alt="Autonomax" 
-                  className="h-6 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity" 
+                  className="h-12 w-auto max-w-[200px] object-contain opacity-90 hover:opacity-100 transition-opacity" 
                 />
               )}
             </Link>
           ) : (
             <Link to="/perfil" className="mx-auto" title={negocioSelecionado?.nome || "Autonomax"}>
               {negocioSelecionado?.logoUrl ? (
-                <div className="w-10 h-10 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden p-1">
+                <div className="w-14 h-14 rounded-xl bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden p-1 shadow-sm">
                   <img src={negocioSelecionado.logoUrl} alt="Logo" className="w-full h-full object-contain" />
                 </div>
               ) : (
-                <div className="w-9 h-9 rounded-lg bg-emerald-950/50 border border-emerald-900 text-emerald-400 flex items-center justify-center font-black text-sm">
+                <div className="w-12 h-12 rounded-xl bg-emerald-950/50 border border-emerald-900 text-emerald-400 flex items-center justify-center font-black text-base shadow-sm">
                   {negocioSelecionado?.nome?.charAt(0).toUpperCase() || 'A'}
                 </div>
               )}
             </Link>
           )}
 
-          {/* Botão de Toggle Expandir / Recolher */}
+          {/* Botão de Toggle Expandir / Recolher reposicionado no canto superior direito */}
           <button
             type="button"
             onClick={toggleSidebar}
-            className={`p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-gray-800 transition-colors cursor-pointer ${
+            className={`absolute top-2.5 right-2.5 p-1 rounded-md text-gray-500 hover:text-white hover:bg-gray-800 transition-colors cursor-pointer ${
               sidebarCollapsed ? 'hidden' : 'block'
             }`}
             title="Recolher menu"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
         </div>
 
@@ -316,10 +316,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <img 
                       src={negocioSelecionado.logoUrl} 
                       alt={negocioSelecionado.nome} 
-                      className="h-8 max-w-[140px] object-contain"
+                      className="h-12 max-w-[180px] object-contain rounded"
                     />
                   ) : (
-                    <img src={logoImg} alt="Autonomax" className="h-6 w-auto opacity-90" />
+                    <img src={logoImg} alt="Autonomax" className="h-8 w-auto opacity-90" />
                   )}
                 </Link>
 
