@@ -62,6 +62,9 @@ public class ProdutosServicosController : ControllerBase
             .OrderByDescending(t => t.Data)
             .ToListAsync();
 
+        // Normaliza os itens e quantidades de TODAS as transações cruzando com suas descrições
+        TransacoesController.NormalizarItensTransacoes(todasTransacoes);
+
         var nomeProduto = produto.Nome.Trim();
 
         var transacoesVinculadas = new List<object>();
@@ -78,7 +81,7 @@ public class ProdutosServicosController : ControllerBase
             int qtdNestaTransacao = 0;
             var itensFormatados = new List<object>();
 
-            // 1. Verifica itens na tabela ItensTransacao
+            // 1. Verifica itens na coleção já normalizada t.Itens
             if (t.Itens != null && t.Itens.Count > 0)
             {
                 int matchIndex = -1;
@@ -99,8 +102,7 @@ public class ProdutosServicosController : ControllerBase
                     }
                 }
 
-                // Cruza com as quantidades descritas em t.Descricao (splitando por separadores)
-                // para garantir que a quantidade correta seja capturada mesmo em descrições multi-item
+                // Cruza com as quantidades descritas em t.Descricao para garantir que nenhuma quantidade residual fique para trás
                 if (!string.IsNullOrWhiteSpace(t.Descricao))
                 {
                     var partesDesc = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+' }, StringSplitOptions.RemoveEmptyEntries);

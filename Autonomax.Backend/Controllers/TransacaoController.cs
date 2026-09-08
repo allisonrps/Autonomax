@@ -75,6 +75,8 @@ public class TransacoesController : ControllerBase
                 }
             }
 
+            NormalizarItensTransacoes(new[] { transacao });
+
             _context.Transacoes.Add(transacao);
             await _context.SaveChangesAsync();
 
@@ -167,6 +169,8 @@ public class TransacoesController : ControllerBase
                 });
             }
         }
+
+        NormalizarItensTransacoes(new[] { transacaoExistente });
 
         try 
         { 
@@ -269,7 +273,7 @@ public class TransacoesController : ControllerBase
                 // Cruza com as quantidades descritas em t.Descricao para garantir exatidão
                 if (!string.IsNullOrWhiteSpace(t.Descricao))
                 {
-                    var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                    var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+' }, StringSplitOptions.RemoveEmptyEntries);
                     
                     if (t.Itens.Count == 1 && partes.Length >= 1)
                     {
@@ -285,31 +289,60 @@ public class TransacoesController : ControllerBase
                         {
                             var it = t.Itens[i];
                             var itNorm = ProdutosServicosController.NormalizarTexto(it.Nome);
+                            if (string.IsNullOrWhiteSpace(itNorm)) continue;
 
-                            // Se o número de partes bater com o número de itens, checa por índice primeiro
-                            if (i < partes.Length)
+                            bool encontrouExato = false;
+
+                            // 1. Procura correspondência EXATA entre o nome do item e qualquer uma das partes da descrição
+                            foreach (var parte in partes)
                             {
-                                var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(partes[i]);
+                                var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(parte);
                                 var pNorm = ProdutosServicosController.NormalizarTexto(nomeP);
-                                if (string.IsNullOrEmpty(pNorm) || pNorm.Equals(itNorm, StringComparison.OrdinalIgnoreCase) || itNorm.Contains(pNorm) || pNorm.Contains(itNorm))
+                                if (!string.IsNullOrEmpty(pNorm) && pNorm.Equals(itNorm, StringComparison.OrdinalIgnoreCase))
                                 {
                                     if (qtdP > it.Quantidade)
                                     {
                                         it.Quantidade = qtdP;
                                     }
+                                    encontrouExato = true;
+                                    break;
                                 }
                             }
 
-                            // Checa contra todas as partes
-                            foreach (var parte in partes)
+                            // 2. Se não encontrou exato por nome, e o índice coincidir
+                            if (!encontrouExato && i < partes.Length)
                             {
-                                var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(parte);
+                                var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(partes[i]);
                                 var pNorm = ProdutosServicosController.NormalizarTexto(nomeP);
-                                if (!string.IsNullOrEmpty(pNorm) && (pNorm.Equals(itNorm, StringComparison.OrdinalIgnoreCase) || itNorm.Contains(pNorm) || pNorm.Contains(itNorm)))
+                                if (!string.IsNullOrEmpty(pNorm) && pNorm.Equals(itNorm, StringComparison.OrdinalIgnoreCase))
                                 {
                                     if (qtdP > it.Quantidade)
                                     {
                                         it.Quantidade = qtdP;
+                                        encontrouExato = true;
+                                    }
+                                }
+                            }
+
+                            // 3. Fallback: verificação estrita por palavras completas para evitar falso positivo entre "P" e "PP"
+                            if (!encontrouExato)
+                            {
+                                foreach (var parte in partes)
+                                {
+                                    var (qtdP, nomeP) = ProdutosServicosController.ExtrairQtdENome(parte);
+                                    var pNorm = ProdutosServicosController.NormalizarTexto(nomeP);
+                                    if (!string.IsNullOrEmpty(pNorm))
+                                    {
+                                        var itWords = itNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                        var pWords = pNorm.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                        if (itWords.SequenceEqual(pWords, StringComparer.OrdinalIgnoreCase))
+                                        {
+                                            if (qtdP > it.Quantidade)
+                                            {
+                                                it.Quantidade = qtdP;
+                                            }
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -320,7 +353,7 @@ public class TransacoesController : ControllerBase
             else if (!string.IsNullOrWhiteSpace(t.Descricao))
             {
                 t.Itens = new List<ItemTransacao>();
-                var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+', '/' }, StringSplitOptions.RemoveEmptyEntries);
+                var partes = t.Descricao.Split(new[] { ',', ';', '\n', '\r', '+' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var parte in partes)
                 {
                     var pedaco = parte.Trim();
@@ -340,6 +373,7 @@ public class TransacoesController : ControllerBase
             }
         }
     }
+
 
 
 [HttpGet("clientes/{id}/relatorio-pdf")]

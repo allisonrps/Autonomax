@@ -402,4 +402,58 @@ public class ProdutosServicosTests
         Assert.Equal(2, root.GetProperty("quantidadeTotal").GetInt32());
         Assert.Equal(100m, root.GetProperty("totalFaturado").GetDecimal());
     }
+
+    [Fact]
+    public async Task GetDetalhes_DeveNormalizarTodosOsItensDaVenda_CenarioMercadoDoZe()
+    {
+        var db = GetDatabase();
+        int negocioId = 9;
+
+        var cartazG = new ProdutoServico { Nome = "CARTAZ G", Preco = 8m, NegocioId = negocioId };
+        var cartazM = new ProdutoServico { Nome = "CARTAZ M", Preco = 5m, NegocioId = negocioId };
+        var cartazPP = new ProdutoServico { Nome = "CARTAZ PP", Preco = 3m, NegocioId = negocioId };
+        db.ProdutosServicos.AddRange(cartazG, cartazM, cartazPP);
+        await db.SaveChangesAsync();
+
+        var transacao = new Transacao
+        {
+            NegocioId = negocioId,
+            Descricao = "6x CARTAZ G, 12x CARTAZ M, 10x CARTAZ PP",
+            Valor = 117m,
+            Tipo = "Entrada",
+            Data = new DateTime(2026, 9, 4)
+        };
+        // Ordem diferente da descrição e quantidades iniciais desatualizadas (1)
+        transacao.Itens.Add(new ItemTransacao { Nome = "CARTAZ M", Quantidade = 1 });
+        transacao.Itens.Add(new ItemTransacao { Nome = "CARTAZ G", Quantidade = 1 });
+        transacao.Itens.Add(new ItemTransacao { Nome = "CARTAZ PP", Quantidade = 1 });
+        db.Transacoes.Add(transacao);
+        await db.SaveChangesAsync();
+
+        var controller = new ProdutosServicosController(db);
+        var result = await controller.GetDetalhes(cartazG.Id, negocioId, 2026) as Microsoft.AspNetCore.Mvc.OkObjectResult;
+
+        Assert.NotNull(result);
+        var json = System.Text.Json.JsonSerializer.Serialize(result.Value);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        // O item visualizado (CARTAZ G) deve ter quantidade 6 e faturamento 48 (6 x 8)
+        Assert.Equal(6, root.GetProperty("quantidadeTotal").GetInt32());
+        Assert.Equal(48m, root.GetProperty("totalFaturado").GetDecimal());
+
+        // A lista de itens retornada para o card expandido deve ter TODOS os itens normalizados
+        var transacoes = root.GetProperty("transacoes");
+        Assert.Equal(1, transacoes.GetArrayLength());
+        var itens = transacoes[0].GetProperty("itens");
+        Assert.Equal(3, itens.GetArrayLength());
+
+        var itemM = itens.EnumerateArray().FirstOrDefault(x => x.GetProperty("nome").GetString() == "CARTAZ M");
+        var itemG = itens.EnumerateArray().FirstOrDefault(x => x.GetProperty("nome").GetString() == "CARTAZ G");
+        var itemPP = itens.EnumerateArray().FirstOrDefault(x => x.GetProperty("nome").GetString() == "CARTAZ PP");
+
+        Assert.Equal(12, itemM.GetProperty("quantidade").GetInt32());
+        Assert.Equal(6, itemG.GetProperty("quantidade").GetInt32());
+        Assert.Equal(10, itemPP.GetProperty("quantidade").GetInt32());
+    }
 }

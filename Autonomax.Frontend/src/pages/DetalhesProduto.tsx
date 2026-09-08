@@ -251,12 +251,31 @@ export function DetalhesProduto() {
   // Abrir modal de edição da transação com suporte a lista de itens
   function abrirEdicaoTransacao(t: TransacaoVinculada) {
     setTransacaoEditando(t);
-    const itensClonados = t.itens && t.itens.length > 0
+    let itensClonados = t.itens && t.itens.length > 0
       ? t.itens.map(it => ({ 
           nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome, 
           quantidade: Math.max(1, it.quantidade || 1) 
         }))
       : [{ nome: (produto?.nome || t.descricao || 'Item').replace(/^[\d\s*xX•\-_/]+/, '').trim() || 'Item', quantidade: Math.max(1, t.quantidadeItem || 1) }];
+
+    // Reconciliação com a descrição textual da venda para garantir máxima consistência
+    if (t.descricao) {
+      const partes = t.descricao.split(/[,;\n\r+]/);
+      itensClonados = itensClonados.map(it => {
+        const itNorm = it.nome.toLowerCase().trim();
+        for (const p of partes) {
+          const m = p.trim().match(/^(\d{1,4})\s*[xX*•\-]?\s*(.+)$/);
+          if (m) {
+            const q = parseInt(m[1], 10);
+            const n = m[2].replace(/^[\d\s*xX•\-_/]+/, '').toLowerCase().trim();
+            if (n === itNorm && q > it.quantidade) {
+              return { ...it, quantidade: q };
+            }
+          }
+        }
+        return it;
+      });
+    }
 
     setFormTransacaoEdicao({
       descricao: t.descricao,
@@ -265,6 +284,33 @@ export function DetalhesProduto() {
       status: t.status,
       metodoPagamento: t.metodoPagamento,
       itens: itensClonados
+    });
+    setNovoItemTransacaoEdicao({ nome: '', qtd: 1 });
+  }
+
+  function handleAdicionarItemEdicao() {
+    if (!novoItemTransacaoEdicao.nome.trim()) return;
+    let itemNome = novoItemTransacaoEdicao.nome.trim();
+    let qtdNum = Math.max(1, novoItemTransacaoEdicao.qtd || 1);
+
+    const matchQtd = itemNome.match(/^(\d{1,4})\s*[xX*•\-]?\s*(.+)$/);
+    if (matchQtd && matchQtd[2].trim()) {
+      const parsed = parseInt(matchQtd[1], 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        qtdNum = parsed;
+        itemNome = matchQtd[2].trim();
+      }
+    }
+    itemNome = itemNome.replace(/^[\d\s*xX•\-_/]+/, '').trim();
+
+    const novosItens = [
+      ...formTransacaoEdicao.itens,
+      { nome: itemNome, quantidade: qtdNum }
+    ];
+    setFormTransacaoEdicao({
+      ...formTransacaoEdicao,
+      itens: novosItens,
+      descricao: novosItens.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
     });
     setNovoItemTransacaoEdicao({ nome: '', qtd: 1 });
   }
@@ -1204,6 +1250,7 @@ export function DetalhesProduto() {
                     className="flex-1 p-2.5 bg-gray-950 border border-gray-800 rounded-lg outline-none text-xs font-medium text-white focus:border-emerald-600 placeholder-gray-600" 
                     value={novoItemTransacaoEdicao.nome} 
                     onChange={e => setNovoItemTransacaoEdicao({...novoItemTransacaoEdicao, nome: e.target.value})} 
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemEdicao(); } }}
                   />
                   <input 
                     type="number" 
@@ -1211,23 +1258,11 @@ export function DetalhesProduto() {
                     className="w-16 p-2.5 bg-gray-950 border border-gray-800 rounded-lg text-center font-black text-xs text-white focus:border-emerald-600" 
                     value={novoItemTransacaoEdicao.qtd} 
                     onChange={e => setNovoItemTransacaoEdicao({...novoItemTransacaoEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})} 
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemEdicao(); } }}
                   />
                   <button 
                     type="button"
-                    onClick={() => {
-                      if (novoItemTransacaoEdicao.nome.trim()) {
-                        const novosItens = [
-                          ...formTransacaoEdicao.itens,
-                          { nome: novoItemTransacaoEdicao.nome.trim(), quantidade: Math.max(1, novoItemTransacaoEdicao.qtd || 1) }
-                        ];
-                        setFormTransacaoEdicao({
-                          ...formTransacaoEdicao,
-                          itens: novosItens,
-                          descricao: novosItens.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
-                        });
-                        setNovoItemTransacaoEdicao({ nome: '', qtd: 1 });
-                      }
-                    }} 
+                    onClick={handleAdicionarItemEdicao} 
                     className="bg-emerald-700 hover:bg-emerald-600 text-white px-3.5 rounded-lg border border-emerald-800 cursor-pointer transition-colors flex items-center justify-center"
                   >
                     <Plus size={16}/>
