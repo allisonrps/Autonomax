@@ -73,6 +73,27 @@ export function Relatorios() {
 
   const melhorMes = dadosGrafico.reduce((prev, curr) => (curr.entradas > prev.entradas ? curr : prev), dadosGrafico[0]);
 
+  // Média mensal líquida considerando apenas meses fechados (desconsiderando o mês ativo)
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtualIndex = hoje.getMonth();
+
+  let qtdMesesFechados = 0;
+  if (anoAtivo < anoAtual) {
+    qtdMesesFechados = 12;
+  } else if (anoAtivo === anoAtual) {
+    qtdMesesFechados = mesAtualIndex;
+  } else {
+    qtdMesesFechados = 0;
+  }
+
+  const mesesFechados = dadosGrafico.slice(0, qtdMesesFechados);
+  const somaSaldoFechados = mesesFechados.reduce((acc, m) => acc + m.saldo, 0);
+  const mediaMensalLiquida = qtdMesesFechados > 0 ? somaSaldoFechados / qtdMesesFechados : 0;
+  const textoMesesFechados = qtdMesesFechados > 0
+    ? `${qtdMesesFechados} ${qtdMesesFechados === 1 ? 'mês fechado' : 'meses fechados'} (Jan${qtdMesesFechados > 1 ? ' - ' + dadosGrafico[qtdMesesFechados - 1].name : ''})`
+    : 'Sem meses fechados';
+
   // Payment Methods Pie Chart
   const metodosAgrupados = transacoesEntrada.reduce((acc: Record<string, number>, t) => {
     const metodo = t.metodoPagamento || 'Não Informado';
@@ -180,16 +201,37 @@ export function Relatorios() {
                   </div>
                   
                   <div className="bg-gray-950 p-5 rounded-lg border border-gray-800">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Ticket Médio</p>
-                      <p className="text-xl font-black text-gray-200 mt-1">{formatarMoeda(ticketMedio)}</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Média Mensal Líquida</p>
+                      <p className={`text-2xl font-black mt-1 ${mediaMensalLiquida >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatarMoeda(mediaMensalLiquida)}
+                      </p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5 truncate" title={textoMesesFechados}>
+                        {textoMesesFechados}
+                      </p>
                   </div>
+
+                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-800">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Ticket Médio</p>
+                      <p className="text-2xl font-black text-gray-200 mt-1">{formatarMoeda(ticketMedio)}</p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5">
+                        Por entrada
+                      </p>
+                  </div>
+
                   <div className="bg-gray-950 p-5 rounded-lg border border-gray-800">
                       <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Transações Totais</p>
-                      <p className="text-xl font-black text-gray-200 mt-1">{totalTransacoes}</p>
+                      <p className="text-2xl font-black text-gray-200 mt-1">{totalTransacoes}</p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5">
+                        Ano {anoAtivo}
+                      </p>
                   </div>
-                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-800 sm:col-span-2 lg:col-span-2">
+
+                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-800">
                       <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Melhor Mês (Receita)</p>
-                      <p className="text-xl font-black text-emerald-400 mt-1">{melhorMes.name} <span className="text-gray-400 text-sm ml-2">({formatarMoeda(melhorMes.entradas)})</span></p>
+                      <p className="text-2xl font-black text-emerald-400 mt-1">{melhorMes?.name || '---'}</p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5 truncate">
+                        {melhorMes ? formatarMoeda(melhorMes.entradas) : ''}
+                      </p>
                   </div>
                </div>
              )}
