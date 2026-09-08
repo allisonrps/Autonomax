@@ -1,6 +1,6 @@
-﻿import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ThemeColor = 'emerald' | 'blue' | 'violet' | 'amber' | 'cyan' | 'rose';
+export type ThemeColor = 'emerald' | 'blue' | 'violet' | 'amber' | 'cyan' | 'pink' | 'cream';
 
 export interface TemaConfig {
   id: ThemeColor;
@@ -15,7 +15,8 @@ export const TEMAS: TemaConfig[] = [
   { id: 'violet', nome: 'Violeta', corHex: '#8b5cf6', classeBg: 'bg-violet-500' },
   { id: 'amber', nome: 'Âmbar', corHex: '#f59e0b', classeBg: 'bg-amber-500' },
   { id: 'cyan', nome: 'Ciano', corHex: '#06b6d4', classeBg: 'bg-cyan-500' },
-  { id: 'rose', nome: 'Carmim', corHex: '#f43f5e', classeBg: 'bg-rose-500' },
+  { id: 'pink', nome: 'Rosa Pink', corHex: '#ec4899', classeBg: 'bg-pink-500' },
+  { id: 'cream', nome: 'Creme', corHex: '#fde047', classeBg: 'bg-yellow-300' },
 ];
 
 interface ThemeContextType {

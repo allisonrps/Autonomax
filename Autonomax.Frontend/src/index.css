@@ -47,12 +47,22 @@
   --color-emerald-950: #083344;
 }
 
-[data-theme="rose"] {
-  --color-emerald-400: #fb7185;
-  --color-emerald-500: #f43f5e;
-  --color-emerald-600: #e11d48;
-  --color-emerald-700: #be123c;
-  --color-emerald-800: #9f1239;
-  --color-emerald-900: #881337;
-  --color-emerald-950: #4c0519;
+[data-theme="pink"] {
+  --color-emerald-400: #f472b6;
+  --color-emerald-500: #ec4899;
+  --color-emerald-600: #db2777;
+  --color-emerald-700: #be185d;
+  --color-emerald-800: #9d174d;
+  --color-emerald-900: #831843;
+  --color-emerald-950: #500724;
+}
+
+[data-theme="cream"] {
+  --color-emerald-400: #fde047;
+  --color-emerald-500: #eab308;
+  --color-emerald-600: #ca8a04;
+  --color-emerald-700: #a16207;
+  --color-emerald-800: #854d0e;
+  --color-emerald-900: #713f12;
+  --color-emerald-950: #422006;
 }
