@@ -603,7 +603,7 @@ export function Catalogo() {
             >
               <div className="flex items-center gap-2">
                 <Sparkles size={18} className="text-emerald-400" />
-                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">Card Novo Produto ou Serviço</h3>
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">Novo Produto ou Serviço</h3>
               </div>
               <div className="flex items-center text-gray-400">
                 {formAberto ? <ChevronUp size={18} /> : <ChevronDown size={18} />}

@@ -3,14 +3,20 @@ import { Layout } from '../components/Layout';
 import { 
   Trash2, Edit3, X, Building2, 
   AlertTriangle, Rocket, ChevronDown, ChevronUp, Lock, 
-  ShieldCheck,
+  ShieldCheck, Palette, Check, Upload
 } from 'lucide-react';
 import api from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 
-interface Negocio { id: number; nome: string; }
+interface Negocio { 
+  id: number; 
+  nome: string; 
+  logoUrl?: string | null;
+}
 interface DetalhesFinanceiros { receitas: number; despesas: number; pendentes: number; liquido: number; carregando: boolean; }
 
 export function Perfil() {
+  const { theme, setTheme, temas } = useTheme();
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [formAberto, setFormAberto] = useState(false);
   const [novoNegocio, setNovoNegocio] = useState('');
@@ -60,6 +66,38 @@ export function Perfil() {
     catch (err) { alert("Erro ao excluir."); }
   }
 
+  async function handleUploadLogo(negocio: Negocio, file: File) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("A imagem da logo deve ter no máximo 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      try {
+        await api.put(`/Negocios/${negocio.id}`, { ...negocio, logoUrl: base64 });
+        carregarNegocios();
+        window.dispatchEvent(new Event('negocioAtualizado'));
+      } catch (err) {
+        alert("Erro ao salvar o logo do negócio.");
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleRemoverLogo(negocio: Negocio) {
+    if (!confirm("Remover a logo personalizada desta unidade?")) return;
+    try {
+      await api.put(`/Negocios/${negocio.id}`, { ...negocio, logoUrl: null });
+      carregarNegocios();
+      window.dispatchEvent(new Event('negocioAtualizado'));
+    } catch (err) {
+      alert("Erro ao remover a logo.");
+    }
+  }
+
   async function toggleExpandir(id: number) {
     if (negocioExpandido === id) { setNegocioExpandido(null); return; }
     setNegocioExpandido(id);
@@ -96,6 +134,49 @@ export function Perfil() {
             <button onClick={() => setModalSenhaAberto(true)} className="flex items-center gap-2 bg-gray-950 px-5 py-3 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-400 hover:border-emerald-600 hover:text-emerald-400 transition-all"><ShieldCheck size={16} /> Redefinir Senha</button>
           </div>
 
+          {/* SELETOR DE TEMA / CORES */}
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
+                <Palette size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase text-gray-200 tracking-tight">Tema & Cores de Destaque</h3>
+                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                  Personalize a cor principal dos destaques, botões e ícones do sistema
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1">
+              {temas.map(t => {
+                const isAtivo = theme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setTheme(t.id)}
+                    className={`p-3 rounded-lg border flex items-center gap-2.5 transition-all cursor-pointer text-left ${
+                      isAtivo 
+                        ? 'bg-gray-950 border-white/60 shadow-lg ring-1 ring-white/20' 
+                        : 'bg-gray-950/60 border-gray-800 hover:border-gray-700 hover:bg-gray-950'
+                    }`}
+                  >
+                    <div 
+                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm"
+                      style={{ backgroundColor: t.corHex }}
+                    >
+                      {isAtivo && <Check size={12} className="text-white drop-shadow" />}
+                    </div>
+                    <span className={`text-xs font-black uppercase tracking-tight truncate ${isAtivo ? 'text-white' : 'text-gray-400'}`}>
+                      {t.nome}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
             <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between border-b border-gray-800 outline-none hover:bg-gray-800 transition-colors">
               <span className="text-xs font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2"><Rocket size={18}/> Novo Perfil de Negócio</span>
@@ -117,16 +198,77 @@ export function Perfil() {
               const dados = detalhesFinanceiros[negocio.id];
               return (
                 <div key={negocio.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 md:px-6 md:py-4 flex flex-col transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center font-black text-lg border border-gray-700">{negocio.nome.charAt(0).toUpperCase()}</div>
-                      <h4 className="font-black text-sm uppercase">{negocio.nome}</h4>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-4 min-w-0">
+                      {negocio.logoUrl ? (
+                        <div className="relative group w-12 h-12 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <img src={negocio.logoUrl} alt={negocio.nome} className="w-full h-full object-contain p-1" />
+                          <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white" title="Alterar logo">
+                            <Upload size={14} />
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={e => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadLogo(negocio, f);
+                              }} 
+                            />
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="relative group w-12 h-12 rounded-lg bg-gray-800 text-gray-300 flex items-center justify-center font-black text-lg border border-gray-700 flex-shrink-0">
+                          <span>{negocio.nome.charAt(0).toUpperCase()}</span>
+                          <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center cursor-pointer transition-opacity text-white" title="Adicionar logo do negócio">
+                            <Upload size={14} />
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={e => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadLogo(negocio, f);
+                              }} 
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <h4 className="font-black text-sm uppercase truncate">{negocio.nome}</h4>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <label className="text-[9px] font-black uppercase tracking-wider text-gray-500 hover:text-emerald-400 cursor-pointer flex items-center gap-1 transition-colors">
+                            <Upload size={10} /> {negocio.logoUrl ? 'Trocar Logo' : 'Adicionar Logo'}
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={e => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadLogo(negocio, f);
+                              }} 
+                            />
+                          </label>
+                          {negocio.logoUrl && (
+                            <>
+                              <span className="text-gray-700 text-xs">•</span>
+                              <button 
+                                type="button"
+                                onClick={() => handleRemoverLogo(negocio)}
+                                className="text-[9px] font-black uppercase tracking-wider text-red-500/80 hover:text-red-400 bg-transparent border-none cursor-pointer p-0 transition-colors"
+                              >
+                                Remover
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => selecionarNegocio(negocio.id)} className="bg-emerald-950/40 text-emerald-400 px-4 py-2 rounded-md text-[10px] font-black uppercase">Acessar</button>
-                      <button onClick={() => toggleExpandir(negocio.id)} className="p-2 text-gray-500 hover:text-white">{negocioExpandido === negocio.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
-                      <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-500 hover:text-blue-400"><Edit3 size={16}/></button>
-                      <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-500 hover:text-red-400"><Trash2 size={16}/></button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => selecionarNegocio(negocio.id)} className="bg-emerald-950/40 text-emerald-400 px-4 py-2 rounded-md text-[10px] font-black uppercase hover:bg-emerald-900/40 transition-colors">Acessar</button>
+                      <button onClick={() => toggleExpandir(negocio.id)} className="p-2 text-gray-500 hover:text-white transition-colors">{negocioExpandido === negocio.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
+                      <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-500 hover:text-blue-400 transition-colors"><Edit3 size={16}/></button>
+                      <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
                     </div>
                   </div>
                   {negocioExpandido === negocio.id && (

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 public class Negocio
 {
@@ -10,4 +10,6 @@ public int Id { get; set; }
 
     [Required]
     public int UsuarioId { get; set; }
+
+    public string? LogoUrl { get; set; }
 }

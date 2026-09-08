@@ -55,7 +55,7 @@ export function Clientes() {
   }
 
   const calcularDias = (dataISO: string | undefined) => {
-    if (!dataISO || dataISO.startsWith('0001')) return '---';
+    if (!dataISO || dataISO.startsWith('0001')) return '-';
     const data = new Date(dataISO);
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -63,8 +63,8 @@ export function Clientes() {
     dataRef.setHours(0, 0, 0, 0);
     const diffTime = hoje.getTime() - dataRef.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'Hoje';
-    return `${diffDays}d`;
+    if (diffDays <= 0) return '0';
+    return `${diffDays}`;
   };
 
   async function handleAddCliente() {
