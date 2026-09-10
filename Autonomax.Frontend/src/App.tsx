@@ -5,6 +5,7 @@ import { Lock, LogIn } from 'lucide-react';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
+import { FluxoCaixa } from './pages/FluxoCaixa';
 import { Perfil } from './pages/Perfil';
 import { Clientes } from './pages/Clientes';
 import { DetalhesCliente } from './pages/DetalhesCliente';
@@ -67,7 +68,9 @@ function App() {
 
         {/* Rotas Protegidas envolvidas pela lógica de segurança */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/dashboard/:mes/:ano" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/fluxo-caixa" element={<ProtectedRoute><FluxoCaixa /></ProtectedRoute>} />
+        <Route path="/fluxo-caixa/:mes/:ano" element={<ProtectedRoute><FluxoCaixa /></ProtectedRoute>} />
+        <Route path="/dashboard/:mes/:ano" element={<Navigate to="/fluxo-caixa" replace />} />
         <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
         <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
         <Route path="/clientes/:id" element={<ProtectedRoute><DetalhesCliente /></ProtectedRoute>} />

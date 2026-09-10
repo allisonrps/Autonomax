@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, LayoutDashboard, Users, 
   BarChart3, Briefcase, Building2, User, Truck, Package,
-  ChevronLeft, ChevronRight, LogOut
+  ChevronLeft, ChevronRight, LogOut, ArrowLeftRight
 } from 'lucide-react';
 import api from '../services/api';
 import logoImg from '../assets/logo-horizontal-white.png';
@@ -76,7 +76,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navLinks = [
-    { name: 'Fluxo de Caixa', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Fluxo de Caixa', path: '/fluxo-caixa', icon: ArrowLeftRight },
     { name: 'Catálogo', path: '/catalogo', icon: Package },
     { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Parceiros', path: '/fornecedores', icon: Truck },
