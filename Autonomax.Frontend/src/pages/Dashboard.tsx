@@ -4,7 +4,7 @@ import {
   Clock, Calendar, Plus, ChevronDown, ChevronUp, 
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, 
   CreditCard, QrCode, Banknote, FileText, CheckCircle2, 
-  Search, Trash2, ArrowDownLeft, X, User, Sparkles, Package
+  Search, Trash2, X, User, Sparkles, Package
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -58,10 +58,10 @@ export function Dashboard() {
   const [nomeNegocio, setNomeNegocio] = useState('');
   const [carregando, setCarregando] = useState(true);
 
-  // Controle de Cards Expansíveis (tudo expansível com chevron)
-  const [resumoAberto, setResumoAberto] = useState(true);
-  const [pagamentosAberto, setPagamentosAberto] = useState(true);
-  const [feedAberto, setFeedAberto] = useState(true);
+  // Cards Expansíveis (FECHADOS POR PADRÃO conforme solicitado)
+  const [resumoAberto, setResumoAberto] = useState(false);
+  const [pagamentosAberto, setPagamentosAberto] = useState(false);
+  const [feedAberto, setFeedAberto] = useState(false);
 
   // Filtro no feed de vendas do dia
   const [buscaFeed, setBuscaFeed] = useState('');
@@ -149,33 +149,19 @@ export function Dashboard() {
     return dataISO.slice(0, 10);
   };
 
-  // Separação das transações do dia e de ontem
-  const transacoesHoje = useMemo(() => {
-    return transacoes.filter(t => extrairChave(t.data) === chaveHoje);
+  // Vendas do dia e de ontem (apenas entradas/vendas)
+  const vendasHoje = useMemo(() => {
+    return transacoes
+      .filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === chaveHoje)
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
   }, [transacoes, chaveHoje]);
 
-  const vendasHoje = useMemo(() => {
-    return transacoesHoje
-      .filter(t => t.tipo === 'Entrada')
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }, [transacoesHoje]);
-
-  const despesasHoje = useMemo(() => {
-    return transacoesHoje.filter(t => t.tipo === 'Saida');
-  }, [transacoesHoje]);
-
-  const transacoesOntem = useMemo(() => {
-    return transacoes.filter(t => extrairChave(t.data) === chaveOntem);
-  }, [transacoes, chaveOntem]);
-
   const vendasOntem = useMemo(() => {
-    return transacoesOntem.filter(t => t.tipo === 'Entrada');
-  }, [transacoesOntem]);
+    return transacoes.filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === chaveOntem);
+  }, [transacoes, chaveOntem]);
 
   // Totais do Dia
   const totalVendasHoje = useMemo(() => vendasHoje.reduce((acc, t) => acc + t.valor, 0), [vendasHoje]);
-  const totalDespesasHoje = useMemo(() => despesasHoje.reduce((acc, t) => acc + t.valor, 0), [despesasHoje]);
-  const saldoHoje = totalVendasHoje - totalDespesasHoje;
   const qtdVendasHoje = vendasHoje.length;
   const ticketMedioHoje = qtdVendasHoje > 0 ? totalVendasHoje / qtdVendasHoje : 0;
 
@@ -368,10 +354,10 @@ export function Dashboard() {
   const getIconePagamento = (metodo: string) => {
     const m = metodo?.toLowerCase() || '';
     if (m.includes('pix')) return <QrCode size={15} className="text-emerald-400" />;
-    if (m.includes('cart') || m.includes('crédito') || m.includes('débito')) return <CreditCard size={15} className="text-blue-400" />;
-    if (m.includes('dinheiro')) return <Banknote size={15} className="text-amber-400" />;
-    if (m.includes('boleto')) return <FileText size={15} className="text-purple-400" />;
-    return <DollarSign size={15} className="text-gray-400" />;
+    if (m.includes('cart') || m.includes('crédito') || m.includes('débito')) return <CreditCard size={15} className="text-emerald-400" />;
+    if (m.includes('dinheiro')) return <Banknote size={15} className="text-emerald-400" />;
+    if (m.includes('boleto')) return <FileText size={15} className="text-emerald-400" />;
+    return <DollarSign size={15} className="text-emerald-400" />;
   };
 
   if (carregando && transacoes.length === 0) {
@@ -385,44 +371,47 @@ export function Dashboard() {
   return (
     <Layout>
       <div className="min-h-screen bg-gray-950 pt-6 pb-20 px-4 sm:px-6 font-sans text-gray-100">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-5">
 
           {/* ============================================================ */}
-          {/* 1. HEADER OPERACIONAL: DATA, HORA AO VIVO E BOTÃO NOVA VENDA */}
+          {/* 1. HEADER OPERACIONAL: BOM DIA MENOR, DATA EM DESTAQUE,     */}
+          {/*    CARD DE HORAS AUMENTADO E BOTÃO NOVA VENDA                */}
           {/* ============================================================ */}
           <div className="bg-gray-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-            {/* Lado Esquerdo: Saudação e Data por Extenso */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">
-                  Operação em Tempo Real
+            {/* Lado Esquerdo: Saudação Menor e Data em Destaque */}
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold text-gray-400 tracking-wide">
+                  {getSaudacao()}{nomeNegocio ? `, ${nomeNegocio}` : ''}
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-                {getSaudacao()}{nomeNegocio ? `, ${nomeNegocio}` : ''}!
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2.5">
+                <Calendar size={22} className="text-emerald-400 flex-shrink-0" />
+                <span>{formatarDataPorExtenso(agora)}</span>
               </h1>
-              <p className="text-xs sm:text-sm font-semibold text-gray-400 flex items-center gap-2">
-                <Calendar size={15} className="text-gray-500" />
-                {formatarDataPorExtenso(agora)}
-              </p>
             </div>
 
-            {/* Lado Direito: Relógio Digital com Segundos e Botão Nova Venda */}
+            {/* Lado Direito: Card de Horas Ampliado e Botão Nova Venda */}
             <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-start md:justify-end">
-              {/* Relógio Digital */}
-              <div className="bg-gray-950 px-4 py-2.5 rounded-xl border border-gray-800 flex items-center gap-2.5 shadow-inner">
-                <Clock size={16} className="text-emerald-400" />
-                <span className="font-mono text-base sm:text-lg font-black tracking-wider text-white">
-                  {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
+              {/* Card de Horas Ampliado com Maior Destaque */}
+              <div className="bg-gray-950 px-5 py-3 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-inner">
+                <div className="p-2 bg-emerald-950/60 rounded-lg border border-emerald-900/60 text-emerald-400">
+                  <Clock size={20} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Horário Atual</span>
+                  <span className="font-mono text-xl sm:text-2xl font-black tracking-widest text-emerald-400 leading-none mt-0.5">
+                    {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
               </div>
 
               {/* Botão de Destaque Nova Venda */}
               <button
                 type="button"
                 onClick={() => setModalVendaAberto(true)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
               >
                 <Plus size={18} strokeWidth={3} />
                 <span>Nova Venda</span>
@@ -431,7 +420,7 @@ export function Dashboard() {
           </div>
 
           {/* ============================================================ */}
-          {/* 2. CARD EXPANSÍVEL 1: RESUMO DOS TOTAIS DO DIA (KPIS)        */}
+          {/* 2. CARD EXPANSÍVEL 1: RESUMO FINANCEIRO (FECHADO POR PADRÃO) */}
           {/* ============================================================ */}
           <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-md overflow-hidden transition-all">
             <button
@@ -443,14 +432,9 @@ export function Dashboard() {
                 <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
                   <DollarSign size={18} />
                 </div>
-                <div>
-                  <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
-                    Resumo Financeiro do Dia
-                  </h2>
-                  <p className="text-[10px] font-bold text-gray-500">
-                    Faturamento de hoje, volume de pedidos e saldo líquido em caixa
-                  </p>
-                </div>
+                <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
+                  Resumo Financeiro
+                </h2>
               </div>
 
               <div className="flex items-center gap-3">
@@ -464,7 +448,7 @@ export function Dashboard() {
             </button>
 
             {resumoAberto && (
-              <div className="p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* 1. Faturamento Hoje */}
                 <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between">
@@ -496,13 +480,13 @@ export function Dashboard() {
                   </div>
                 </div>
 
-                {/* 2. Vendas Realizadas */}
+                {/* 2. Vendas Concluídas */}
                 <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
                       Vendas Concluídas
                     </span>
-                    <ShoppingBag size={14} className="text-blue-400" />
+                    <ShoppingBag size={14} className="text-emerald-400" />
                   </div>
                   <div>
                     <p className="text-2xl font-black text-white tracking-tight">
@@ -517,47 +501,22 @@ export function Dashboard() {
                   </div>
                 </div>
 
-                {/* 3. Despesas de Hoje */}
+                {/* 3. Ticket Médio */}
                 <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                      Saídas do Dia
+                      Ticket Médio
                     </span>
-                    <ArrowDownLeft size={14} className="text-red-400" />
+                    <DollarSign size={14} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-red-400 tracking-tight">
-                      R$ {totalDespesasHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <p className="text-2xl font-black text-emerald-400 tracking-tight">
+                      R$ {ticketMedioHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold text-gray-500">
-                    <span>Lançamentos de custo:</span>
-                    <span className="text-gray-300 font-black">{despesasHoje.length}</span>
-                  </div>
-                </div>
-
-                {/* 4. Saldo em Caixa Hoje */}
-                <div className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 ${
-                  saldoHoje >= 0 ? 'bg-emerald-950/30 border-emerald-900/60' : 'bg-red-950/30 border-red-900/60'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                      Saldo do Dia
-                    </span>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                      saldoHoje >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                    }`}>
-                      {saldoHoje >= 0 ? 'Líquido Positivo' : 'Déficit no Dia'}
-                    </span>
-                  </div>
-                  <div>
-                    <p className={`text-2xl font-black tracking-tight ${saldoHoje >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      R$ {saldoHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className="pt-2 border-t border-gray-900/60 flex items-center justify-between text-[10px] font-bold text-gray-400">
-                    <span>Receitas - Despesas</span>
-                    <span>100% atualizado</span>
+                    <span>Faturamento ÷ Pedidos</span>
+                    <span className="text-emerald-400 font-black">Hoje</span>
                   </div>
                 </div>
               </div>
@@ -565,7 +524,7 @@ export function Dashboard() {
           </div>
 
           {/* ============================================================ */}
-          {/* 3. CARD EXPANSÍVEL 2: FORMAS DE PAGAMENTO DE HOJE           */}
+          {/* 3. CARD EXPANSÍVEL 2: FORMAS DE PAGAMENTO                    */}
           {/* ============================================================ */}
           <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-md overflow-hidden transition-all">
             <button
@@ -574,22 +533,17 @@ export function Dashboard() {
               className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-950/60 border border-blue-900/60 text-blue-400 rounded-lg">
+                <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
                   <CreditCard size={18} />
                 </div>
-                <div>
-                  <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
-                    Formas de Pagamento de Hoje
-                  </h2>
-                  <p className="text-[10px] font-bold text-gray-500">
-                    Distribuição das vendas por Pix, Cartão, Dinheiro e Boleto
-                  </p>
-                </div>
+                <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
+                  Formas de pagamento
+                </h2>
               </div>
 
               <div className="flex items-center gap-3">
                 <span className="text-[11px] font-bold text-gray-400 hidden sm:inline">
-                  {pagamentosBreakdown.length} {pagamentosBreakdown.length === 1 ? 'modalidade utilizada' : 'modalidades utilizadas'}
+                  {pagamentosBreakdown.length} {pagamentosBreakdown.length === 1 ? 'modalidade' : 'modalidades'}
                 </span>
                 <div className="p-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-400">
                   {pagamentosAberto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -608,7 +562,7 @@ export function Dashboard() {
                     {/* Barra de Distribuição Visual */}
                     <div className="h-3 w-full bg-gray-950 rounded-full overflow-hidden flex border border-gray-800">
                       {pagamentosBreakdown.map((item, idx) => {
-                        const cores = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500', 'bg-rose-500'];
+                        const cores = ['bg-emerald-500', 'bg-emerald-400', 'bg-emerald-600', 'bg-emerald-700', 'bg-emerald-800'];
                         const cor = cores[idx % cores.length];
                         return (
                           <div
@@ -623,15 +577,14 @@ export function Dashboard() {
 
                     {/* Grade com os Métodos */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-                      {pagamentosBreakdown.map((item, idx) => {
-                        const coresBorda = ['border-emerald-900/50', 'border-blue-900/50', 'border-amber-900/50', 'border-purple-900/50', 'border-rose-900/50'];
+                      {pagamentosBreakdown.map((item) => {
                         return (
                           <div
                             key={item.nome}
-                            className={`bg-gray-950 p-3.5 rounded-xl border ${coresBorda[idx % coresBorda.length]} flex items-center justify-between`}
+                            className="bg-gray-950 p-3.5 rounded-xl border border-emerald-900/40 flex items-center justify-between"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="p-2 bg-gray-900 rounded-lg">
+                              <div className="p-2 bg-emerald-950/50 rounded-lg border border-emerald-900/50">
                                 {getIconePagamento(item.nome)}
                               </div>
                               <div>
@@ -658,7 +611,7 @@ export function Dashboard() {
           </div>
 
           {/* ============================================================ */}
-          {/* 4. CARD EXPANSÍVEL 3: FEED DE VENDAS DO DIA (TIMELINE)       */}
+          {/* 4. CARD EXPANSÍVEL 3: FEED DE VENDAS                         */}
           {/* ============================================================ */}
           <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-md overflow-hidden transition-all">
             <button
@@ -667,21 +620,16 @@ export function Dashboard() {
               className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-950/60 border border-purple-900/60 text-purple-400 rounded-lg">
+                <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
                   <ShoppingBag size={18} />
                 </div>
-                <div>
-                  <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
-                    Feed de Vendas de Hoje
-                  </h2>
-                  <p className="text-[10px] font-bold text-gray-500">
-                    Linha do tempo cronológica com todas as saídas registradas no dia
-                  </p>
-                </div>
+                <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
+                  Feed de vendas
+                </h2>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 bg-purple-950/40 border border-purple-900/60 rounded-md text-[10px] font-black text-purple-400 uppercase">
+                <span className="px-2.5 py-1 bg-emerald-950/40 border border-emerald-900/60 rounded-md text-[10px] font-black text-emerald-400 uppercase">
                   {vendasHoje.length} {vendasHoje.length === 1 ? 'Venda' : 'Vendas'}
                 </span>
                 <div className="p-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-400">
