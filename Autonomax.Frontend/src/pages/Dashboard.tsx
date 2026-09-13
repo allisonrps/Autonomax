@@ -343,19 +343,21 @@ export function Dashboard() {
     return '--:--';
   };
 
-  const formatarDataPorExtenso = (chaveString: string) => {
+  const formatarDataResumida = (chaveString: string) => {
     if (!chaveString) return '';
     const partes = chaveString.split('-');
     if (partes.length !== 3) return chaveString;
     const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-    const opcoes: Intl.DateTimeFormatOptions = {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    };
-    const s = d.toLocaleDateString('pt-BR', opcoes);
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    
+    // Dia da semana abreviado ou formatado: "Quinta"
+    const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const diaSemana = diasSemana[d.getDay()];
+
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const aa = String(d.getFullYear()).slice(-2);
+
+    return `${diaSemana}, ${dd}/${mm}/${aa}`;
   };
 
   const getIconePagamento = (metodo: string) => {
@@ -375,6 +377,8 @@ export function Dashboard() {
     );
   }
 
+  const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
   return (
     <Layout>
       <div className="min-h-screen bg-gray-950 pt-4 sm:pt-6 pb-20 px-3 sm:px-6 font-sans text-gray-100">
@@ -383,66 +387,62 @@ export function Dashboard() {
           {/* ============================================================ */}
           {/* 1. HEADER OPERACIONAL: DATA, SELETOR, RELÓGIO E NOVA VENDA   */}
           {/* ============================================================ */}
-          <div className="bg-gray-900/90 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col gap-4">
+          <div className="bg-gray-900/90 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             
-            {/* Linha Superior: Data + Seletor de Data + Botão Nova Venda */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              
-              {/* Lado Esquerdo: Data em Destaque e Seletor */}
-              <div className="space-y-2 flex-1 w-full sm:w-auto">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-                    <Calendar size={20} className="text-emerald-400 flex-shrink-0" />
-                    <span>{formatarDataPorExtenso(dataSelecionada)}</span>
-                  </h1>
+            {/* Lado Esquerdo: Data, Relógio e Seletor */}
+            <div className="space-y-2.5 flex-1">
+              {/* No desktop fica tudo na mesma linha: "Quinta, DD/MM/AA - HH:MM:SS" */}
+              {/* No mobile fica a data e abaixo o horário centralizado */}
+              <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2.5">
+                <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center justify-center md:justify-start gap-2 text-center md:text-left">
+                  <Calendar size={22} className="text-emerald-400 flex-shrink-0" />
+                  <span>{formatarDataResumida(dataSelecionada)}</span>
+                  <span className="hidden md:inline text-gray-500 font-light">-</span>
+                  <span className="hidden md:inline text-emerald-400 font-black">
+                    {horaFormatada}
+                  </span>
+                </h1>
 
-                  {!ehHoje && (
-                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-950/60 border border-amber-900/60 text-amber-400">
-                      Histórico
-                    </span>
-                  )}
-                </div>
-
-                {/* Seletor de Data */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={dataSelecionada}
-                    onChange={e => setDataSelecionada(e.target.value)}
-                    className="bg-gray-950 border border-gray-800 hover:border-gray-700 text-xs font-bold text-gray-200 px-3 py-1.5 rounded-xl outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                  />
-                  {!ehHoje && (
-                    <button
-                      type="button"
-                      onClick={() => setDataSelecionada(chaveHoje)}
-                      className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
-                      title="Voltar para a data de hoje"
-                    >
-                      <RotateCcw size={12} />
-                      <span>Hoje</span>
-                    </button>
-                  )}
+                {/* Relógio exclusivo para mobile, centralizado na sua linha */}
+                <div className="flex md:hidden items-center justify-center pt-1">
+                  <span className="text-xl font-black uppercase tracking-tight text-emerald-400">
+                    {horaFormatada}
+                  </span>
                 </div>
               </div>
 
-              {/* Lado Direito: Apenas o Botão Nova Venda */}
-              <div className="w-full sm:w-auto flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setModalVendaAberto(true)}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
-                >
-                  <Plus size={18} strokeWidth={3} />
-                  <span>Nova Venda</span>
-                </button>
+              {/* Seletor de Data */}
+              <div className="flex items-center justify-center md:justify-start gap-2 pt-1">
+                <input
+                  type="date"
+                  value={dataSelecionada}
+                  onChange={e => setDataSelecionada(e.target.value)}
+                  className="bg-gray-950 border border-gray-800 hover:border-gray-700 text-xs font-bold text-gray-200 px-3 py-1.5 rounded-xl outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                />
+                {!ehHoje && (
+                  <button
+                    type="button"
+                    onClick={() => setDataSelecionada(chaveHoje)}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
+                    title="Voltar para a data de hoje"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Hoje</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Linha Inferior: Relógio limpo (sem caixa, sem ícone, mesma fonte de texto da data, centralizado no mobile) */}
-            <div className="pt-2 border-t border-gray-800/60 flex items-center justify-center md:justify-start">
-              <span className="text-xl sm:text-2xl font-black uppercase tracking-tight text-emerald-400">
-                {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
+            {/* Lado Direito: Botão Nova Venda */}
+            <div className="flex items-center justify-stretch md:justify-end">
+              <button
+                type="button"
+                onClick={() => setModalVendaAberto(true)}
+                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
+              >
+                <Plus size={18} strokeWidth={3} />
+                <span>Nova Venda</span>
+              </button>
             </div>
 
           </div>
