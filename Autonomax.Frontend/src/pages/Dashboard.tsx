@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Layout } from '../components/Layout';
 import { 
-  Clock, Calendar, Plus, ChevronDown, ChevronUp, 
+  Calendar, Plus, ChevronDown, ChevronUp, 
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, 
   CreditCard, QrCode, Banknote, FileText, CheckCircle2, 
-  Search, Trash2, X, User, Sparkles, Package
+  Search, Trash2, X, User, Sparkles, Package, RotateCcw
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -48,14 +48,22 @@ interface ItemTemporario {
 export function Dashboard() {
   const negocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
 
-  // Relógio e Data em tempo real
+  // Relógio em tempo real
   const [agora, setAgora] = useState(new Date());
+
+  // Data Selecionada no Dashboard (padrão: hoje em formato YYYY-MM-DD)
+  const [dataSelecionada, setDataSelecionada] = useState(() => {
+    const d = new Date();
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  });
 
   // Dados
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
-  const [nomeNegocio, setNomeNegocio] = useState('');
   const [carregando, setCarregando] = useState(true);
 
   // Cards Expansíveis (FECHADOS POR PADRÃO conforme solicitado)
@@ -94,11 +102,10 @@ export function Dashboard() {
     if (!negocioId) return;
     try {
       setCarregando(true);
-      const [resTrans, resCli, resProd, resNeg] = await Promise.allSettled([
+      const [resTrans, resCli, resProd] = await Promise.allSettled([
         api.get(`/Transacoes/por-negocio/${negocioId}`),
         api.get(`/Clientes/por-negocio/${negocioId}`),
-        api.get(`/ProdutosServicos/por-negocio/${negocioId}`),
-        api.get('/Negocios')
+        api.get(`/ProdutosServicos/por-negocio/${negocioId}`)
       ]);
 
       if (resTrans.status === 'fulfilled') {
@@ -109,10 +116,6 @@ export function Dashboard() {
       }
       if (resProd.status === 'fulfilled') {
         setProdutosServicos(resProd.value.data || []);
-      }
-      if (resNeg.status === 'fulfilled' && Array.isArray(resNeg.value.data)) {
-        const atual = resNeg.value.data.find((n: any) => n.id === Number(negocioId));
-        if (atual) setNomeNegocio(atual.nome);
       }
     } catch (err) {
       console.error('Erro ao carregar dados do dashboard:', err);
@@ -134,11 +137,17 @@ export function Dashboard() {
   };
 
   const chaveHoje = useMemo(() => formatarChaveData(agora), [agora]);
-  const chaveOntem = useMemo(() => {
-    const ontem = new Date(agora);
-    ontem.setDate(agora.getDate() - 1);
-    return formatarChaveData(ontem);
-  }, [agora]);
+  const ehHoje = dataSelecionada === chaveHoje;
+
+  // Chave do dia anterior à data selecionada (para cálculo de comparativo)
+  const chaveDiaAnterior = useMemo(() => {
+    if (!dataSelecionada) return '';
+    const partes = dataSelecionada.split('-');
+    if (partes.length !== 3) return '';
+    const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+    d.setDate(d.getDate() - 1);
+    return formatarChaveData(d);
+  }, [dataSelecionada]);
 
   const extrairChave = (dataISO: string) => {
     if (!dataISO) return '';
@@ -149,40 +158,41 @@ export function Dashboard() {
     return dataISO.slice(0, 10);
   };
 
-  // Vendas do dia e de ontem (apenas entradas/vendas)
-  const vendasHoje = useMemo(() => {
+  // Vendas do dia selecionado e do dia anterior (apenas entradas/vendas)
+  const vendasDoDia = useMemo(() => {
     return transacoes
-      .filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === chaveHoje)
+      .filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === dataSelecionada)
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }, [transacoes, chaveHoje]);
+  }, [transacoes, dataSelecionada]);
 
-  const vendasOntem = useMemo(() => {
-    return transacoes.filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === chaveOntem);
-  }, [transacoes, chaveOntem]);
+  const vendasDiaAnterior = useMemo(() => {
+    return transacoes.filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === chaveDiaAnterior);
+  }, [transacoes, chaveDiaAnterior]);
 
-  // Totais do Dia
-  const totalVendasHoje = useMemo(() => vendasHoje.reduce((acc, t) => acc + t.valor, 0), [vendasHoje]);
-  const qtdVendasHoje = vendasHoje.length;
-  const ticketMedioHoje = qtdVendasHoje > 0 ? totalVendasHoje / qtdVendasHoje : 0;
+  // Totais do Dia Selecionado
+  const totalVendasDoDia = useMemo(() => vendasDoDia.reduce((acc, t) => acc + t.valor, 0), [vendasDoDia]);
+  const qtdVendasDoDia = vendasDoDia.length;
+  const ticketMedioDoDia = qtdVendasDoDia > 0 ? totalVendasDoDia / qtdVendasDoDia : 0;
 
-  // Totais de Ontem e Comparativo
-  const totalVendasOntem = useMemo(() => vendasOntem.reduce((acc, t) => acc + t.valor, 0), [vendasOntem]);
+  // Totais do Dia Anterior e Comparativo
+  const totalVendasDiaAnterior = useMemo(() => vendasDiaAnterior.reduce((acc, t) => acc + t.valor, 0), [vendasDiaAnterior]);
   const comparativoVendas = useMemo(() => {
-    if (totalVendasOntem === 0) {
-      if (totalVendasHoje > 0) return { tipo: 'novo', texto: 'Primeiras vendas vs ontem' };
-      return { tipo: 'neutro', texto: 'Sem vendas ontem' };
+    if (totalVendasDiaAnterior === 0) {
+      if (totalVendasDoDia > 0) return { tipo: 'novo', texto: ehHoje ? 'Primeiras vendas vs ontem' : 'Sem vendas no dia anterior' };
+      return { tipo: 'neutro', texto: ehHoje ? 'Sem vendas ontem' : 'Sem vendas no dia anterior' };
     }
-    const diff = totalVendasHoje - totalVendasOntem;
-    const perc = (diff / totalVendasOntem) * 100;
+    const diff = totalVendasDoDia - totalVendasDiaAnterior;
+    const perc = (diff / totalVendasDiaAnterior) * 100;
+    const rotuloComparativo = ehHoje ? 'ontem' : 'dia anterior';
     return {
       tipo: diff >= 0 ? 'positivo' : 'negativo',
       diff,
       perc: Math.abs(perc).toFixed(1),
-      texto: `${diff >= 0 ? '+' : '-'}${Math.abs(perc).toFixed(0)}% vs ontem`
+      texto: `${diff >= 0 ? '+' : '-'}${Math.abs(perc).toFixed(0)}% vs ${rotuloComparativo}`
     };
-  }, [totalVendasHoje, totalVendasOntem]);
+  }, [totalVendasDoDia, totalVendasDiaAnterior, ehHoje]);
 
-  // Breakdown por Formas de Pagamento de Hoje
+  // Breakdown por Formas de Pagamento do Dia Selecionado
   const pagamentosBreakdown = useMemo(() => {
     const map: Record<string, { total: number; qtd: number }> = {
       'Pix': { total: 0, qtd: 0 },
@@ -192,7 +202,7 @@ export function Dashboard() {
       'Boleto': { total: 0, qtd: 0 },
     };
 
-    vendasHoje.forEach(v => {
+    vendasDoDia.forEach(v => {
       const metodo = v.metodoPagamento || 'Outro';
       if (!map[metodo]) {
         map[metodo] = { total: 0, qtd: 0 };
@@ -207,22 +217,22 @@ export function Dashboard() {
         nome,
         total: dados.total,
         qtd: dados.qtd,
-        porcentagem: totalVendasHoje > 0 ? (dados.total / totalVendasHoje) * 100 : 0
+        porcentagem: totalVendasDoDia > 0 ? (dados.total / totalVendasDoDia) * 100 : 0
       }))
       .sort((a, b) => b.total - a.total);
-  }, [vendasHoje, totalVendasHoje]);
+  }, [vendasDoDia, totalVendasDoDia]);
 
   // Feed Filtrado
   const vendasFeedFiltradas = useMemo(() => {
-    if (!buscaFeed.trim()) return vendasHoje;
+    if (!buscaFeed.trim()) return vendasDoDia;
     const termo = buscaFeed.toLowerCase();
-    return vendasHoje.filter(v => {
+    return vendasDoDia.filter(v => {
       const cli = v.cliente?.nome?.toLowerCase() || '';
       const desc = v.descricao?.toLowerCase() || '';
       const met = v.metodoPagamento?.toLowerCase() || '';
       return cli.includes(termo) || desc.includes(termo) || met.includes(termo);
     });
-  }, [vendasHoje, buscaFeed]);
+  }, [vendasDoDia, buscaFeed]);
 
   // Manipulação de Itens no Modal de Nova Venda
   const handleSelecionarCatalogo = (idStr: string) => {
@@ -315,7 +325,7 @@ export function Dashboard() {
   };
 
   const handleExcluirTransacao = async (id: number) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta venda do dia?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir esta venda?')) return;
     try {
       await api.delete(`/Transacoes/${id}`);
       carregarDados();
@@ -333,14 +343,11 @@ export function Dashboard() {
     return '--:--';
   };
 
-  const getSaudacao = () => {
-    const hora = agora.getHours();
-    if (hora >= 5 && hora < 12) return 'Bom dia';
-    if (hora >= 12 && hora < 18) return 'Boa tarde';
-    return 'Boa noite';
-  };
-
-  const formatarDataPorExtenso = (d: Date) => {
+  const formatarDataPorExtenso = (chaveString: string) => {
+    if (!chaveString) return '';
+    const partes = chaveString.split('-');
+    if (partes.length !== 3) return chaveString;
+    const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
     const opcoes: Intl.DateTimeFormatOptions = {
       weekday: 'long',
       day: 'numeric',
@@ -370,53 +377,74 @@ export function Dashboard() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-950 pt-6 pb-20 px-4 sm:px-6 font-sans text-gray-100">
-        <div className="max-w-6xl mx-auto space-y-5">
+      <div className="min-h-screen bg-gray-950 pt-4 sm:pt-6 pb-20 px-3 sm:px-6 font-sans text-gray-100">
+        <div className="max-w-6xl mx-auto space-y-4 sm:space-y-5">
 
           {/* ============================================================ */}
-          {/* 1. HEADER OPERACIONAL: BOM DIA MENOR, DATA EM DESTAQUE,     */}
-          {/*    CARD DE HORAS AUMENTADO E BOTÃO NOVA VENDA                */}
+          {/* 1. HEADER OPERACIONAL: DATA, SELETOR, RELÓGIO E NOVA VENDA   */}
           {/* ============================================================ */}
-          <div className="bg-gray-900/90 backdrop-blur-md p-5 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-            {/* Lado Esquerdo: Saudação Menor e Data em Destaque */}
-            <div className="space-y-1.5 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-bold text-gray-400 tracking-wide">
-                  {getSaudacao()}{nomeNegocio ? `, ${nomeNegocio}` : ''}
-                </span>
+          <div className="bg-gray-900/90 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col gap-4">
+            
+            {/* Linha Superior: Data + Seletor de Data + Botão Nova Venda */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              
+              {/* Lado Esquerdo: Data em Destaque e Seletor */}
+              <div className="space-y-2 flex-1 w-full sm:w-auto">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                    <Calendar size={20} className="text-emerald-400 flex-shrink-0" />
+                    <span>{formatarDataPorExtenso(dataSelecionada)}</span>
+                  </h1>
+
+                  {!ehHoje && (
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-950/60 border border-amber-900/60 text-amber-400">
+                      Histórico
+                    </span>
+                  )}
+                </div>
+
+                {/* Seletor de Data */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={dataSelecionada}
+                    onChange={e => setDataSelecionada(e.target.value)}
+                    className="bg-gray-950 border border-gray-800 hover:border-gray-700 text-xs font-bold text-gray-200 px-3 py-1.5 rounded-xl outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                  />
+                  {!ehHoje && (
+                    <button
+                      type="button"
+                      onClick={() => setDataSelecionada(chaveHoje)}
+                      className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
+                      title="Voltar para a data de hoje"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Hoje</span>
+                    </button>
+                  )}
+                </div>
               </div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center gap-2.5">
-                <Calendar size={22} className="text-emerald-400 flex-shrink-0" />
-                <span>{formatarDataPorExtenso(agora)}</span>
-              </h1>
+
+              {/* Lado Direito: Apenas o Botão Nova Venda */}
+              <div className="w-full sm:w-auto flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setModalVendaAberto(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
+                >
+                  <Plus size={18} strokeWidth={3} />
+                  <span>Nova Venda</span>
+                </button>
+              </div>
             </div>
 
-            {/* Lado Direito: Card de Horas Ampliado e Botão Nova Venda */}
-            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-start md:justify-end">
-              {/* Card de Horas Ampliado com Maior Destaque */}
-              <div className="bg-gray-950 px-5 py-3 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-inner">
-                <div className="p-2 bg-emerald-950/60 rounded-lg border border-emerald-900/60 text-emerald-400">
-                  <Clock size={20} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Horário Atual</span>
-                  <span className="font-mono text-xl sm:text-2xl font-black tracking-widest text-emerald-400 leading-none mt-0.5">
-                    {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-
-              {/* Botão de Destaque Nova Venda */}
-              <button
-                type="button"
-                onClick={() => setModalVendaAberto(true)}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
-              >
-                <Plus size={18} strokeWidth={3} />
-                <span>Nova Venda</span>
-              </button>
+            {/* Linha Inferior: Relógio limpo (sem caixa, sem ícone, mesma fonte de texto da data, centralizado no mobile) */}
+            <div className="pt-2 border-t border-gray-800/60 flex items-center justify-center md:justify-start">
+              <span className="text-xl sm:text-2xl font-black uppercase tracking-tight text-emerald-400">
+                {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
             </div>
+
           </div>
 
           {/* ============================================================ */}
@@ -426,7 +454,7 @@ export function Dashboard() {
             <button
               type="button"
               onClick={() => setResumoAberto(!resumoAberto)}
-              className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
+              className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
@@ -439,7 +467,7 @@ export function Dashboard() {
 
               <div className="flex items-center gap-3">
                 <span className="text-[11px] font-black text-emerald-400 hidden sm:inline">
-                  R$ {totalVendasHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {totalVendasDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
                 <div className="p-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-400">
                   {resumoAberto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -448,22 +476,24 @@ export function Dashboard() {
             </button>
 
             {resumoAberto && (
-              <div className="p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* 1. Faturamento Hoje */}
+              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* 1. Faturamento */}
                 <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                      Faturamento Hoje
+                      Faturamento {ehHoje ? 'Hoje' : 'do Dia'}
                     </span>
                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-emerald-400 tracking-tight">
-                      R$ {totalVendasHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                      R$ {totalVendasDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold">
-                    <span className="text-gray-500">Ontem: R$ {totalVendasOntem.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-gray-500">
+                      {ehHoje ? 'Ontem' : 'Dia ant.'}: R$ {totalVendasDiaAnterior.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
                     {comparativoVendas.tipo === 'positivo' && (
                       <span className="text-emerald-400 flex items-center gap-0.5 font-black">
                         <TrendingUp size={12} /> {comparativoVendas.texto}
@@ -489,15 +519,13 @@ export function Dashboard() {
                     <ShoppingBag size={14} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-white tracking-tight">
-                      {qtdVendasHoje} <span className="text-xs text-gray-500 font-bold">{qtdVendasHoje === 1 ? 'pedido' : 'pedidos'}</span>
+                    <p className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                      {qtdVendasDoDia} <span className="text-xs text-gray-500 font-bold">{qtdVendasDoDia === 1 ? 'pedido' : 'pedidos'}</span>
                     </p>
                   </div>
                   <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold text-gray-500">
-                    <span>Média por pedido:</span>
-                    <span className="text-gray-300 font-black">
-                      R$ {ticketMedioHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
+                    <span>Status</span>
+                    <span className="text-emerald-400 font-black">Finalizadas</span>
                   </div>
                 </div>
 
@@ -510,13 +538,13 @@ export function Dashboard() {
                     <DollarSign size={14} className="text-emerald-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-black text-emerald-400 tracking-tight">
-                      R$ {ticketMedioHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                      R$ {ticketMedioDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold text-gray-500">
                     <span>Faturamento ÷ Pedidos</span>
-                    <span className="text-emerald-400 font-black">Hoje</span>
+                    <span className="text-emerald-400 font-black">{ehHoje ? 'Hoje' : 'No dia'}</span>
                   </div>
                 </div>
               </div>
@@ -530,7 +558,7 @@ export function Dashboard() {
             <button
               type="button"
               onClick={() => setPagamentosAberto(!pagamentosAberto)}
-              className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
+              className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
@@ -552,10 +580,10 @@ export function Dashboard() {
             </button>
 
             {pagamentosAberto && (
-              <div className="p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 {pagamentosBreakdown.length === 0 ? (
                   <div className="py-6 text-center text-gray-500 text-xs font-semibold">
-                    Nenhuma venda realizada hoje ainda para calcular a distribuição de pagamentos.
+                    Nenhuma venda registrada para calcular a distribuição de pagamentos neste dia.
                   </div>
                 ) : (
                   <>
@@ -617,7 +645,7 @@ export function Dashboard() {
             <button
               type="button"
               onClick={() => setFeedAberto(!feedAberto)}
-              className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
+              className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
@@ -630,7 +658,7 @@ export function Dashboard() {
 
               <div className="flex items-center gap-3">
                 <span className="px-2.5 py-1 bg-emerald-950/40 border border-emerald-900/60 rounded-md text-[10px] font-black text-emerald-400 uppercase">
-                  {vendasHoje.length} {vendasHoje.length === 1 ? 'Venda' : 'Vendas'}
+                  {vendasDoDia.length} {vendasDoDia.length === 1 ? 'Venda' : 'Vendas'}
                 </span>
                 <div className="p-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-400">
                   {feedAberto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -639,8 +667,8 @@ export function Dashboard() {
             </button>
 
             {feedAberto && (
-              <div className="p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Barra de Busca nas Vendas de Hoje */}
+              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Barra de Busca nas Vendas */}
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="relative w-full sm:max-w-md">
                     <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -662,19 +690,19 @@ export function Dashboard() {
                   </div>
 
                   <span className="text-[11px] font-bold text-gray-500 self-end sm:self-center">
-                    Mostrando {vendasFeedFiltradas.length} de {vendasHoje.length} registros de hoje
+                    Mostrando {vendasFeedFiltradas.length} de {vendasDoDia.length} registros
                   </span>
                 </div>
 
                 {/* Lista do Feed */}
                 {vendasFeedFiltradas.length === 0 ? (
-                  <div className="bg-gray-950 p-10 rounded-xl border border-dashed border-gray-800 text-center space-y-3">
+                  <div className="bg-gray-950 p-8 sm:p-10 rounded-xl border border-dashed border-gray-800 text-center space-y-3">
                     <Sparkles size={32} className="mx-auto text-emerald-400 opacity-60" />
                     <p className="text-xs font-black uppercase tracking-wider text-gray-300">
-                      {buscaFeed ? 'Nenhuma venda corresponde aos termos da pesquisa.' : 'Nenhuma venda registrada hoje ainda.'}
+                      {buscaFeed ? 'Nenhuma venda corresponde aos termos da pesquisa.' : 'Nenhuma venda registrada para este dia.'}
                     </p>
                     <p className="text-[11px] text-gray-500 max-w-sm mx-auto font-medium">
-                      Clique no botão <strong>Nova Venda</strong> no topo para registrar o primeiro pedido e alimentar o feed em tempo real.
+                      Clique no botão <strong>Nova Venda</strong> para registrar um pedido e alimentar o feed em tempo real.
                     </p>
                   </div>
                 ) : (
@@ -682,18 +710,17 @@ export function Dashboard() {
                     {vendasFeedFiltradas.map(venda => (
                       <div
                         key={venda.id}
-                        className="bg-gray-950 p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
+                        className="bg-gray-950 p-3.5 sm:p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
                       >
                         {/* Lado Esquerdo: Hora + Cliente + Itens */}
-                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-3 flex-1 min-w-0 w-full sm:w-auto">
                           {/* Badge de Horário */}
-                          <div className="flex items-center gap-1 bg-gray-900 px-2.5 py-1.5 rounded-lg border border-gray-800 font-mono text-[11px] font-bold text-gray-400 flex-shrink-0">
-                            <Clock size={11} className="text-gray-500" />
+                          <div className="bg-gray-900 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-gray-800 text-[11px] font-bold text-gray-400 flex-shrink-0">
                             {formatarHora(venda.data)}
                           </div>
 
                           {/* Avatar */}
-                          <div className="w-9 h-9 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 flex items-center justify-center font-black text-xs flex-shrink-0">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 flex items-center justify-center font-black text-xs flex-shrink-0">
                             {venda.cliente?.nome ? venda.cliente.nome.charAt(0).toUpperCase() : <User size={14} />}
                           </div>
 
@@ -709,11 +736,11 @@ export function Dashboard() {
                         </div>
 
                         {/* Lado Direito: Método de Pagamento + Valor + Ações */}
-                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 border-gray-900 pt-2 sm:pt-0">
+                        <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto border-t sm:border-t-0 border-gray-900 pt-2 sm:pt-0">
                           {/* Tag Forma de Pagamento */}
-                          <div className="flex items-center gap-1.5 bg-gray-900 px-2.5 py-1 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-300">
+                          <div className="flex items-center gap-1 bg-gray-900 px-2 py-1 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-300">
                             {getIconePagamento(venda.metodoPagamento)}
-                            <span>{venda.metodoPagamento}</span>
+                            <span className="truncate max-w-[80px] sm:max-w-none">{venda.metodoPagamento}</span>
                           </div>
 
                           {/* Status Pago */}
@@ -724,7 +751,7 @@ export function Dashboard() {
                           </span>
 
                           {/* Valor */}
-                          <span className="text-sm font-black text-emerald-400 min-w-[90px] text-right">
+                          <span className="text-xs sm:text-sm font-black text-emerald-400 min-w-[80px] sm:min-w-[90px] text-right">
                             R$ {venda.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
 
@@ -753,20 +780,20 @@ export function Dashboard() {
       {/* 5. MODAL DE REGISTRAR NOVA VENDA                             */}
       {/* ============================================================ */}
       {modalVendaAberto && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-900 w-full max-w-xl rounded-2xl border border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-gray-900 w-full max-w-xl rounded-2xl border border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
             {/* Header Modal */}
-            <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-gray-900/80">
+            <div className="p-4 sm:p-5 border-b border-gray-800 flex items-center justify-between bg-gray-900/80">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-xl">
-                  <Plus size={20} />
+                <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-xl">
+                  <Plus size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white">
                     Registrar Nova Venda
                   </h3>
                   <p className="text-[10px] font-bold text-gray-500">
-                    Preencha os itens vendidos para atualizar o faturamento do dia
+                    Preencha os itens vendidos para atualizar o faturamento
                   </p>
                 </div>
               </div>
@@ -780,7 +807,7 @@ export function Dashboard() {
             </div>
 
             {/* Conteúdo Form com Scroll */}
-            <form onSubmit={handleFinalizarVenda} className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+            <form onSubmit={handleFinalizarVenda} className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
               
               {/* Cliente */}
               <div>
@@ -802,7 +829,7 @@ export function Dashboard() {
               </div>
 
               {/* Bloco de Adicionar Item */}
-              <div className="bg-gray-950 p-4 rounded-xl border border-gray-800/80 space-y-3">
+              <div className="bg-gray-950 p-3.5 sm:p-4 rounded-xl border border-gray-800/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                     <Package size={13} /> Adicionar Produtos / Serviços à Venda
@@ -907,7 +934,7 @@ export function Dashboard() {
                   </span>
                   <p className="text-[11px] text-gray-400">Calculado automaticamente pelos itens</p>
                 </div>
-                <span className="text-2xl font-black text-emerald-400">
+                <span className="text-xl sm:text-2xl font-black text-emerald-400">
                   R$ {valorTotalCalculado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
@@ -970,7 +997,7 @@ export function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setModalVendaAberto(false)}
-                  className="px-5 py-3 rounded-xl border border-gray-800 text-gray-400 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-transparent"
+                  className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl border border-gray-800 text-gray-400 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-transparent"
                 >
                   Cancelar
                 </button>
@@ -978,7 +1005,7 @@ export function Dashboard() {
                 <button
                   type="submit"
                   disabled={salvandoVenda || itensVenda.length === 0}
-                  className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer border-none flex items-center gap-2"
+                  className="px-5 sm:px-6 py-2.5 sm:py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer border-none flex items-center gap-2"
                 >
                   <CheckCircle2 size={16} />
                   <span>{salvandoVenda ? 'Gravando...' : 'Finalizar Venda'}</span>
