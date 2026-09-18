@@ -265,7 +265,10 @@ export function Relatorios() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
             
             {/* Card 1: Comparativo Mês a Mês com Toggle Bruto - Despesa - Líquido */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-auto overflow-visible">
+            <div 
+              className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col"
+              style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
+            >
               <div className="p-3.5 border-b border-gray-800 bg-gray-900/50 space-y-2">
                 <div className="text-[10px] font-black uppercase tracking-wider text-gray-400">
                   Mês a Mês ({anoAtivo})
@@ -294,7 +297,10 @@ export function Relatorios() {
                 </div>
               </div>
 
-              <div className="bg-gray-900 divide-y divide-gray-800/40 overflow-visible">
+              <div 
+                className="bg-gray-900 divide-y divide-gray-800/40"
+                style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
+              >
                 {dadosGrafico.map((item, idx) => {
                   let valor = item.saldo;
                   let corBadge = item.saldo >= 0 ? 'text-emerald-400 bg-emerald-950/40' : 'text-red-400 bg-red-950/40';
@@ -328,9 +334,16 @@ export function Relatorios() {
               {t: 'Top Clientes', d: rankingClientes, u: 'R$'},
               {t: 'Formas de Pagamento', d: rankingMetodos, u: 'R$'}
             ].map((rank, i) => (
-                <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-auto overflow-visible">
+                <div 
+                  key={i} 
+                  className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col"
+                  style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
+                >
                     <div className="p-4 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
-                    <div className="bg-gray-900 divide-y divide-gray-800/40 overflow-visible">
+                    <div 
+                      className="bg-gray-900 divide-y divide-gray-800/40"
+                      style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
+                    >
                       {rank.d.length > 0 ? rank.d.map(([nome, val], idx) => (
                         <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-800 transition-colors">
                             <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
