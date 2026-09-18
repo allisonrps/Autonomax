@@ -5,15 +5,13 @@ import {
   ChevronLeft, ChevronRight,
   TrendingUp, ChevronDown, ChevronUp, 
   LineChart as LineChartIcon, 
-  PieChart as PieChartIcon,
   BarChart as BarChartIcon,
   Trophy
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Legend, 
-  PieChart, Pie, Cell,
-  BarChart, Bar, ReferenceLine
+  BarChart, Bar
 } from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -37,7 +35,7 @@ export function Relatorios() {
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
   const [resumoAberto, setResumoAberto] = useState(false);
-  const [liquidoAberto, setLiquidoAberto] = useState(false);
+  const [modoComparativo, setModoComparativo] = useState<'Bruto' | 'Despesa' | 'Líquido'>('Líquido');
 
   useEffect(() => {
     async function carregarEstatisticas() {
@@ -94,19 +92,6 @@ export function Relatorios() {
   const textoMesesFechados = qtdMesesFechados > 0
     ? `${qtdMesesFechados} ${qtdMesesFechados === 1 ? 'mês fechado' : 'meses fechados'} (Jan${qtdMesesFechados > 1 ? ' - ' + dadosGrafico[qtdMesesFechados - 1].name : ''})`
     : 'Sem meses fechados';
-
-  // Payment Methods Pie Chart
-  const metodosAgrupados = transacoesEntrada.reduce((acc: Record<string, number>, t) => {
-    const metodo = t.metodoPagamento || 'Não Informado';
-    acc[metodo] = (acc[metodo] || 0) + t.valor;
-    return acc;
-  }, {});
-  
-  const dadosPizzaMetodos = Object.entries(metodosAgrupados)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-
-  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b'];
 
   const formatarMoeda = (valor: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
@@ -238,99 +223,6 @@ export function Relatorios() {
              )}
           </div>
 
-          {/* Card Expansível: Líquido Mês a Mês (Linha do Tempo) */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-             <button 
-               type="button"
-               onClick={() => setLiquidoAberto(!liquidoAberto)} 
-               className="w-full px-6 py-4 flex justify-between items-center border-b border-gray-800 hover:bg-gray-800/30 transition-colors border-none outline-none cursor-pointer bg-gray-900"
-             >
-               <div className="flex items-center gap-2">
-                 <LineChartIcon size={16} className="text-emerald-400"/>
-                 <h3 className="text-xs font-black uppercase tracking-wider text-gray-200">
-                   Líquido Mês a Mês (Linha do Tempo {anoAtivo})
-                 </h3>
-               </div>
-               <div className="flex items-center gap-3">
-                 <span className={`text-xs font-black hidden sm:inline ${
-                   faturamentoLiquido >= 0 ? 'text-emerald-400' : 'text-red-400'
-                 }`}>
-                   {formatarMoeda(faturamentoLiquido)}
-                 </span>
-                 {liquidoAberto ? <ChevronUp size={16} className="text-gray-400"/> : <ChevronDown size={16} className="text-gray-400"/>}
-               </div>
-             </button>
-
-             {liquidoAberto && (
-               <div className="p-6 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-900">
-                 {/* KPIs do Card */}
-                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                   <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
-                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Total Líquido do Ano ({anoAtivo})</p>
-                     <p className={`text-xl font-black mt-1 ${faturamentoLiquido >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                       {formatarMoeda(faturamentoLiquido)}
-                     </p>
-                   </div>
-
-                   <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
-                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Média Mensal Líquida</p>
-                     <p className="text-xl font-black text-white mt-1">
-                       {formatarMoeda(mediaMensalLiquida)}
-                     </p>
-                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5 truncate" title={textoMesesFechados}>
-                       {textoMesesFechados}
-                     </p>
-                   </div>
-
-                   <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
-                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Melhor Mês (Líquido)</p>
-                     <p className="text-xl font-black text-emerald-400 mt-1">
-                       {melhorMes?.name || '---'}
-                     </p>
-                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5">
-                       {melhorMes ? formatarMoeda(melhorMes.saldo) : ''}
-                     </p>
-                   </div>
-                 </div>
-
-                 {/* Gráfico Recharts de Linha do Tempo Mensal */}
-                 <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 h-64 w-full">
-                   <ResponsiveContainer width="100%" height="100%">
-                     <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                       <XAxis dataKey="name" stroke="#6b7280" fontSize={11} tickLine={false} />
-                       <YAxis stroke="#6b7280" fontSize={10} tickLine={false} tickFormatter={(v) => `R$${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} />
-                       <Tooltip
-                         content={({ active, payload }) => {
-                           if (active && payload && payload.length) {
-                             const data = payload[0].payload;
-                             return (
-                               <div className="bg-gray-900 border border-gray-800 p-3 rounded-xl shadow-xl text-xs space-y-1">
-                                 <p className="font-black text-white uppercase border-b border-gray-800 pb-1 mb-1">{data.name} - {anoAtivo}</p>
-                                 <p className="text-emerald-400 font-bold">Receitas: {formatarMoeda(data.entradas)}</p>
-                                 <p className="text-red-400 font-bold">Despesas: {formatarMoeda(data.saidas)}</p>
-                                 <p className={`font-black pt-1 border-t border-gray-800 ${data.saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                   Saldo Líquido: {formatarMoeda(data.saldo)}
-                                 </p>
-                               </div>
-                             );
-                           }
-                           return null;
-                         }}
-                       />
-                       <ReferenceLine y={0} stroke="#374151" />
-                       <Bar dataKey="saldo" name="Saldo Líquido" radius={[4, 4, 0, 0]}>
-                         {dadosGrafico.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={entry.saldo >= 0 ? '#10b981' : '#f43f5e'} />
-                         ))}
-                       </Bar>
-                     </BarChart>
-                   </ResponsiveContainer>
-                 </div>
-               </div>
-             )}
-          </div>
-
           {/* Gráficos de Linha e Barra */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -369,55 +261,92 @@ export function Relatorios() {
             </div>
           </div>
 
-          {/* Gráfico de Pizza e Rankings Menores */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 lg:col-span-1">
-                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2"><PieChartIcon size={16} className="text-emerald-400"/> Métodos de Pagamento</h3>
-                {dadosPizzaMetodos.length > 0 ? (
-                  <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={dadosPizzaMetodos} innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
-                              {dadosPizzaMetodos.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip formatter={formatarTooltip} contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}} />
-                            <Legend layout="horizontal" verticalAlign="bottom" wrapperStyle={{fontSize: '10px', marginTop: '10px'}} />
-                          </PieChart>
-                      </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-64 flex items-center justify-center text-sm text-gray-500 italic">
-                    Sem dados de pagamento
-                  </div>
-                )}
+          {/* Seção de Rankings e Comparativo Mensal (4 cards em formato de lista) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* Card 1: Comparativo Mês a Mês com Toggle Bruto - Despesa - Líquido */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden flex flex-col h-full">
+              <div className="p-3.5 border-b border-gray-800 bg-gray-900/50 space-y-2">
+                <div className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                  Mês a Mês ({anoAtivo})
+                </div>
+                
+                {/* Toggle Bruto - Despesa - Líquido */}
+                <div className="grid grid-cols-3 gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
+                  {(['Bruto', 'Despesa', 'Líquido'] as const).map(tipo => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => setModoComparativo(tipo)}
+                      className={`py-1 text-[9px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                        modoComparativo === tipo
+                          ? tipo === 'Bruto'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : tipo === 'Despesa'
+                            ? 'bg-red-600 text-white shadow-sm'
+                            : 'bg-blue-600 text-white shadow-sm'
+                          : 'text-gray-400 hover:text-white bg-transparent'
+                      }`}
+                    >
+                      {tipo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto max-h-80 bg-gray-900 divide-y divide-gray-800/40">
+                {dadosGrafico.map((item, idx) => {
+                  let valor = item.saldo;
+                  let corBadge = item.saldo >= 0 ? 'text-emerald-400 bg-emerald-950/40' : 'text-red-400 bg-red-950/40';
+
+                  if (modoComparativo === 'Bruto') {
+                    valor = item.entradas;
+                    corBadge = 'text-emerald-400 bg-emerald-950/40';
+                  } else if (modoComparativo === 'Despesa') {
+                    valor = item.saidas;
+                    corBadge = 'text-red-400 bg-red-950/40';
+                  }
+
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors">
+                      <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
+                        <span className="w-5 inline-block text-[10px] text-gray-500 font-mono">{idx + 1}.</span>
+                        <span className="truncate">{item.name}</span>
+                      </div>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded whitespace-nowrap ${corBadge}`}>
+                        {formatarMoeda(valor)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {[ 
-                {t: 'Top Produtos/Serviços', d: rankingItens, u: 'UN'}, 
-                {t: 'Top Clientes', d: rankingClientes, u: 'R$'},
-                {t: 'Formas de Pagamento', d: rankingMetodos, u: 'R$'}
-              ].map((rank, i) => (
-                  <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden flex flex-col h-full">
-                      <div className="p-4 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
-                      <div className="flex-1 overflow-auto bg-gray-900">
-                        {rank.d.length > 0 ? rank.d.map(([nome, val], idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 border-b border-gray-800/50 last:border-0 hover:bg-gray-800 transition-colors">
-                              <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
-                                {renderBadgePosicao(idx)}
-                                <span className="truncate">{nome}</span>
-                              </div>
-                              <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded whitespace-nowrap">
-                                {rank.u === 'R$' ? formatarMoeda(val as number) : `${val} UN`}
-                              </span>
-                          </div>
-                        )) : (
-                          <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum dado</div>
-                        )}
-                      </div>
-                  </div>
-              ))}
-            </div>
+            {/* Cards 2, 3, 4: Top Produtos/Serviços, Top Clientes, Formas de Pagamento */}
+            {[ 
+              {t: 'Top Produtos/Serviços', d: rankingItens, u: 'UN'}, 
+              {t: 'Top Clientes', d: rankingClientes, u: 'R$'},
+              {t: 'Formas de Pagamento', d: rankingMetodos, u: 'R$'}
+            ].map((rank, i) => (
+                <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden flex flex-col h-full">
+                    <div className="p-4 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
+                    <div className="flex-1 overflow-auto max-h-80 bg-gray-900 divide-y divide-gray-800/40">
+                      {rank.d.length > 0 ? rank.d.map(([nome, val], idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-800 transition-colors">
+                            <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
+                              {renderBadgePosicao(idx)}
+                              <span className="truncate">{nome}</span>
+                            </div>
+                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded whitespace-nowrap">
+                              {rank.u === 'R$' ? formatarMoeda(val as number) : `${val} UN`}
+                            </span>
+                        </div>
+                      )) : (
+                        <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum dado</div>
+                      )}
+                    </div>
+                </div>
+            ))}
           </div>
 
         </div>
