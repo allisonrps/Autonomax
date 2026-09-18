@@ -294,7 +294,7 @@ export function Relatorios() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto max-h-80 bg-gray-900 divide-y divide-gray-800/40">
+              <div className="flex-1 bg-gray-900 divide-y divide-gray-800/40">
                 {dadosGrafico.map((item, idx) => {
                   let valor = item.saldo;
                   let corBadge = item.saldo >= 0 ? 'text-emerald-400 bg-emerald-950/40' : 'text-red-400 bg-red-950/40';
@@ -330,7 +330,7 @@ export function Relatorios() {
             ].map((rank, i) => (
                 <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden flex flex-col h-full">
                     <div className="p-4 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
-                    <div className="flex-1 overflow-auto max-h-80 bg-gray-900 divide-y divide-gray-800/40">
+                    <div className="flex-1 bg-gray-900 divide-y divide-gray-800/40">
                       {rank.d.length > 0 ? rank.d.map(([nome, val], idx) => (
                         <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-800 transition-colors">
                             <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
