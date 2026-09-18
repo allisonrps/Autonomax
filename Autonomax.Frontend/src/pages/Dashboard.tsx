@@ -4,13 +4,8 @@ import {
   Calendar, Plus, ChevronDown, ChevronUp, 
   TrendingUp, TrendingDown, DollarSign, ShoppingBag, 
   CreditCard, QrCode, Banknote, FileText, CheckCircle2, 
-  Search, Trash2, X, User, Sparkles, Package, RotateCcw,
-  LineChart as LineChartIcon
+  Search, Trash2, X, User, Sparkles, Package, RotateCcw
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Cell, ReferenceLine
-} from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
 
@@ -75,7 +70,6 @@ export function Dashboard() {
   const [resumoAberto, setResumoAberto] = useState(false);
   const [pagamentosAberto, setPagamentosAberto] = useState(false);
   const [feedAberto, setFeedAberto] = useState(false);
-  const [liquidoAberto, setLiquidoAberto] = useState(false);
 
   // Filtro no feed de vendas do dia
   const [buscaFeed, setBuscaFeed] = useState('');
@@ -239,43 +233,6 @@ export function Dashboard() {
       return cli.includes(termo) || desc.includes(termo) || met.includes(termo);
     });
   }, [vendasDoDia, buscaFeed]);
-
-  // Card 4: Líquido Mês a Mês (Linha do Tempo no Ano)
-  const dadosLiquidoMensal = useMemo(() => {
-    const anoAtual = agora.getFullYear();
-    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    return meses.map((nomeMes, index) => {
-      const transacoesMes = transacoes.filter(t => {
-        const d = new Date(t.data);
-        return d.getFullYear() === anoAtual && d.getMonth() === index;
-      });
-
-      const ent = transacoesMes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
-      const sai = transacoesMes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
-      const liq = ent - sai;
-
-      return {
-        mes: nomeMes,
-        entradas: ent,
-        saidas: sai,
-        liquido: liq
-      };
-    });
-  }, [transacoes, agora]);
-
-  const resumoLiquidoAno = useMemo(() => {
-    const totalLiq = dadosLiquidoMensal.reduce((acc, m) => acc + m.liquido, 0);
-    const mesesComDados = dadosLiquidoMensal.filter(m => m.entradas > 0 || m.saidas > 0);
-    const mediaMensal = mesesComDados.length > 0 ? totalLiq / mesesComDados.length : 0;
-    
-    let melhorMes = dadosLiquidoMensal[0];
-    dadosLiquidoMensal.forEach(m => {
-      if (m.liquido > (melhorMes?.liquido || 0)) melhorMes = m;
-    });
-
-    return { totalLiq, mediaMensal, melhorMes };
-  }, [dadosLiquidoMensal]);
 
   // Manipulação de Itens no Modal de Nova Venda
   const handleSelecionarCatalogo = (idStr: string) => {
@@ -812,100 +769,6 @@ export function Dashboard() {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* ============================================================ */}
-          {/* 5. CARD EXPANSÍVEL 4: LÍQUIDO MÊS A MÊS (LINHA DO TEMPO)     */}
-          {/* ============================================================ */}
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-md overflow-hidden transition-all">
-            <button
-              type="button"
-              onClick={() => setLiquidoAberto(!liquidoAberto)}
-              className="w-full px-4 sm:px-5 py-4 flex items-center justify-between hover:bg-gray-800/40 transition-colors border-none outline-none cursor-pointer text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 rounded-lg">
-                  <LineChartIcon size={18} />
-                </div>
-                <h2 className="text-xs font-black uppercase tracking-wider text-gray-200">
-                  Líquido Mês a Mês
-                </h2>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className={`text-[11px] font-black hidden sm:inline ${
-                  resumoLiquidoAno.totalLiq >= 0 ? 'text-emerald-400' : 'text-red-400'
-                }`}>
-                  R$ {resumoLiquidoAno.totalLiq.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-                <div className="p-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-400">
-                  {liquidoAberto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </div>
-              </div>
-            </button>
-
-            {liquidoAberto && (
-              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* KPIs resumo no topo do card */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Total Líquido ({agora.getFullYear()})</p>
-                    <p className={`text-lg font-black mt-0.5 ${resumoLiquidoAno.totalLiq >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      R$ {resumoLiquidoAno.totalLiq.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-
-                  <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Média Líquida Mensal</p>
-                    <p className="text-lg font-black text-white mt-0.5">
-                      R$ {resumoLiquidoAno.mediaMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-
-                  <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800">
-                    <p className="text-[10px] font-black uppercase text-gray-400">Melhor Mês</p>
-                    <p className="text-lg font-black text-emerald-400 mt-0.5">
-                      {resumoLiquidoAno.melhorMes?.mes || '-'} <span className="text-xs font-semibold text-gray-400">(R$ {resumoLiquidoAno.melhorMes?.liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Gráfico Recharts de Linha do Tempo Mensal */}
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dadosLiquidoMensal} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                      <XAxis dataKey="mes" stroke="#6b7280" fontSize={11} tickLine={false} />
-                      <YAxis stroke="#6b7280" fontSize={10} tickLine={false} tickFormatter={(v) => `R$${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="bg-gray-900 border border-gray-800 p-3 rounded-xl shadow-xl text-xs space-y-1">
-                                <p className="font-black text-white uppercase border-b border-gray-800 pb-1 mb-1">{data.mes} - {agora.getFullYear()}</p>
-                                <p className="text-emerald-400 font-bold">Entradas: R$ {data.entradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                <p className="text-red-400 font-bold">Saídas: R$ {data.saidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                                <p className={`font-black pt-1 border-t border-gray-800 ${data.liquido >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  Líquido: R$ {data.liquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                </p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <ReferenceLine y={0} stroke="#374151" />
-                      <Bar dataKey="liquido" radius={[4, 4, 0, 0]}>
-                        {dadosLiquidoMensal.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.liquido >= 0 ? '#10b981' : '#f43f5e'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
               </div>
             )}
           </div>

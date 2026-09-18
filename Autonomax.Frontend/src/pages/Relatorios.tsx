@@ -13,7 +13,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Legend, 
   PieChart, Pie, Cell,
-  BarChart, Bar
+  BarChart, Bar, ReferenceLine
 } from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -37,6 +37,7 @@ export function Relatorios() {
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
   const [resumoAberto, setResumoAberto] = useState(false);
+  const [liquidoAberto, setLiquidoAberto] = useState(false);
 
   useEffect(() => {
     async function carregarEstatisticas() {
@@ -233,6 +234,99 @@ export function Relatorios() {
                         {melhorMes ? formatarMoeda(melhorMes.entradas) : ''}
                       </p>
                   </div>
+               </div>
+             )}
+          </div>
+
+          {/* Card Expansível: Líquido Mês a Mês (Linha do Tempo) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+             <button 
+               type="button"
+               onClick={() => setLiquidoAberto(!liquidoAberto)} 
+               className="w-full px-6 py-4 flex justify-between items-center border-b border-gray-800 hover:bg-gray-800/30 transition-colors border-none outline-none cursor-pointer bg-gray-900"
+             >
+               <div className="flex items-center gap-2">
+                 <LineChartIcon size={16} className="text-emerald-400"/>
+                 <h3 className="text-xs font-black uppercase tracking-wider text-gray-200">
+                   Líquido Mês a Mês (Linha do Tempo {anoAtivo})
+                 </h3>
+               </div>
+               <div className="flex items-center gap-3">
+                 <span className={`text-xs font-black hidden sm:inline ${
+                   faturamentoLiquido >= 0 ? 'text-emerald-400' : 'text-red-400'
+                 }`}>
+                   {formatarMoeda(faturamentoLiquido)}
+                 </span>
+                 {liquidoAberto ? <ChevronUp size={16} className="text-gray-400"/> : <ChevronDown size={16} className="text-gray-400"/>}
+               </div>
+             </button>
+
+             {liquidoAberto && (
+               <div className="p-6 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-900">
+                 {/* KPIs do Card */}
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                   <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
+                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Total Líquido do Ano ({anoAtivo})</p>
+                     <p className={`text-xl font-black mt-1 ${faturamentoLiquido >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                       {formatarMoeda(faturamentoLiquido)}
+                     </p>
+                   </div>
+
+                   <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
+                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Média Mensal Líquida</p>
+                     <p className="text-xl font-black text-white mt-1">
+                       {formatarMoeda(mediaMensalLiquida)}
+                     </p>
+                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5 truncate" title={textoMesesFechados}>
+                       {textoMesesFechados}
+                     </p>
+                   </div>
+
+                   <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
+                     <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Melhor Mês (Líquido)</p>
+                     <p className="text-xl font-black text-emerald-400 mt-1">
+                       {melhorMes?.name || '---'}
+                     </p>
+                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-tight mt-0.5">
+                       {melhorMes ? formatarMoeda(melhorMes.saldo) : ''}
+                     </p>
+                   </div>
+                 </div>
+
+                 {/* Gráfico Recharts de Linha do Tempo Mensal */}
+                 <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 h-64 w-full">
+                   <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={dadosGrafico} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                       <XAxis dataKey="name" stroke="#6b7280" fontSize={11} tickLine={false} />
+                       <YAxis stroke="#6b7280" fontSize={10} tickLine={false} tickFormatter={(v) => `R$${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} />
+                       <Tooltip
+                         content={({ active, payload }) => {
+                           if (active && payload && payload.length) {
+                             const data = payload[0].payload;
+                             return (
+                               <div className="bg-gray-900 border border-gray-800 p-3 rounded-xl shadow-xl text-xs space-y-1">
+                                 <p className="font-black text-white uppercase border-b border-gray-800 pb-1 mb-1">{data.name} - {anoAtivo}</p>
+                                 <p className="text-emerald-400 font-bold">Receitas: {formatarMoeda(data.entradas)}</p>
+                                 <p className="text-red-400 font-bold">Despesas: {formatarMoeda(data.saidas)}</p>
+                                 <p className={`font-black pt-1 border-t border-gray-800 ${data.saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                   Saldo Líquido: {formatarMoeda(data.saldo)}
+                                 </p>
+                               </div>
+                             );
+                           }
+                           return null;
+                         }}
+                       />
+                       <ReferenceLine y={0} stroke="#374151" />
+                       <Bar dataKey="saldo" name="Saldo Líquido" radius={[4, 4, 0, 0]}>
+                         {dadosGrafico.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={entry.saldo >= 0 ? '#10b981' : '#f43f5e'} />
+                         ))}
+                       </Bar>
+                     </BarChart>
+                   </ResponsiveContainer>
+                 </div>
                </div>
              )}
           </div>
