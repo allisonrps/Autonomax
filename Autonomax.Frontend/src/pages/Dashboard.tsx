@@ -394,16 +394,13 @@ export function Dashboard() {
               {/* No desktop fica tudo na mesma linha: "Quinta, DD/MM/AA - HH:MM:SS" */}
               {/* No mobile fica a data e abaixo o horário centralizado */}
               <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2.5">
-                <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
-                  {/* Ícone de Calendário + Data clicável para abrir seletor nativo */}
+                <div className="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
+                  {/* Botão de Ícone de Calendário clicável (apenas o ícone altera a data) */}
                   <label
-                    className="relative cursor-pointer group flex items-center gap-2 text-white hover:text-emerald-300 transition-colors"
+                    className="relative p-2 sm:p-2.5 bg-gray-950 hover:bg-emerald-950/60 text-emerald-400 hover:text-emerald-300 rounded-xl border border-gray-800 hover:border-emerald-500/50 transition-all cursor-pointer flex items-center justify-center group flex-shrink-0 shadow-sm"
                     title="Clique para alterar a data"
                   >
-                    <Calendar size={22} className="text-emerald-400 group-hover:scale-110 transition-transform flex-shrink-0" />
-                    <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight group-hover:text-emerald-300 transition-colors">
-                      {formatarDataResumida(dataSelecionada)}
-                    </h1>
+                    <Calendar size={26} className="group-hover:scale-110 transition-transform" />
                     <input
                       type="date"
                       value={dataSelecionada}
@@ -411,6 +408,11 @@ export function Dashboard() {
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                     />
                   </label>
+
+                  {/* Texto da Data (somente leitura) */}
+                  <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">
+                    {formatarDataResumida(dataSelecionada)}
+                  </h1>
 
                   <span className="hidden md:inline text-gray-500 font-light text-lg sm:text-2xl lg:text-3xl">-</span>
                   <span className="hidden md:inline text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-emerald-400">
@@ -421,10 +423,10 @@ export function Dashboard() {
                     <button
                       type="button"
                       onClick={() => setDataSelecionada(chaveHoje)}
-                      className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1 rounded-xl transition-colors cursor-pointer ml-1"
+                      className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer ml-1"
                       title="Voltar para a data de hoje"
                     >
-                      <RotateCcw size={12} />
+                      <RotateCcw size={13} />
                       <span>Hoje</span>
                     </button>
                   )}
