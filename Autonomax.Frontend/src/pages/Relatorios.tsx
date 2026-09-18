@@ -63,7 +63,7 @@ export function Relatorios() {
   const margemLucro = totalEntradas > 0 ? ((totalEntradas - totalSaidas) / totalEntradas) * 100 : 0;
 
   const dadosGrafico = Array.from({ length: 12 }, (_, i) => {
-    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const transacoesMes = transacoesDoAno.filter(t => new Date(t.data).getMonth() === i);
     const ent = transacoesMes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
     const sai = transacoesMes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
@@ -314,12 +314,12 @@ export function Relatorios() {
                   }
 
                   return (
-                    <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors">
+                    <div key={idx} className="flex items-center justify-between py-1.5 px-3 hover:bg-gray-800/50 transition-colors">
                       <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
                         <span className="w-5 inline-block text-[10px] text-gray-500 font-mono">{idx + 1}.</span>
                         <span className="truncate">{item.name}</span>
                       </div>
-                      <span className={`text-[10px] font-black px-2 py-1 rounded whitespace-nowrap ${corBadge}`}>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded whitespace-nowrap ${corBadge}`}>
                         {formatarMoeda(valor)}
                       </span>
                     </div>
@@ -339,23 +339,23 @@ export function Relatorios() {
                   className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col"
                   style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
                 >
-                    <div className="p-4 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
+                    <div className="p-3 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
                     <div 
                       className="bg-gray-900 divide-y divide-gray-800/40"
                       style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
                     >
                       {rank.d.length > 0 ? rank.d.map(([nome, val], idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-800 transition-colors">
+                        <div key={idx} className="flex items-center justify-between py-1.5 px-3 hover:bg-gray-800 transition-colors">
                             <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
                               {renderBadgePosicao(idx)}
                               <span className="truncate">{nome}</span>
                             </div>
-                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-1 rounded whitespace-nowrap">
+                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
                               {rank.u === 'R$' ? formatarMoeda(val as number) : `${val} UN`}
                             </span>
                         </div>
                       )) : (
-                        <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum dado</div>
+                        <div className="p-3 text-xs text-gray-500 italic text-center">Nenhum dado</div>
                       )}
                     </div>
                 </div>
