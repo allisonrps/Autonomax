@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
@@ -6,8 +6,12 @@ import {
   ChevronRight, CheckCircle2, FileDown,
   ChevronDown, ChevronUp, Edit3, Save, Tag,
   BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight,
-  Filter, Coins, QrCode, CreditCard
+  Filter, Coins, QrCode, CreditCard, LineChart as LineChartIcon
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer
+} from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
 
@@ -41,6 +45,7 @@ export function FluxoCaixa() {
   const [anoAtivo, setAnoAtivo] = useState(Number(ano) || new Date().getFullYear());
   
   const [resumoAberto, setResumoAberto] = useState(false); 
+  const [graficoDiarioAberto, setGraficoDiarioAberto] = useState(false);
   const [itemAberto, setItemAberto] = useState<number | null>(null);
   
   const [filtroAtivo, setFiltroAtivo] = useState<'Tudo' | 'Entrada' | 'Saida' | 'Pendente'>('Tudo');
@@ -331,6 +336,47 @@ export function FluxoCaixa() {
   const totalPendentes = transacoes.filter(t => t.status === 'Pendente').reduce((acc, t) => acc + t.valor, 0);
   const saldo = totalEntradas - totalSaidas;
 
+  // Gráfico de Ganhos Diários no Mês (Linha do tempo diária)
+  const dadosGanhosDiarios = useMemo(() => {
+    const diasNoMes = new Date(anoAtivo, mesAtivo, 0).getDate();
+    const lista = [];
+
+    for (let d = 1; d <= diasNoMes; d++) {
+      const transacoesDia = transacoes.filter(t => {
+        const dateObj = new Date(t.data);
+        dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
+        return dateObj.getDate() === d;
+      });
+
+      const ganhos = transacoesDia.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
+      const despesas = transacoesDia.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
+      const qtdVendas = transacoesDia.filter(t => t.tipo === 'Entrada').length;
+
+      lista.push({
+        dia: d,
+        rotulo: `Dia ${d}`,
+        ganhos,
+        despesas,
+        liquido: ganhos - despesas,
+        qtdVendas
+      });
+    }
+
+    return lista;
+  }, [transacoes, mesAtivo, anoAtivo]);
+
+  const resumoGanhosDiarios = useMemo(() => {
+    const totalGanhos = dadosGanhosDiarios.reduce((acc, d) => acc + d.ganhos, 0);
+    const mediaDiaria = dadosGanhosDiarios.length > 0 ? totalGanhos / dadosGanhosDiarios.length : 0;
+
+    let melhorDia = dadosGanhosDiarios[0];
+    dadosGanhosDiarios.forEach(d => {
+      if (d.ganhos > (melhorDia?.ganhos || 0)) melhorDia = d;
+    });
+
+    return { totalGanhos, mediaDiaria, melhorDia };
+  }, [dadosGanhosDiarios]);
+
   const transacoesFiltradas = transacoes.filter(t => {
     if (filtroAtivo === 'Tudo') return true;
     if (filtroAtivo === 'Pendente') return t.status === 'Pendente';
@@ -396,6 +442,96 @@ export function FluxoCaixa() {
                     <p className="text-[9px] font-bold uppercase tracking-wider opacity-60">Caixa Líquido</p>
                     <p className="text-base font-black">R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ESTATÍSTICA DE GANHOS POR DIA DO MÊS (FECHADO POR PADRÃO) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+            <button 
+              type="button"
+              onClick={() => setGraficoDiarioAberto(!graficoDiarioAberto)} 
+              className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-colors border-none outline-none cursor-pointer border-b border-gray-800"
+            >
+              <div className="flex items-center gap-2">
+                <LineChartIcon size={18} className="text-emerald-400"/>
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">
+                  Ganhos por Dia ({mesesNome[mesAtivo - 1]})
+                </h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-black text-emerald-400 hidden sm:inline">
+                  R$ {resumoGanhosDiarios.totalGanhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                {graficoDiarioAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
+              </div>
+            </button>
+
+            {graficoDiarioAberto && (
+              <div className="p-5 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-900">
+                {/* KPIs resumo rápido no topo */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40">
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Melhor Dia de Ganhos</p>
+                    <p className="text-base font-black text-emerald-400">
+                      {resumoGanhosDiarios.melhorDia?.ganhos > 0 ? (
+                        <>Dia {resumoGanhosDiarios.melhorDia.dia} <span className="text-xs font-medium text-gray-300">(R$ {resumoGanhosDiarios.melhorDia.ganhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</span></>
+                      ) : 'Sem vendas no mês'}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40">
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Média Diária de Ganhos</p>
+                    <p className="text-base font-black text-white">
+                      R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / dia
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40">
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Total de Receitas do Mês</p>
+                    <p className="text-base font-black text-emerald-400">
+                      R$ {resumoGanhosDiarios.totalGanhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Gráfico Recharts de Ganhos Diários */}
+                <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dadosGanhosDiarios} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                      <XAxis dataKey="dia" stroke="#6b7280" fontSize={10} tickLine={false} />
+                      <YAxis stroke="#6b7280" fontSize={10} tickLine={false} tickFormatter={(v) => `R$${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-gray-900 border border-gray-800 p-3 rounded-xl shadow-xl text-xs space-y-1">
+                                <p className="font-black text-white uppercase border-b border-gray-800 pb-1 mb-1">
+                                  Dia {data.dia} de {mesesNome[mesAtivo - 1]}
+                                </p>
+                                <p className="text-emerald-400 font-bold">
+                                  Ganhos (Receita): R$ {data.ganhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </p>
+                                {data.despesas > 0 && (
+                                  <p className="text-red-400 font-bold">
+                                    Despesas: R$ {data.despesas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </p>
+                                )}
+                                <p className="text-gray-400 text-[10px]">
+                                  {data.qtdVendas} {data.qtdVendas === 1 ? 'venda realizada' : 'vendas realizadas'}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="ganhos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             )}
