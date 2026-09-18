@@ -389,19 +389,46 @@ export function Dashboard() {
           {/* ============================================================ */}
           <div className="bg-gray-900/90 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
             
-            {/* Lado Esquerdo: Data, Relógio e Seletor */}
-            <div className="space-y-2.5 flex-1">
+            {/* Lado Esquerdo: Data e Relógio */}
+            <div className="flex-1">
               {/* No desktop fica tudo na mesma linha: "Quinta, DD/MM/AA - HH:MM:SS" */}
               {/* No mobile fica a data e abaixo o horário centralizado */}
               <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2.5">
-                <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white flex items-center justify-center md:justify-start gap-2 text-center md:text-left">
-                  <Calendar size={22} className="text-emerald-400 flex-shrink-0" />
-                  <span>{formatarDataResumida(dataSelecionada)}</span>
-                  <span className="hidden md:inline text-gray-500 font-light">-</span>
-                  <span className="hidden md:inline text-emerald-400 font-black">
+                <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
+                  {/* Ícone de Calendário + Data clicável para abrir seletor nativo */}
+                  <label
+                    className="relative cursor-pointer group flex items-center gap-2 text-white hover:text-emerald-300 transition-colors"
+                    title="Clique para alterar a data"
+                  >
+                    <Calendar size={22} className="text-emerald-400 group-hover:scale-110 transition-transform flex-shrink-0" />
+                    <h1 className="text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight group-hover:text-emerald-300 transition-colors">
+                      {formatarDataResumida(dataSelecionada)}
+                    </h1>
+                    <input
+                      type="date"
+                      value={dataSelecionada}
+                      onChange={e => setDataSelecionada(e.target.value)}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                    />
+                  </label>
+
+                  <span className="hidden md:inline text-gray-500 font-light text-lg sm:text-2xl lg:text-3xl">-</span>
+                  <span className="hidden md:inline text-lg sm:text-2xl lg:text-3xl font-black uppercase tracking-tight text-emerald-400">
                     {horaFormatada}
                   </span>
-                </h1>
+
+                  {!ehHoje && (
+                    <button
+                      type="button"
+                      onClick={() => setDataSelecionada(chaveHoje)}
+                      className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1 rounded-xl transition-colors cursor-pointer ml-1"
+                      title="Voltar para a data de hoje"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Hoje</span>
+                    </button>
+                  )}
+                </div>
 
                 {/* Relógio exclusivo para mobile, centralizado na sua linha */}
                 <div className="flex md:hidden items-center justify-center pt-1">
@@ -409,27 +436,6 @@ export function Dashboard() {
                     {horaFormatada}
                   </span>
                 </div>
-              </div>
-
-              {/* Seletor de Data */}
-              <div className="flex items-center justify-center md:justify-start gap-2 pt-1">
-                <input
-                  type="date"
-                  value={dataSelecionada}
-                  onChange={e => setDataSelecionada(e.target.value)}
-                  className="bg-gray-950 border border-gray-800 hover:border-gray-700 text-xs font-bold text-gray-200 px-3 py-1.5 rounded-xl outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                />
-                {!ehHoje && (
-                  <button
-                    type="button"
-                    onClick={() => setDataSelecionada(chaveHoje)}
-                    className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 bg-gray-950 hover:bg-gray-800 border border-gray-800 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
-                    title="Voltar para a data de hoje"
-                  >
-                    <RotateCcw size={12} />
-                    <span>Hoje</span>
-                  </button>
-                )}
               </div>
             </div>
 
