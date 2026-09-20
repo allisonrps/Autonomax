@@ -58,10 +58,10 @@ export function FluxoCaixa() {
   
   const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
-  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
+  const [novoItemEdicao, setNovoItemEdicao] = useState<{ nome: string; qtd: number | string }>({ nome: '', qtd: 1 });
 
   const [itensTemporarios, setItensTemporarios] = useState<ItemTemporario[]>([]);
-  const [novoItem, setNovoItem] = useState({ item: '', qtd: 1, precoUnitario: '' });
+  const [novoItem, setNovoItem] = useState<{ item: string; qtd: number | string; precoUnitario: string }>({ item: '', qtd: 1, precoUnitario: '' });
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('');
   
   const [novaTransacao, setNovaTransacao] = useState({
@@ -648,7 +648,18 @@ export function FluxoCaixa() {
                         min="1"
                         className="w-16 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-sm text-white outline-none focus:border-emerald-500" 
                         value={novoItem.qtd} 
-                        onChange={e => setNovoItem({...novoItem, qtd: Number(e.target.value) || 1})} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          setNovoItem(prev => ({
+                            ...prev,
+                            qtd: val === '' ? '' : (parseInt(val, 10) || '')
+                          }));
+                        }} 
+                        onBlur={() => {
+                          if (novoItem.qtd === '' || Number(novoItem.qtd) < 1) {
+                            setNovoItem(prev => ({ ...prev, qtd: 1 }));
+                          }
+                        }}
                         title="Quantidade"
                       />
                       <button 
@@ -911,7 +922,24 @@ export function FluxoCaixa() {
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
                     <input placeholder="Item..." className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-xs font-medium focus:border-emerald-600 text-white" value={novoItemEdicao.nome} onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemEdicao(); } }} />
-                    <input type="number" min="1" className="w-14 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white" value={novoItemEdicao.qtd} onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})} />
+                    <input 
+                      type="number" 
+                      min="1" 
+                      className="w-14 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white" 
+                      value={novoItemEdicao.qtd} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setNovoItemEdicao(prev => ({
+                          ...prev,
+                          qtd: val === '' ? '' : (parseInt(val, 10) || '')
+                        }));
+                      }} 
+                      onBlur={() => {
+                        if (novoItemEdicao.qtd === '' || Number(novoItemEdicao.qtd) < 1) {
+                          setNovoItemEdicao(prev => ({ ...prev, qtd: 1 }));
+                        }
+                      }}
+                    />
                     <button type="button" onClick={handleAdicionarItemEdicao} className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer transition-colors"><Plus size={16}/></button>
                   </div>
                   <div className="min-h-[80px] p-3 bg-gray-950 rounded-md border border-gray-800 flex flex-wrap gap-1.5">

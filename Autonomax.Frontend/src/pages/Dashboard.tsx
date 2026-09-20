@@ -75,7 +75,7 @@ export function Dashboard() {
 
   // Modal de Edição de Transação (igual Tela de Fluxo Mensal)
   const [editando, setEditando] = useState<Transacao | null>(null);
-  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
+  const [novoItemEdicao, setNovoItemEdicao] = useState<{ nome: string; qtd: number | string }>({ nome: '', qtd: 1 });
 
   // Modal de Nova Venda (Clean & Rápido)
   const [modalVendaAberto, setModalVendaAberto] = useState(false);
@@ -106,11 +106,11 @@ export function Dashboard() {
     }
   };
 
-  // Itens da nova venda
+  // Itens da nova venda (permite string vazia "" durante a digitação para a tecla backspace funcionar livremente)
   const [itensVenda, setItensVenda] = useState<ItemTemporario[]>([]);
   const [itemCatalogoId, setItemCatalogoId] = useState('');
   const [itemNome, setItemNome] = useState('');
-  const [itemQtd, setItemQtd] = useState(1);
+  const [itemQtd, setItemQtd] = useState<number | string>(1);
   const [itemPrecoUnitario, setItemPrecoUnitario] = useState('');
 
   // Atualização contínua do relógio
@@ -222,7 +222,7 @@ export function Dashboard() {
     if (prod) {
       setItemNome(prod.nome);
       setItemPrecoUnitario(String(prod.preco));
-      if (itemQtd <= 0) setItemQtd(1);
+      if (!itemQtd || Number(itemQtd) <= 0) setItemQtd(1);
     }
   };
 
@@ -269,6 +269,7 @@ export function Dashboard() {
     setDataVenda(new Date().toLocaleDateString('en-CA'));
     setValorTotalEditavel('');
     setValorFoiEditadoManualmente(false);
+    setItemQtd(1);
     setModalVendaAberto(true);
   };
 
@@ -314,6 +315,7 @@ export function Dashboard() {
       setDataVenda(new Date().toLocaleDateString('en-CA'));
       setValorTotalEditavel('');
       setValorFoiEditadoManualmente(false);
+      setItemQtd(1);
       setModalVendaAberto(false);
 
       carregarDados();
@@ -349,6 +351,7 @@ export function Dashboard() {
       ...t,
       itens: itensIniciais
     });
+    setNovoItemEdicao({ nome: '', qtd: 1 });
   };
 
   const handleAdicionarItemEdicao = () => {
@@ -983,7 +986,18 @@ export function Dashboard() {
                     placeholder="Qtd"
                     min="1"
                     value={itemQtd}
-                    onChange={e => setItemQtd(Math.max(1, Number(e.target.value)))}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setItemQtd('');
+                      } else {
+                        const parsed = parseInt(val, 10);
+                        setItemQtd(isNaN(parsed) ? '' : parsed);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (itemQtd === '' || Number(itemQtd) < 1) setItemQtd(1);
+                    }}
                     className="col-span-2 bg-gray-950 border border-gray-800 rounded-xl px-2 py-2 text-xs font-bold text-center text-white outline-none focus:border-emerald-500"
                   />
                   <input
@@ -1128,7 +1142,7 @@ export function Dashboard() {
       )}
 
       {/* ============================================================ */}
-      {/* 6. MODAL DE EDIÇÃO DE TRANSAÇÃO (NOVO)                      */}
+      {/* 6. MODAL DE EDIÇÃO DE TRANSAÇÃO                              */}
       {/* ============================================================ */}
       {editando && (
         <div className="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
@@ -1160,7 +1174,18 @@ export function Dashboard() {
                       min="1"
                       className="w-14 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white"
                       value={novoItemEdicao.qtd}
-                      onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setNovoItemEdicao(prev => ({
+                          ...prev,
+                          qtd: val === '' ? '' : (parseInt(val, 10) || '')
+                        }));
+                      }}
+                      onBlur={() => {
+                        if (novoItemEdicao.qtd === '' || Number(novoItemEdicao.qtd) < 1) {
+                          setNovoItemEdicao(prev => ({ ...prev, qtd: 1 }));
+                        }
+                      }}
                     />
                     <button
                       type="button"
