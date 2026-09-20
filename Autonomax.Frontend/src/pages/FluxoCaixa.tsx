@@ -5,7 +5,7 @@ import {
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, FileDown,
   ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight,
+  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight, ShoppingBag,
   Filter, Coins, QrCode, CreditCard, LineChart as LineChartIcon
 } from 'lucide-react';
 import { 
@@ -204,7 +204,9 @@ export function FluxoCaixa() {
   async function handleAddTransacao() {
     if (itensTemporarios.length === 0) return alert("Adicione pelo menos um item.");
     if (!novaTransacao.valor) return alert("Informe o valor.");
-    const dataAjustada = new Date(novaTransacao.data + 'T12:00:00');
+    const agora = new Date();
+    const horaStr = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`;
+    const dataAjustada = new Date(`${novaTransacao.data}T${horaStr}`);
     const itensFormatados = itensTemporarios.map(it => {
       const nomeLimpo = it.item.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.item;
       return {
@@ -382,6 +384,46 @@ export function FluxoCaixa() {
     if (filtroAtivo === 'Pendente') return t.status === 'Pendente';
     return t.tipo === filtroAtivo;
   });
+
+  // Agrupamento de transações filtradas por dia para o separador com pílulas
+  const transacoesAgrupadasPorDia = useMemo(() => {
+    const gruposMap = new Map<string, Transacao[]>();
+
+    transacoesFiltradas.forEach(t => {
+      const dataObj = formatarDataLocal(t.data);
+      const ano = dataObj.getFullYear();
+      const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+      const dia = String(dataObj.getDate()).padStart(2, '0');
+      const chaveDia = `${ano}-${mes}-${dia}`;
+
+      if (!gruposMap.has(chaveDia)) {
+        gruposMap.set(chaveDia, []);
+      }
+      gruposMap.get(chaveDia)!.push(t);
+    });
+
+    return Array.from(gruposMap.entries()).map(([chaveDia, itens]) => {
+      const dataObj = new Date(chaveDia + 'T12:00:00');
+      const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+      const diaSemana = diasSemana[dataObj.getDay()];
+      const dd = String(dataObj.getDate()).padStart(2, '0');
+      const mm = String(dataObj.getMonth() + 1).padStart(2, '0');
+      const aa = String(dataObj.getFullYear()).slice(-2);
+
+      const qtdVendas = itens.filter(t => t.tipo === 'Entrada').length;
+      const totalReceitaDia = itens.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
+      const totalDespesaDia = itens.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
+
+      return {
+        chaveDia,
+        rotuloData: `${diaSemana}, ${dd}/${mm}/${aa}`,
+        itens,
+        qtdVendas,
+        totalReceitaDia,
+        totalDespesaDia
+      };
+    });
+  }, [transacoesFiltradas]);
 
   return (
     <Layout>
@@ -719,96 +761,135 @@ export function FluxoCaixa() {
               </div>
             </div>
             
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-4">
               {carregando ? (
                 <LoadingProgress message="Carregando lançamentos..." compact />
-              ) : transacoesFiltradas.length === 0 ? (
+              ) : transacoesAgrupadasPorDia.length === 0 ? (
                 <div className="bg-gray-900 p-12 rounded-lg border border-dashed border-gray-800 text-center">
                   <p className="text-gray-500 font-bold text-xs uppercase tracking-wider">Nenhum lançamento encontrado.</p>
                 </div>
               ) : (
-                transacoesFiltradas.map(t => {
-                  const isEntrada = t.tipo === 'Entrada';
-                  const dataObj = formatarDataLocal(t.data);
-                  const itensExibicao = (t.itens && t.itens.length > 0)
-                    ? t.itens.map(it => ({
-                        nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
-                        quantidade: Math.max(1, it.quantidade || 1)
-                      }))
-                    : [];
+                transacoesAgrupadasPorDia.map(grupo => (
+                  <div key={grupo.chaveDia} className="space-y-2">
+                    {/* Separador do Dia com Pílulas Tags */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 pb-1 border-b border-gray-800/80 px-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                        <span className="text-xs font-black uppercase tracking-wider text-gray-200">
+                          {grupo.rotuloData}
+                        </span>
+                      </div>
 
-                  const textoResumoItens = itensExibicao.length > 0
-                    ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
-                    : t.descricao;
+                      {/* Tags Pílulas do Dia */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Pílula: Nº de pedidos */}
+                        <span className="bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                          <ShoppingBag size={12} />
+                          <span>{grupo.qtdVendas} {grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}</span>
+                        </span>
 
-                  return (
-                    <div key={t.id} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
-                      <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 bg-transparent border-none cursor-pointer outline-none text-left">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-8 h-8 rounded-md flex items-center justify-center border flex-shrink-0 ${isEntrada ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-red-950/40 border-red-900 text-red-400'}`}>
-                            <span className="text-xs font-black">
-                              {dataObj.getDate().toString().padStart(2, '0')}
-                            </span>
-                          </div>
-                          <div className="flex flex-col min-w-0 pr-2">
-                            <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
-                              {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
-                            </span>
-                            {textoResumoItens && (
-                              <span className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
-                                {textoResumoItens}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <span className={`text-sm font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-400' : isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {/* Pílula: Total de receita do dia */}
+                        <span className="bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                          <DollarSign size={12} />
+                          <span>Receita: R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </span>
+
+                        {/* Pílula Opcional: Despesas do dia */}
+                        {grupo.totalDespesaDia > 0 && (
+                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                            <span>Saída: R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                           </span>
-                          {itemAberto === t.id ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
-                        </div>
-                      </button>
+                        )}
+                      </div>
+                    </div>
 
-                      {itemAberto === t.id && (
-                        <div className="px-4 pb-4 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
-                          <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800">
-                            {itensExibicao.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {itensExibicao.map((it, idx) => (
-                                  <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-xs font-bold text-gray-200 flex items-center gap-1.5 shadow-sm">
-                                    <span className={`font-black text-xs ${isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>{it.quantidade}x</span>
-                                    <span>{it.nome}</span>
+                    {/* Lançamentos do dia */}
+                    <div className="space-y-2">
+                      {grupo.itens.map(t => {
+                        const isEntrada = t.tipo === 'Entrada';
+                        const dataObj = formatarDataLocal(t.data);
+                        const itensExibicao = (t.itens && t.itens.length > 0)
+                          ? t.itens.map(it => ({
+                              nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+                              quantidade: Math.max(1, it.quantidade || 1)
+                            }))
+                          : [];
+
+                        const textoResumoItens = itensExibicao.length > 0
+                          ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                          : t.descricao;
+
+                        return (
+                          <div key={t.id} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
+                            <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 bg-transparent border-none cursor-pointer outline-none text-left">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-8 h-8 rounded-md flex items-center justify-center border flex-shrink-0 ${isEntrada ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-red-950/40 border-red-900 text-red-400'}`}>
+                                  <span className="text-xs font-black">
+                                    {dataObj.getDate().toString().padStart(2, '0')}
                                   </span>
-                                ))}
+                                </div>
+                                <div className="flex flex-col min-w-0 pr-2">
+                                  <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
+                                    {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
+                                  </span>
+                                  {textoResumoItens && (
+                                    <span className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
+                                      {textoResumoItens}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            ) : (
-                              <span className="text-xs text-gray-400 font-medium">{t.descricao}</span>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <span className={`text-sm font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-400' : isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </span>
+                                {itemAberto === t.id ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
+                              </div>
+                            </button>
+
+                            {itemAberto === t.id && (
+                              <div className="px-4 pb-4 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
+                                <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800">
+                                  {itensExibicao.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {itensExibicao.map((it, idx) => (
+                                        <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded text-xs font-bold text-gray-200 flex items-center gap-1.5 shadow-sm">
+                                          <span className={`font-black text-xs ${isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>{it.quantidade}x</span>
+                                          <span>{it.nome}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-gray-400 font-medium">{t.descricao}</span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <button onClick={() => handleAlternarStatus(t)} className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 border cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' : 'bg-amber-950/50 border-amber-900 text-amber-400 hover:bg-amber-900/50'}`}>
+                                      <CheckCircle2 size={10}/> {t.status}
+                                    </button>
+                                    <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-950 border border-gray-800 px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:bg-gray-800 transition-colors text-[9px] font-black uppercase text-gray-400">
+                                      <Tag size={10} className="text-gray-500"/>{t.metodoPagamento}
+                                    </button>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {(t.clienteId || t.fornecedorId) && (
+                                      <Link to={isEntrada ? `/clientes/${t.clienteId}` : `/fornecedores/${t.fornecedorId}`} className={`p-2 rounded-md border transition-all flex items-center justify-center ${isEntrada ? 'text-emerald-400 bg-emerald-950/40 border-emerald-900 hover:bg-emerald-900/30' : 'text-red-400 bg-red-950/40 border-red-900 hover:bg-red-900/30'}`}>
+                                        <User size={14}/>
+                                      </Link>
+                                    )}
+                                    <button onClick={() => abrirEdicao(t)} className={`p-2 rounded-md border border-gray-800 transition-all cursor-pointer flex items-center justify-center ${isEntrada ? 'text-emerald-400 bg-emerald-950/40 border-emerald-900' : 'text-red-400 bg-red-950/40 border-red-900'}`}><Edit3 size={14}/></button>
+                                    <button onClick={() => handleDelete(t.id)} className="p-2 text-red-400 bg-red-950/40 border border-red-900 rounded-md cursor-pointer hover:bg-red-900/30 transition-all flex items-center justify-center"><Trash2 size={14}/></button>
+                                  </div>
+                                </div>
+                              </div>
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5">
-                              <button onClick={() => handleAlternarStatus(t)} className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 border cursor-pointer transition-colors ${t.status === 'Pago' ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' : 'bg-amber-950/50 border-amber-900 text-amber-400 hover:bg-amber-900/50'}`}>
-                                <CheckCircle2 size={10}/> {t.status}
-                              </button>
-                              <button onClick={() => handleAlternarMetodo(t)} className="bg-gray-950 border border-gray-800 px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:bg-gray-800 transition-colors text-[9px] font-black uppercase text-gray-400">
-                                <Tag size={10} className="text-gray-500"/>{t.metodoPagamento}
-                              </button>
-                            </div>
-                            <div className="flex gap-1">
-                              {(t.clienteId || t.fornecedorId) && (
-                                <Link to={isEntrada ? `/clientes/${t.clienteId}` : `/fornecedores/${t.fornecedorId}`} className={`p-2 rounded-md border transition-all flex items-center justify-center ${isEntrada ? 'text-emerald-400 bg-emerald-950/40 border-emerald-900 hover:bg-emerald-900/30' : 'text-red-400 bg-red-950/40 border-red-900 hover:bg-red-900/30'}`}>
-                                  <User size={14}/>
-                                </Link>
-                              )}
-                              <button onClick={() => abrirEdicao(t)} className={`p-2 rounded-md border border-gray-800 transition-all cursor-pointer flex items-center justify-center ${isEntrada ? 'text-emerald-400 bg-emerald-950/40 border-emerald-900' : 'text-red-400 bg-red-950/40 border-red-900'}`}><Edit3 size={14}/></button>
-                              <button onClick={() => handleDelete(t.id)} className="p-2 text-red-400 bg-red-950/40 border border-red-900 rounded-md cursor-pointer hover:bg-red-900/30 transition-all flex items-center justify-center"><Trash2 size={14}/></button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
-                  );
-                })
+                  </div>
+                ))
               )}
             </div>
           </div>
