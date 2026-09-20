@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   Calendar, Plus, ChevronDown, ChevronUp, 
-  TrendingUp, TrendingDown, DollarSign, ShoppingBag, 
+  TrendingUp, DollarSign, ShoppingBag, 
   CreditCard, QrCode, Banknote, FileText, CheckCircle2, 
-  Search, Trash2, X, User, Sparkles, RotateCcw
+  Trash2, X, User, Sparkles, RotateCcw, Edit3, Save, Tag, HandCoins, CalendarDays
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -70,9 +71,11 @@ export function Dashboard() {
   const [resumoAberto, setResumoAberto] = useState(false);
   const [pagamentosAberto, setPagamentosAberto] = useState(false);
   const [feedAberto, setFeedAberto] = useState(false);
+  const [itemAberto, setItemAberto] = useState<number | null>(null);
 
-  // Filtro no feed de vendas do dia
-  const [buscaFeed, setBuscaFeed] = useState('');
+  // Modal de Edição de Transação (igual Tela de Fluxo Mensal)
+  const [editando, setEditando] = useState<Transacao | null>(null);
+  const [novoItemEdicao, setNovoItemEdicao] = useState({ nome: '', qtd: 1 });
 
   // Modal de Nova Venda (Clean & Rápido)
   const [modalVendaAberto, setModalVendaAberto] = useState(false);
@@ -160,16 +163,6 @@ export function Dashboard() {
   const chaveHoje = useMemo(() => formatarChaveData(agora), [agora]);
   const ehHoje = dataSelecionada === chaveHoje;
 
-  // Chave do dia anterior à data selecionada (para cálculo de comparativo)
-  const chaveDiaAnterior = useMemo(() => {
-    if (!dataSelecionada) return '';
-    const partes = dataSelecionada.split('-');
-    if (partes.length !== 3) return '';
-    const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
-    d.setDate(d.getDate() - 1);
-    return formatarChaveData(d);
-  }, [dataSelecionada]);
-
   const extrairChave = (dataISO: string) => {
     if (!dataISO) return '';
     const d = new Date(dataISO);
@@ -179,39 +172,17 @@ export function Dashboard() {
     return dataISO.slice(0, 10);
   };
 
-  // Vendas do dia selecionado e do dia anterior (apenas entradas/vendas)
+  // Vendas do dia selecionado (apenas entradas/vendas)
   const vendasDoDia = useMemo(() => {
     return transacoes
       .filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === dataSelecionada)
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
   }, [transacoes, dataSelecionada]);
 
-  const vendasDiaAnterior = useMemo(() => {
-    return transacoes.filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === chaveDiaAnterior);
-  }, [transacoes, chaveDiaAnterior]);
-
   // Totais do Dia Selecionado
   const totalVendasDoDia = useMemo(() => vendasDoDia.reduce((acc, t) => acc + t.valor, 0), [vendasDoDia]);
   const qtdVendasDoDia = vendasDoDia.length;
   const ticketMedioDoDia = qtdVendasDoDia > 0 ? totalVendasDoDia / qtdVendasDoDia : 0;
-
-  // Totais do Dia Anterior e Comparativo
-  const totalVendasDiaAnterior = useMemo(() => vendasDiaAnterior.reduce((acc, t) => acc + t.valor, 0), [vendasDiaAnterior]);
-  const comparativoVendas = useMemo(() => {
-    if (totalVendasDiaAnterior === 0) {
-      if (totalVendasDoDia > 0) return { tipo: 'novo', texto: ehHoje ? 'Primeiras vendas vs ontem' : 'Sem vendas no dia anterior' };
-      return { tipo: 'neutro', texto: ehHoje ? 'Sem vendas ontem' : 'Sem vendas no dia anterior' };
-    }
-    const diff = totalVendasDoDia - totalVendasDiaAnterior;
-    const perc = (diff / totalVendasDiaAnterior) * 100;
-    const rotuloComparativo = ehHoje ? 'ontem' : 'dia anterior';
-    return {
-      tipo: diff >= 0 ? 'positivo' : 'negativo',
-      diff,
-      perc: Math.abs(perc).toFixed(1),
-      texto: `${diff >= 0 ? '+' : '-'}${Math.abs(perc).toFixed(0)}% vs ${rotuloComparativo}`
-    };
-  }, [totalVendasDoDia, totalVendasDiaAnterior, ehHoje]);
 
   // Breakdown por Formas de Pagamento do Dia Selecionado
   const pagamentosBreakdown = useMemo(() => {
@@ -242,18 +213,6 @@ export function Dashboard() {
       }))
       .sort((a, b) => b.total - a.total);
   }, [vendasDoDia, totalVendasDoDia]);
-
-  // Feed Filtrado
-  const vendasFeedFiltradas = useMemo(() => {
-    if (!buscaFeed.trim()) return vendasDoDia;
-    const termo = buscaFeed.toLowerCase();
-    return vendasDoDia.filter(v => {
-      const cli = v.cliente?.nome?.toLowerCase() || '';
-      const desc = v.descricao?.toLowerCase() || '';
-      const met = v.metodoPagamento?.toLowerCase() || '';
-      return cli.includes(termo) || desc.includes(termo) || met.includes(termo);
-    });
-  }, [vendasDoDia, buscaFeed]);
 
   // Manipulação de Itens no Modal de Nova Venda
   const handleSelecionarCatalogo = (idStr: string) => {
@@ -296,7 +255,6 @@ export function Dashboard() {
     return itensVenda.reduce((acc, it) => acc + (it.qtd * it.precoUnitario), 0);
   }, [itensVenda]);
 
-  // Sincroniza o valor total editável com o valor calculado, a menos que o usuário tenha digitado um valor manual
   useEffect(() => {
     if (!valorFoiEditadoManualmente) {
       setValorTotalEditavel(valorTotalCalculado > 0 ? valorTotalCalculado.toFixed(2) : '');
@@ -349,7 +307,6 @@ export function Dashboard() {
 
       await api.post('/Transacoes', payload);
       
-      // Limpeza
       setItensVenda([]);
       setClienteId('');
       setMetodoPagamento('Pix');
@@ -359,13 +316,116 @@ export function Dashboard() {
       setValorFoiEditadoManualmente(false);
       setModalVendaAberto(false);
 
-      // Recarrega
       carregarDados();
     } catch (err) {
       console.error('Erro ao finalizar venda:', err);
       alert('Erro ao registrar a venda. Tente novamente.');
     } finally {
       setSalvandoVenda(false);
+    }
+  };
+
+  // Funções de Edição e Ações no Feed (iguais à tela de Fluxo Mensal)
+  const abrirEdicao = (t: Transacao) => {
+    let itensIniciais = (t.itens || []).map(it => {
+      const nomeLimpo = it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome;
+      return {
+        nome: nomeLimpo,
+        quantidade: Math.max(1, it.quantidade || 1)
+      };
+    });
+
+    if (itensIniciais.length === 0 && t.descricao) {
+      const partes = t.descricao.split(/[,;\n\r+/]/).map(p => p.trim()).filter(Boolean);
+      itensIniciais = partes.map(p => {
+        const match = p.match(/^\s*(?:(\d+)\s*[xX*•-]\s*|\s*(\d+)\s+)?(.+?)\s*$/);
+        const qtd = match ? Math.max(1, Number(match[1] || match[2] || 1)) : 1;
+        const nome = match ? match[3].replace(/^[\d\s*xX•\-_/]+/, '').trim() : p;
+        return { nome: nome || p, quantidade: qtd };
+      });
+    }
+
+    setEditando({
+      ...t,
+      itens: itensIniciais
+    });
+  };
+
+  const handleAdicionarItemEdicao = () => {
+    if (!novoItemEdicao.nome.trim() || !editando) return;
+    let itemNome = novoItemEdicao.nome.trim();
+    let qtdNum = Math.max(1, Number(novoItemEdicao.qtd) || 1);
+    
+    const matchQtd = itemNome.match(/^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*(.+)$/i);
+    if (matchQtd && matchQtd[2]) {
+      const qExtr = parseInt(matchQtd[1], 10);
+      if (qExtr > 0) {
+        qtdNum = Math.max(qtdNum, qExtr);
+        itemNome = matchQtd[2].trim();
+      }
+    }
+    itemNome = itemNome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || itemNome;
+
+    setEditando({
+      ...editando,
+      itens: [...editando.itens, { nome: itemNome, quantidade: qtdNum }]
+    });
+    setNovoItemEdicao({ nome: '', qtd: 1 });
+  };
+
+  const handleUpdateTransacao = async () => {
+    if (!editando || !negocioId) return;
+    const dataBase = editando.data.split('T')[0];
+    const horaStr = formatarHora(editando.data);
+    const horaValida = horaStr !== '--:--' ? horaStr : '12:00';
+    const dataAjustada = new Date(`${dataBase}T${horaValida}:00`);
+
+    const itensLimpos = (editando.itens || []).map(it => ({
+      ...it,
+      nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+      quantidade: Math.max(1, it.quantidade || 1)
+    }));
+
+    const payload = {
+      ...editando,
+      itens: itensLimpos,
+      descricao: itensLimpos.length > 0
+        ? itensLimpos.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+        : editando.descricao,
+      negocioId: Number(negocioId),
+      clienteId: editando.clienteId ? Number(editando.clienteId) : null,
+      data: dataAjustada.toISOString()
+    };
+    try {
+      await api.put(`/Transacoes/${editando.id}`, payload);
+      setEditando(null);
+      carregarDados();
+    } catch (err) {
+      alert("Erro ao atualizar transação.");
+    }
+  };
+
+  const handleAlternarStatus = async (t: Transacao) => {
+    if (!negocioId) return;
+    const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
+    try {
+      await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
+      carregarDados();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAlternarMetodo = async (t: Transacao) => {
+    if (!negocioId) return;
+    const metodos = ['Pix', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito'];
+    const idx = metodos.indexOf(t.metodoPagamento);
+    const next = (idx + 1) % metodos.length;
+    try {
+      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: metodos[next >= 0 ? next : 0], negocioId: Number(negocioId) });
+      carregarDados();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -394,7 +454,6 @@ export function Dashboard() {
     if (partes.length !== 3) return chaveString;
     const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
     
-    // Dia da semana abreviado ou formatado: "Quinta"
     const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     const diaSemana = diasSemana[d.getDay()];
 
@@ -436,8 +495,6 @@ export function Dashboard() {
             
             {/* Lado Esquerdo: Data e Relógio */}
             <div className="flex-1">
-              {/* No desktop fica tudo na mesma linha: "Quinta, DD/MM/AA - HH:MM:SS" */}
-              {/* No mobile fica a data e abaixo o horário centralizado */}
               <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2.5">
                 <div className="flex items-center justify-center md:justify-start gap-2.5 flex-wrap">
                   {/* Botão de Ícone de Calendário 100% Clicável em qualquer ponto */}
@@ -479,7 +536,7 @@ export function Dashboard() {
                   )}
                 </div>
 
-                {/* Relógio exclusivo para mobile, centralizado na sua linha */}
+                {/* Relógio exclusivo para mobile */}
                 <div className="flex md:hidden items-center justify-center pt-1">
                   <span className="text-xl font-black uppercase tracking-tight text-emerald-400">
                     {horaFormatada}
@@ -531,77 +588,53 @@ export function Dashboard() {
             </button>
 
             {resumoAberto && (
-              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* 1. Faturamento */}
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                      Faturamento {ehHoje ? 'Hoje' : 'do Dia'}
-                    </span>
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                
+                {/* 1. Faturamento - Direto com Ícone e Valor Lado a Lado */}
+                <div className="bg-gray-950 p-5 sm:p-6 rounded-2xl border border-gray-800 flex items-center gap-4 hover:border-gray-700 transition-all">
+                  <div className="p-3.5 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-2xl flex-shrink-0">
+                    <DollarSign size={28} />
                   </div>
-                  <div>
-                    <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
+                      Faturamento {ehHoje ? 'Hoje' : 'do Dia'}
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight truncate">
                       R$ {totalVendasDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
-                  <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold">
-                    <span className="text-gray-500">
-                      {ehHoje ? 'Ontem' : 'Dia ant.'}: R$ {totalVendasDiaAnterior.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                    {comparativoVendas.tipo === 'positivo' && (
-                      <span className="text-emerald-400 flex items-center gap-0.5 font-black">
-                        <TrendingUp size={12} /> {comparativoVendas.texto}
-                      </span>
-                    )}
-                    {comparativoVendas.tipo === 'negativo' && (
-                      <span className="text-amber-400 flex items-center gap-0.5 font-black">
-                        <TrendingDown size={12} /> {comparativoVendas.texto}
-                      </span>
-                    )}
-                    {(comparativoVendas.tipo === 'neutro' || comparativoVendas.tipo === 'novo') && (
-                      <span className="text-gray-500">{comparativoVendas.texto}</span>
-                    )}
-                  </div>
                 </div>
 
-                {/* 2. Vendas Concluídas */}
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                      Vendas Concluídas
-                    </span>
-                    <ShoppingBag size={14} className="text-emerald-400" />
+                {/* 2. Vendas Concluídas - Direto com Ícone e Valor Lado a Lado */}
+                <div className="bg-gray-950 p-5 sm:p-6 rounded-2xl border border-gray-800 flex items-center gap-4 hover:border-gray-700 transition-all">
+                  <div className="p-3.5 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-2xl flex-shrink-0">
+                    <ShoppingBag size={28} />
                   </div>
-                  <div>
-                    <p className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                      {qtdVendasDoDia} <span className="text-xs text-gray-500 font-bold">{qtdVendasDoDia === 1 ? 'pedido' : 'pedidos'}</span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
+                      Vendas Concluídas
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">
+                      {qtdVendasDoDia} <span className="text-sm font-bold text-gray-400">{qtdVendasDoDia === 1 ? 'pedido' : 'pedidos'}</span>
                     </p>
                   </div>
-                  <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold text-gray-500">
-                    <span>Status</span>
-                    <span className="text-emerald-400 font-black">Finalizadas</span>
-                  </div>
                 </div>
 
-                {/* 3. Ticket Médio */}
-                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex flex-col justify-between space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                      Ticket Médio
-                    </span>
-                    <DollarSign size={14} className="text-emerald-400" />
+                {/* 3. Ticket Médio - Direto com Ícone e Valor Lado a Lado */}
+                <div className="bg-gray-950 p-5 sm:p-6 rounded-2xl border border-gray-800 flex items-center gap-4 hover:border-gray-700 transition-all">
+                  <div className="p-3.5 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-2xl flex-shrink-0">
+                    <TrendingUp size={28} />
                   </div>
-                  <div>
-                    <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
+                      Ticket Médio
+                    </p>
+                    <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight truncate">
                       R$ {ticketMedioDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
-                  <div className="pt-2 border-t border-gray-900 flex items-center justify-between text-[10px] font-bold text-gray-500">
-                    <span>Faturamento ÷ Pedidos</span>
-                    <span className="text-emerald-400 font-black">{ehHoje ? 'Hoje' : 'No dia'}</span>
-                  </div>
                 </div>
+
               </div>
             )}
           </div>
@@ -695,6 +728,7 @@ export function Dashboard() {
 
           {/* ============================================================ */}
           {/* 4. CARD EXPANSÍVEL 3: FEED DE VENDAS                         */}
+          {/* (MODELO IDÊNTICO AOS CARDS DA TELA DE FLUXO MENSAL)         */}
           {/* ============================================================ */}
           <div className="bg-gray-900 rounded-2xl border border-gray-800 shadow-md overflow-hidden transition-all">
             <button
@@ -722,106 +756,135 @@ export function Dashboard() {
             </button>
 
             {feedAberto && (
-              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Barra de Busca nas Vendas */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="relative w-full sm:max-w-md">
-                    <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-                    <input
-                      type="text"
-                      placeholder="Pesquisar por cliente, produto ou forma de pagamento..."
-                      value={buscaFeed}
-                      onChange={e => setBuscaFeed(e.target.value)}
-                      className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-10 pr-4 py-2 text-xs font-medium text-white placeholder-gray-500 outline-none focus:border-emerald-500 transition-colors"
-                    />
-                    {buscaFeed && (
-                      <button
-                        onClick={() => setBuscaFeed('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white bg-transparent border-none cursor-pointer"
-                      >
-                        <X size={13} />
-                      </button>
-                    )}
-                  </div>
-
-                  <span className="text-[11px] font-bold text-gray-500 self-end sm:self-center">
-                    Mostrando {vendasFeedFiltradas.length} de {vendasDoDia.length} registros
-                  </span>
-                </div>
-
-                {/* Lista do Feed */}
-                {vendasFeedFiltradas.length === 0 ? (
+              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* Lista de Vendas no Modelo do Fluxo Mensal */}
+                {vendasDoDia.length === 0 ? (
                   <div className="bg-gray-950 p-8 sm:p-10 rounded-xl border border-dashed border-gray-800 text-center space-y-3">
                     <Sparkles size={32} className="mx-auto text-emerald-400 opacity-60" />
                     <p className="text-xs font-black uppercase tracking-wider text-gray-300">
-                      {buscaFeed ? 'Nenhuma venda corresponde aos termos da pesquisa.' : 'Nenhuma venda registrada para este dia.'}
+                      Nenhuma venda registrada para este dia.
                     </p>
                     <p className="text-[11px] text-gray-500 max-w-sm mx-auto font-medium">
                       Clique no botão <strong>Nova Venda</strong> para registrar um pedido e alimentar o feed em tempo real.
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2.5">
-                    {vendasFeedFiltradas.map(venda => (
-                      <div
-                        key={venda.id}
-                        className="bg-gray-950 p-3.5 sm:p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
-                      >
-                        {/* Lado Esquerdo: Hora + Cliente + Itens */}
-                        <div className="flex items-center gap-3 flex-1 min-w-0 w-full sm:w-auto">
-                          {/* Badge de Horário */}
-                          <div className="bg-gray-900 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-gray-800 text-[11px] font-bold text-gray-400 flex-shrink-0">
-                            {formatarHora(venda.data)}
-                          </div>
+                  <div className="space-y-2">
+                    {vendasDoDia.map(t => {
+                      const itensExibicao = (t.itens && t.itens.length > 0)
+                        ? t.itens.map(it => ({
+                            nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
+                            quantidade: Math.max(1, it.quantidade || 1)
+                          }))
+                        : [];
 
-                          {/* Avatar */}
-                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 flex items-center justify-center font-black text-xs flex-shrink-0">
-                            {venda.cliente?.nome ? venda.cliente.nome.charAt(0).toUpperCase() : <User size={14} />}
-                          </div>
+                      const textoResumoItens = itensExibicao.length > 0
+                        ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
+                        : t.descricao;
 
-                          {/* Info */}
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-black uppercase text-gray-200 truncate">
-                              {venda.cliente?.nome || 'Consumidor Avulso'}
-                            </p>
-                            <p className="text-[11px] text-gray-400 truncate mt-0.5" title={venda.descricao}>
-                              {venda.descricao || 'Venda sem itens discriminados'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Lado Direito: Método de Pagamento + Valor + Ações */}
-                        <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto border-t sm:border-t-0 border-gray-900 pt-2 sm:pt-0">
-                          {/* Tag Forma de Pagamento */}
-                          <div className="flex items-center gap-1 bg-gray-900 px-2 py-1 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-300">
-                            {getIconePagamento(venda.metodoPagamento)}
-                            <span className="truncate max-w-[80px] sm:max-w-none">{venda.metodoPagamento}</span>
-                          </div>
-
-                          {/* Status Pago */}
-                          <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                            venda.status === 'Pago' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-900/50' : 'bg-amber-950/60 text-amber-400 border border-amber-900/50'
-                          }`}>
-                            {venda.status}
-                          </span>
-
-                          {/* Valor */}
-                          <span className="text-xs sm:text-sm font-black text-emerald-400 min-w-[80px] sm:min-w-[90px] text-right">
-                            R$ {venda.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-
-                          {/* Excluir */}
+                      return (
+                        <div key={t.id} className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
                           <button
                             type="button"
-                            onClick={() => handleExcluirTransacao(venda.id)}
-                            className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors bg-transparent border-none cursor-pointer"
-                            title="Excluir venda"
+                            onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)}
+                            className="w-full flex items-center justify-between p-3.5 sm:p-4 bg-transparent border-none cursor-pointer outline-none text-left"
                           >
-                            <Trash2 size={15} />
+                            <div className="flex items-center gap-3 min-w-0">
+                              {/* Badge de Horário mantido da tela Dashboard */}
+                              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                {formatarHora(t.data)}
+                              </div>
+                              <div className="flex flex-col min-w-0 pr-2">
+                                <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
+                                  {t.cliente?.nome || "Consumidor Avulso"}
+                                </span>
+                                {textoResumoItens && (
+                                  <span className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
+                                    {textoResumoItens}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <span className="text-xs sm:text-sm font-black tracking-tight text-emerald-400">
+                                R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                              {itemAberto === t.id ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
+                            </div>
                           </button>
+
+                          {itemAberto === t.id && (
+                            <div className="px-4 pb-4 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-900/40 border-t border-gray-800/60">
+                              <div className="p-3 bg-gray-950/80 rounded-lg border border-gray-800">
+                                {itensExibicao.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {itensExibicao.map((it, idx) => (
+                                      <span key={idx} className="bg-gray-900 border border-gray-800 px-2.5 py-1 rounded-md text-xs font-bold text-gray-200 flex items-center gap-1.5 shadow-sm">
+                                        <span className="font-black text-xs text-emerald-400">{it.quantidade}x</span>
+                                        <span>{it.nome}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-gray-400 font-medium">{t.descricao}</span>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAlternarStatus(t)}
+                                    className={`px-3 py-1.5 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 border cursor-pointer transition-colors ${
+                                      t.status === 'Pago' ? 'bg-emerald-950/50 border-emerald-900 text-emerald-400 hover:bg-emerald-900/50' : 'bg-amber-950/50 border-amber-900 text-amber-400 hover:bg-amber-900/50'
+                                    }`}
+                                  >
+                                    <CheckCircle2 size={10}/> {t.status}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAlternarMetodo(t)}
+                                    className="bg-gray-950 border border-gray-800 px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:bg-gray-800 transition-colors text-[9px] font-black uppercase text-gray-400"
+                                  >
+                                    <Tag size={10} className="text-gray-500"/>{t.metodoPagamento}
+                                  </button>
+                                </div>
+
+                                {/* Botões de Ação do modelo Fluxo Mensal */}
+                                <div className="flex gap-1">
+                                  {t.clienteId && (
+                                    <Link
+                                      to={`/clientes/${t.clienteId}`}
+                                      className="p-2 rounded-md border border-emerald-900 text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/30 transition-all flex items-center justify-center"
+                                      title="Ver Cliente"
+                                    >
+                                      <User size={14}/>
+                                    </Link>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => abrirEdicao(t)}
+                                    className="p-2 rounded-md border border-emerald-900 text-emerald-400 bg-emerald-950/40 cursor-pointer flex items-center justify-center hover:bg-emerald-900/30 transition-all"
+                                    title="Editar Venda"
+                                  >
+                                    <Edit3 size={14}/>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExcluirTransacao(t.id)}
+                                    className="p-2 text-red-400 bg-red-950/40 border border-red-900 rounded-md cursor-pointer hover:bg-red-900/30 transition-all flex items-center justify-center"
+                                    title="Excluir Venda"
+                                  >
+                                    <Trash2 size={14}/>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -941,7 +1004,7 @@ export function Dashboard() {
                   </button>
                 </div>
 
-                {/* Pílulas dos Itens Inclusos (Clean, sem tabelas) */}
+                {/* Pílulas dos Itens Inclusos */}
                 {itensVenda.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {itensVenda.map((it, idx) => (
@@ -1060,6 +1123,128 @@ export function Dashboard() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 6. MODAL DE EDIÇÃO DE TRANSAÇÃO (NOVO)                      */}
+      {/* ============================================================ */}
+      {editando && (
+        <div className="fixed inset-0 bg-gray-950/60 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4">
+          <div className="bg-gray-900 w-full md:max-w-xl h-[95vh] md:h-auto md:max-h-[95vh] rounded-t-xl md:rounded-xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in slide-in-from-bottom md:zoom-in duration-250">
+            <div className="bg-gray-950 px-6 py-4 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Edit3 size={18} className="text-emerald-400"/>
+                <h3 className="text-xs font-black text-gray-200 uppercase tracking-widest">Ajustar Transação</h3>
+              </div>
+              <button onClick={() => setEditando(null)} className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer p-1">
+                <X size={20}/>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-6 overflow-y-auto flex-1 pb-20 md:pb-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Itens da Transação</label>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Item..."
+                      className="flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-xs font-medium focus:border-emerald-600 text-white"
+                      value={novoItemEdicao.nome}
+                      onChange={e => setNovoItemEdicao({...novoItemEdicao, nome: e.target.value})}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemEdicao(); } }}
+                    />
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-14 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-xs text-white"
+                      value={novoItemEdicao.qtd}
+                      onChange={e => setNovoItemEdicao({...novoItemEdicao, qtd: Math.max(1, Number(e.target.value) || 1)})}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAdicionarItemEdicao}
+                      className="bg-emerald-700 hover:bg-emerald-600 text-white px-4 rounded-md border border-emerald-800 cursor-pointer transition-colors"
+                    >
+                      <Plus size={16}/>
+                    </button>
+                  </div>
+                  <div className="min-h-[80px] p-3 bg-gray-950 rounded-md border border-gray-800 flex flex-wrap gap-1.5">
+                    {editando.itens.map((it, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 bg-gray-900 border border-gray-800 px-2.5 py-1 rounded-md">
+                        <span className="text-emerald-400 font-black text-[10px]">{Math.max(1, it.quantidade || 1)}x</span>
+                        <span className="text-gray-300 text-[10px] font-bold">{it.nome}</span>
+                        <button onClick={() => setEditando({...editando, itens: editando.itens.filter((_, i) => i !== idx)})} className="text-gray-400 hover:text-red-500 bg-transparent border-none cursor-pointer">
+                          <X size={12}/>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1">
+                    <DollarSign size={10}/> Valor R$
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-black text-emerald-400 outline-none text-sm focus:border-emerald-600"
+                    value={editando.valor}
+                    onChange={e => setEditando({...editando, valor: Number(e.target.value)})}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1">
+                    <HandCoins size={10}/> Método
+                  </label>
+                  <select
+                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600"
+                    value={editando.metodoPagamento}
+                    onChange={e => setEditando({...editando, metodoPagamento: e.target.value})}
+                  >
+                    <option value="Pix">Pix</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-400 uppercase ml-1">
+                    <CalendarDays size={10}/> Data
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-sm focus:border-emerald-600"
+                    value={editando.data.split('T')[0]}
+                    onChange={e => setEditando({...editando, data: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1">
+                    <CheckCircle2 size={10}/> Status
+                  </label>
+                  <select
+                    className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600"
+                    value={editando.status}
+                    onChange={e => setEditando({...editando, status: e.target.value})}
+                  >
+                    <option value="Pago">✅ Pago</option>
+                    <option value="Pendente">⏳ Pendente</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                onClick={handleUpdateTransacao}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-md font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer transition-colors active:scale-95 mb-4"
+              >
+                Salvar Alterações <Save size={14} className="inline ml-1" />
+              </button>
+            </div>
           </div>
         </div>
       )}
