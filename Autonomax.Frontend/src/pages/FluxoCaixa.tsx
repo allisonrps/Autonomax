@@ -780,24 +780,25 @@ export function FluxoCaixa() {
                         </span>
                       </div>
 
-                      {/* Tags Pílulas do Dia */}
+                      {/* Tags Pílulas do Dia (somente ícone + valor) */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        {/* Pílula: Nº de pedidos */}
-                        <span className="bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                        {/* Pílula 1: Nº de pedidos */}
+                        <span className="bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title={`${grupo.qtdVendas} ${grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}`}>
                           <ShoppingBag size={12} />
-                          <span>{grupo.qtdVendas} {grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}</span>
+                          <span>{grupo.qtdVendas}</span>
                         </span>
 
-                        {/* Pílula: Total de receita do dia */}
-                        <span className="bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                        {/* Pílula 2: Total de receita do dia */}
+                        <span className="bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title={`Receita do dia: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
                           <DollarSign size={12} />
-                          <span>Receita: R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span>R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </span>
 
-                        {/* Pílula Opcional: Despesas do dia */}
+                        {/* Pílula 3 Opcional: Despesas do dia */}
                         {grupo.totalDespesaDia > 0 && (
-                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                            <span>Saída: R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title={`Saídas do dia: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                            <ArrowDownRight size={12} />
+                            <span>R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                           </span>
                         )}
                       </div>

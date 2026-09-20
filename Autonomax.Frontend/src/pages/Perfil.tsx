@@ -19,6 +19,7 @@ export function Perfil() {
   const { theme, setTheme, temas } = useTheme();
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [formAberto, setFormAberto] = useState(false);
+  const [personalizacaoAberto, setPersonalizacaoAberto] = useState(false);
   const [novoNegocio, setNovoNegocio] = useState('');
   
   const [negocioExpandido, setNegocioExpandido] = useState<number | null>(null);
@@ -122,7 +123,9 @@ export function Perfil() {
   return (
     <Layout>
       <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-5">
+          
+          {/* HEADER PRINCIPAL */}
           <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex"><Building2 size={24} /></div>
@@ -131,54 +134,64 @@ export function Perfil() {
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Unidades e Segurança</p>
               </div>
             </div>
-            <button onClick={() => setModalSenhaAberto(true)} className="flex items-center gap-2 bg-gray-950 px-5 py-3 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-400 hover:border-emerald-600 hover:text-emerald-400 transition-all"><ShieldCheck size={16} /> Redefinir Senha</button>
+            <button onClick={() => setModalSenhaAberto(true)} className="flex items-center gap-2 bg-gray-950 px-5 py-3 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-400 hover:border-emerald-600 hover:text-emerald-400 transition-all cursor-pointer"><ShieldCheck size={16} /> Redefinir Senha</button>
           </div>
 
-          {/* SELETOR DE TEMA / CORES */}
-          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 space-y-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
-                <Palette size={20} />
-              </div>
-              <div>
-                <h3 className="text-sm font-black uppercase text-gray-200 tracking-tight">Tema & Cores de Destaque</h3>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                  Personalize a cor principal dos destaques, botões e ícones do sistema
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1">
-              {temas.map(t => {
-                const isAtivo = theme === t.id;
+          {/* CARDS DE PERFIL / UNIDADES DE NEGÓCIO NO TOPO */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 px-1">
+              Perfil de Negócios / Unidades Cadastradas
+            </h3>
+            <div className="flex flex-col gap-2.5">
+              {negocios.map(negocio => {
+                const dados = detalhesFinanceiros[negocio.id];
                 return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTheme(t.id)}
-                    className={`p-3 rounded-lg border flex items-center gap-2.5 transition-all cursor-pointer text-left ${
-                      isAtivo 
-                        ? 'bg-gray-950 border-white/60 shadow-lg ring-1 ring-white/20' 
-                        : 'bg-gray-950/60 border-gray-800 hover:border-gray-700 hover:bg-gray-950'
-                    }`}
-                  >
-                    <div 
-                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm"
-                      style={{ backgroundColor: t.corHex }}
-                    >
-                      {isAtivo && <Check size={12} className="text-white drop-shadow" />}
+                  <div key={negocio.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 md:px-6 md:py-4 flex flex-col transition-all hover:border-gray-700">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-4 min-w-0">
+                        {negocio.logoUrl ? (
+                          <div className="w-12 h-12 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <img src={negocio.logoUrl} alt={negocio.nome} className="w-full h-full object-contain p-1" />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-gray-800 text-gray-300 flex items-center justify-center font-black text-lg border border-gray-700 flex-shrink-0">
+                            <span>{negocio.nome.charAt(0).toUpperCase()}</span>
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <h4 className="font-black text-sm sm:text-base uppercase tracking-tight text-white truncate">{negocio.nome}</h4>
+                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Unidade Ativa</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button onClick={() => selecionarNegocio(negocio.id)} className="bg-emerald-950/50 text-emerald-400 px-4 py-2 rounded-md text-[10px] font-black uppercase hover:bg-emerald-900/40 border border-emerald-900/50 transition-colors cursor-pointer">Acessar</button>
+                        <button onClick={() => toggleExpandir(negocio.id)} className="p-2 text-gray-500 hover:text-white transition-colors cursor-pointer bg-transparent border-none">{negocioExpandido === negocio.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
+                        <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-500 hover:text-emerald-400 transition-colors cursor-pointer bg-transparent border-none" title="Editar perfil / logo"><Edit3 size={16}/></button>
+                        <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors cursor-pointer bg-transparent border-none" title="Excluir unidade"><Trash2 size={16}/></button>
+                      </div>
                     </div>
-                    <span className={`text-xs font-black uppercase tracking-tight truncate ${isAtivo ? 'text-white' : 'text-gray-400'}`}>
-                      {t.nome}
-                    </span>
-                  </button>
+
+                    {negocioExpandido === negocio.id && (
+                      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4 border-t border-gray-800 animate-in slide-in-from-top duration-200">
+                        {[ {l: 'Receitas', v: dados?.receitas || 0, c: 'text-emerald-400'}, {l: 'Pendentes', v: dados?.pendentes || 0, c: 'text-amber-400'}, {l: 'Despesas', v: dados?.despesas || 0, c: 'text-red-400'}, {l: 'Líquido', v: dados?.liquido || 0, c: (dados?.liquido || 0) >= 0 ? 'text-blue-400' : 'text-red-400'} ].map((f, i) => (
+                           <div key={i} className="bg-gray-950 p-3 rounded-lg border border-gray-800">
+                             <p className="text-[9px] font-bold text-gray-500 uppercase">{f.l}</p>
+                             <p className={`text-xs font-black ${f.c}`}>R$ {f.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
           </div>
 
+          {/* CARD DE ADICIONAR PERFIL DE NEGÓCIO */}
           <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between border-b border-gray-800 outline-none hover:bg-gray-800 transition-colors">
+            <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between border-b border-gray-800 outline-none hover:bg-gray-800 transition-colors cursor-pointer">
               <span className="text-xs font-black uppercase tracking-widest text-emerald-400 flex items-center gap-2"><Rocket size={18}/> Novo Perfil de Negócio</span>
               {formAberto ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
             </button>
@@ -188,156 +201,173 @@ export function Perfil() {
                   <label className="text-[9px] font-black text-gray-500 uppercase ml-1">Nome do Negócio</label>
                   <input className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md text-sm text-white focus:border-emerald-600 outline-none" value={novoNegocio} onChange={e => setNovoNegocio(e.target.value)} placeholder="Ex: Minha Loja" />
                 </div>
-                <button onClick={handleAddNegocio} className="bg-emerald-600 hover:bg-emerald-500 px-8 py-3.5 rounded-md font-black text-xs uppercase text-white mt-auto">Criar</button>
+                <button onClick={handleAddNegocio} className="bg-emerald-600 hover:bg-emerald-500 px-8 py-3.5 rounded-md font-black text-xs uppercase text-white mt-auto cursor-pointer border-none transition-colors">Criar</button>
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-2.5">
-            {negocios.map(negocio => {
-              const dados = detalhesFinanceiros[negocio.id];
-              return (
-                <div key={negocio.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 md:px-6 md:py-4 flex flex-col transition-all">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-4 min-w-0">
-                      {negocio.logoUrl ? (
-                        <div className="relative group w-12 h-12 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                          <img src={negocio.logoUrl} alt={negocio.nome} className="w-full h-full object-contain p-1" />
-                          <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity text-white" title="Alterar logo">
-                            <Upload size={14} />
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={e => {
-                                const f = e.target.files?.[0];
-                                if (f) handleUploadLogo(negocio, f);
-                              }} 
-                            />
-                          </label>
-                        </div>
-                      ) : (
-                        <div className="relative group w-12 h-12 rounded-lg bg-gray-800 text-gray-300 flex items-center justify-center font-black text-lg border border-gray-700 flex-shrink-0">
-                          <span>{negocio.nome.charAt(0).toUpperCase()}</span>
-                          <label className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center cursor-pointer transition-opacity text-white" title="Adicionar logo do negócio">
-                            <Upload size={14} />
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={e => {
-                                const f = e.target.files?.[0];
-                                if (f) handleUploadLogo(negocio, f);
-                              }} 
-                            />
-                          </label>
-                        </div>
-                      )}
-
-                      <div className="min-w-0">
-                        <h4 className="font-black text-sm uppercase truncate">{negocio.nome}</h4>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <label className="text-[9px] font-black uppercase tracking-wider text-gray-500 hover:text-emerald-400 cursor-pointer flex items-center gap-1 transition-colors">
-                            <Upload size={10} /> {negocio.logoUrl ? 'Trocar Logo' : 'Adicionar Logo'}
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={e => {
-                                const f = e.target.files?.[0];
-                                if (f) handleUploadLogo(negocio, f);
-                              }} 
-                            />
-                          </label>
-                          {negocio.logoUrl && (
-                            <>
-                              <span className="text-gray-700 text-xs">•</span>
-                              <button 
-                                type="button"
-                                onClick={() => handleRemoverLogo(negocio)}
-                                className="text-[9px] font-black uppercase tracking-wider text-red-500/80 hover:text-red-400 bg-transparent border-none cursor-pointer p-0 transition-colors"
-                              >
-                                Remover
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button onClick={() => selecionarNegocio(negocio.id)} className="bg-emerald-950/40 text-emerald-400 px-4 py-2 rounded-md text-[10px] font-black uppercase hover:bg-emerald-900/40 transition-colors">Acessar</button>
-                      <button onClick={() => toggleExpandir(negocio.id)} className="p-2 text-gray-500 hover:text-white transition-colors">{negocioExpandido === negocio.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
-                      <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-500 hover:text-blue-400 transition-colors"><Edit3 size={16}/></button>
-                      <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
-                    </div>
-                  </div>
-                  {negocioExpandido === negocio.id && (
-                    <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4 border-t border-gray-800">
-                      {[ {l: 'Receitas', v: dados?.receitas || 0, c: 'text-emerald-400'}, {l: 'Pendentes', v: dados?.pendentes || 0, c: 'text-amber-400'}, {l: 'Despesas', v: dados?.despesas || 0, c: 'text-red-400'}, {l: 'Líquido', v: dados?.liquido || 0, c: (dados?.liquido || 0) >= 0 ? 'text-blue-400' : 'text-red-400'} ].map((f, i) => (
-                         <div key={i} className="bg-gray-950 p-3 rounded border border-gray-800">
-                           <p className="text-[9px] font-bold text-gray-500 uppercase">{f.l}</p>
-                           <p className={`text-xs font-black ${f.c}`}>R$ {f.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                         </div>
-                      ))}
-                    </div>
-                  )}
+          {/* SELETOR DE TEMA / PERSONALIZAÇÃO (OCULTO E EXPANSÍVEL AO CLICAR) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden shadow-sm">
+            <button 
+              type="button" 
+              onClick={() => setPersonalizacaoAberto(!personalizacaoAberto)} 
+              className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-colors border-none outline-none cursor-pointer border-b border-gray-800"
+            >
+              <div className="flex items-center gap-3">
+                <Palette size={18} className="text-emerald-400" />
+                <div className="text-left">
+                  <h3 className="text-xs font-black uppercase text-gray-200 tracking-wider">Personalização & Cores de Destaque</h3>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Clique para expandir e alterar o tema do sistema</p>
                 </div>
-              );
-            })}
+              </div>
+              {personalizacaoAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
+            </button>
+
+            {personalizacaoAberto && (
+              <div className="p-6 space-y-4 bg-gray-900 animate-in slide-in-from-top duration-200">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                  {temas.map(t => {
+                    const isAtivo = theme === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setTheme(t.id)}
+                        className={`p-3 rounded-lg border flex items-center gap-2.5 transition-all cursor-pointer text-left ${
+                          isAtivo 
+                            ? 'bg-gray-950 border-white/60 shadow-lg ring-1 ring-white/20' 
+                            : 'bg-gray-950/60 border-gray-800 hover:border-gray-700 hover:bg-gray-950'
+                        }`}
+                      >
+                        <div 
+                          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm"
+                          style={{ backgroundColor: t.corHex }}
+                        >
+                          {isAtivo && <Check size={12} className="text-white drop-shadow" />}
+                        </div>
+                        <span className={`text-xs font-black uppercase tracking-tight truncate ${isAtivo ? 'text-white' : 'text-gray-400'}`}>
+                          {t.nome}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
+
         </div>
       </div>
 
-{modalSenhaAberto && (
-  <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-    <div className="bg-gray-900 w-full max-w-sm rounded-xl border border-gray-800 p-6 space-y-4 animate-in zoom-in duration-200">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center gap-2"><Lock size={16}/> Segurança</h3>
-        <button onClick={() => setModalSenhaAberto(false)} className="text-gray-500 hover:text-white"><X size={18}/></button>
-      </div>
+      {/* MODAL REDEFINIR SENHA */}
+      {modalSenhaAberto && (
+        <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-gray-900 w-full max-w-sm rounded-xl border border-gray-800 p-6 space-y-4 animate-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center gap-2"><Lock size={16}/> Segurança</h3>
+              <button onClick={() => setModalSenhaAberto(false)} className="text-gray-500 hover:text-white bg-transparent border-none cursor-pointer"><X size={18}/></button>
+            </div>
 
-      {/* Campo Senha Atual */}
-      <div className="space-y-1 relative">
-        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Senha Atual</label>
-        <input type="password" placeholder="••••••••" className="w-full p-3 bg-gray-950 border border-gray-800 rounded text-sm text-white" value={senhaAntiga} onChange={e => setSenhaAntiga(e.target.value)} />
-      </div>
+            {/* Campo Senha Atual */}
+            <div className="space-y-1 relative">
+              <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Senha Atual</label>
+              <input type="password" placeholder="••••••••" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-sm text-white outline-none focus:border-emerald-600" value={senhaAntiga} onChange={e => setSenhaAntiga(e.target.value)} />
+            </div>
 
-      {/* Campo Nova Senha */}
-      <div className="space-y-1">
-        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Nova Senha</label>
-        <input type="password" placeholder="••••••••" className="w-full p-3 bg-gray-950 border border-gray-800 rounded text-sm text-white" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} />
-      </div>
+            {/* Campo Nova Senha */}
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Nova Senha</label>
+              <input type="password" placeholder="••••••••" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-sm text-white outline-none focus:border-emerald-600" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} />
+            </div>
 
-      {/* Campo Confirmação + Validação Dinâmica */}
-      <div className="space-y-1">
-        <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Confirmar Nova Senha</label>
-        <input type="password" placeholder="••••••••" className="w-full p-3 bg-gray-950 border border-gray-800 rounded text-sm text-white" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} />
-        
-        {confirmarSenha && (
-          <p className={`text-[9px] font-bold uppercase mt-1 ${novaSenha === confirmarSenha ? 'text-emerald-500' : 'text-red-500'}`}>
-            {novaSenha === confirmarSenha ? '✓ As senhas conferem' : '✕ As senhas não estão iguais'}
-          </p>
-        )}
-      </div>
+            {/* Campo Confirmação + Validação Dinâmica */}
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Confirmar Nova Senha</label>
+              <input type="password" placeholder="••••••••" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-sm text-white outline-none focus:border-emerald-600" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} />
+              
+              {confirmarSenha && (
+                <p className={`text-[9px] font-bold uppercase mt-1 ${novaSenha === confirmarSenha ? 'text-emerald-500' : 'text-red-500'}`}>
+                  {novaSenha === confirmarSenha ? '✓ As senhas conferem' : '✕ As senhas não estão iguais'}
+                </p>
+              )}
+            </div>
 
-      <button 
-        onClick={handleRedefinirSenha} 
-        disabled={!senhaAntiga || !novaSenha || novaSenha !== confirmarSenha}
-        className="w-full py-3 bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed rounded font-black text-xs uppercase mt-2 transition-all"
-      >
-        Atualizar Senha
-      </button>
-    </div>
-  </div>
-)}
+            <button 
+              onClick={handleRedefinirSenha} 
+              disabled={!senhaAntiga || !novaSenha || novaSenha !== confirmarSenha}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-md font-black text-xs uppercase text-white mt-2 transition-all border-none cursor-pointer"
+            >
+              Atualizar Senha
+            </button>
+          </div>
+        </div>
+      )}
 
-      {/* MODAL EDIÇÃO */}
+      {/* MODAL EDIÇÃO DO NEGÓCIO (COM TROCA E REMOÇÃO DE LOGO AQUI) */}
       {editandoId && (
         <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-gray-900 w-full max-w-sm rounded-xl border border-gray-800 p-6 space-y-4 animate-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-2"><h3 className="text-xs font-black uppercase text-blue-400">Editar Negócio</h3><button onClick={() => setEditandoId(null)} className="text-gray-500 hover:text-white"><X size={18}/></button></div>
-            <div className="space-y-1"><label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Novo Nome</label><input className="w-full p-3 bg-gray-950 border border-gray-800 rounded text-sm text-white" value={nomeEdicao} onChange={e => setNomeEdicao(e.target.value)} /></div>
-            <button onClick={() => handleUpdateNegocio(editandoId)} className="w-full py-3 bg-blue-600 rounded font-black text-xs uppercase mt-2">Salvar Alterações</button>
+            <div className="flex justify-between items-center mb-1">
+              <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center gap-2">
+                <Edit3 size={16} /> Editar Perfil da Unidade
+              </h3>
+              <button onClick={() => setEditandoId(null)} className="text-gray-500 hover:text-white bg-transparent border-none cursor-pointer"><X size={18}/></button>
+            </div>
+
+            {/* Gerenciamento de Logo no Modal de Edição */}
+            {(() => {
+              const negocioEdicao = negocios.find(n => n.id === editandoId);
+              if (!negocioEdicao) return null;
+              return (
+                <div className="bg-gray-950 p-3.5 rounded-xl border border-gray-800 space-y-3">
+                  <span className="text-[10px] font-black uppercase text-gray-400 block">Logo da Unidade</span>
+                  <div className="flex items-center gap-3">
+                    {negocioEdicao.logoUrl ? (
+                      <div className="w-14 h-14 rounded-lg bg-gray-900 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0 p-1">
+                        <img src={negocioEdicao.logoUrl} alt={negocioEdicao.nome} className="w-full h-full object-contain" />
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-gray-800 text-gray-300 flex items-center justify-center font-black text-xl border border-gray-700 flex-shrink-0">
+                        {negocioEdicao.nome.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                      <label className="bg-gray-900 hover:bg-gray-800 text-emerald-400 border border-gray-800 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 transition-colors">
+                        <Upload size={14} />
+                        <span>{negocioEdicao.logoUrl ? 'Trocar Logo' : 'Enviar Logo'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadLogo(negocioEdicao, f);
+                          }}
+                        />
+                      </label>
+
+                      {negocioEdicao.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverLogo(negocioEdicao)}
+                          className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 bg-transparent border-none cursor-pointer py-0.5 text-center transition-colors"
+                        >
+                          Remover Logo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-gray-500 uppercase ml-1">Nome da Unidade</label>
+              <input className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md text-sm text-white focus:border-emerald-600 outline-none" value={nomeEdicao} onChange={e => setNomeEdicao(e.target.value)} />
+            </div>
+
+            <button onClick={() => handleUpdateNegocio(editandoId)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-md transition-colors cursor-pointer border-none">Salvar Alterações</button>
           </div>
         </div>
       )}
@@ -345,12 +375,12 @@ export function Perfil() {
       {/* MODAL EXCLUSÃO */}
       {confirmarExclusao && (
         <div className="fixed inset-0 bg-gray-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 text-center space-y-4 animate-in zoom-in duration-200">
+          <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 text-center space-y-4 animate-in zoom-in duration-200 max-w-xs">
             <AlertTriangle className="text-red-500 mx-auto" size={32} />
             <p className="text-sm font-black text-white">Excluir unidade permanentemente?</p>
             <div className="flex gap-2 pt-2">
-              <button onClick={() => setConfirmarExclusao(null)} className="flex-1 py-2 bg-gray-800 rounded text-xs font-black uppercase">Não</button>
-              <button onClick={() => handleDeleteNegocio(confirmarExclusao)} className="flex-1 py-2 bg-red-600 rounded text-xs font-black uppercase">Sim</button>
+              <button onClick={() => setConfirmarExclusao(null)} className="flex-1 py-2 bg-gray-800 rounded text-xs font-black uppercase text-gray-300 hover:text-white cursor-pointer border-none">Não</button>
+              <button onClick={() => handleDeleteNegocio(confirmarExclusao)} className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-black uppercase cursor-pointer border-none">Sim</button>
             </div>
           </div>
         </div>
