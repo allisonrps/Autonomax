@@ -404,7 +404,7 @@ export function FluxoCaixa() {
 
     return Array.from(gruposMap.entries()).map(([chaveDia, itens]) => {
       const dataObj = new Date(chaveDia + 'T12:00:00');
-      const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+      const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
       const diaSemana = diasSemana[dataObj.getDay()];
       const dd = String(dataObj.getDate()).padStart(2, '0');
       const mm = String(dataObj.getMonth() + 1).padStart(2, '0');
@@ -783,33 +783,33 @@ export function FluxoCaixa() {
                 transacoesAgrupadasPorDia.map(grupo => (
                   <div key={grupo.chaveDia} className="space-y-2">
                     {/* Separador do Dia com Pílulas Tags */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 pb-1 border-b border-gray-800/80 px-1">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0" />
-                        <span className="text-xs font-black uppercase tracking-wider text-gray-200">
+                    <div className="flex items-center justify-between gap-1.5 pt-2 pb-1 border-b border-gray-800/80 px-1">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-tight text-gray-200 truncate">
                           {grupo.rotuloData}
                         </span>
                       </div>
 
-                      {/* Tags Pílulas do Dia (somente ícone + valor) */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      {/* Tags Pílulas do Dia (somente ícone + valor, sem R$, na mesma linha no mobile) */}
+                      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                         {/* Pílula 1: Nº de pedidos */}
-                        <span className="bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title={`${grupo.qtdVendas} ${grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}`}>
-                          <ShoppingBag size={12} />
+                        <span className="bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title={`${grupo.qtdVendas} ${grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}`}>
+                          <ShoppingBag size={11} />
                           <span>{grupo.qtdVendas}</span>
                         </span>
 
                         {/* Pílula 2: Total de receita do dia */}
-                        <span className="bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title={`Receita do dia: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                          <DollarSign size={12} />
-                          <span>R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title={`Receita do dia: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                          <DollarSign size={11} />
+                          <span>{grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </span>
 
                         {/* Pílula 3 Opcional: Despesas do dia */}
                         {grupo.totalDespesaDia > 0 && (
-                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black uppercase px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm" title={`Saídas do dia: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                            <ArrowDownRight size={12} />
-                            <span>R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title={`Saídas do dia: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                            <ArrowDownRight size={11} />
+                            <span>{grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                           </span>
                         )}
                       </div>
