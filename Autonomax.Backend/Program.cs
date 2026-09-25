@@ -106,17 +106,62 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // --- POLÍTICA DE CORS ---
-var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() 
-                     ?? new[] { "http://localhost:5173" }; 
+var defaultOrigins = new[] 
+{ 
+    "https://autonomax.vercel.app", 
+    "http://localhost:5173", 
+    "http://localhost:3000" 
+};
+
+var configOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
+var envOrigins = Environment.GetEnvironmentVariable("AllowedOrigins") 
+                 ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
+
+var originsList = new List<string>(defaultOrigins);
+
+if (configOrigins != null && configOrigins.Length > 0)
+{
+    originsList.AddRange(configOrigins);
+}
+
+if (!string.IsNullOrWhiteSpace(envOrigins))
+{
+    var split = envOrigins.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+    originsList.AddRange(split);
+}
+
+var finalOrigins = originsList.Select(o => o.Trim().TrimEnd('/')).Distinct().ToArray();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials(); 
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+            
+            try
+            {
+                var uri = new Uri(origin);
+                var host = uri.Host;
+                
+                if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                    host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
+                    host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase) ||
+                    finalOrigins.Any(o => string.Equals(o, origin, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Ignora URIs inválidos
+            }
+            return false;
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials();
     });
 });
 
@@ -139,6 +184,9 @@ var app = builder.Build();
 // --- MIDDLEWARE E PIPELINE ---
 app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
 
+// CORS OBRIGATORIAMENTE no topo para responder preflight (OPTIONS) antes de qualquer bloqueio
+app.UseCors("FrontendPolicy");
+
 // Security Headers HTTP
 app.Use(async (context, next) =>
 {
@@ -151,8 +199,6 @@ app.Use(async (context, next) =>
 
 app.UseSwagger();
 app.UseSwaggerUI();
-
-app.UseCors("FrontendPolicy");
 
 app.UseMiddleware<Autonomax.Backend.Middleware.AuditMiddleware>();
 
