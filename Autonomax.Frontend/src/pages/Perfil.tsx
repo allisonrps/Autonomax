@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout';
 import { 
   Trash2, Edit3, X, Building2, 
   AlertTriangle, Rocket, ChevronDown, ChevronUp, Lock, 
-  ShieldCheck, Palette, Check, Upload, ArrowRight
+  ShieldCheck, Palette, Check, Upload
 } from 'lucide-react';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -131,7 +131,6 @@ export function Perfil() {
               <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex"><Building2 size={24} /></div>
               <div>
                 <h2 className="text-xl font-black uppercase tracking-tight">Gerenciamento de Conta</h2>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Unidades e Segurança</p>
               </div>
             </div>
             <button onClick={() => setModalSenhaAberto(true)} className="flex items-center gap-2 bg-gray-950 px-5 py-3 rounded-md border border-gray-800 text-[10px] font-black uppercase text-gray-400 hover:border-emerald-600 hover:text-emerald-400 transition-all cursor-pointer"><ShieldCheck size={16} /> Redefinir Senha</button>
@@ -150,42 +149,40 @@ export function Perfil() {
                 return (
                   <div key={negocio.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3.5 sm:p-4 md:px-6 md:py-4 flex flex-col transition-all hover:border-gray-700">
                     
-                    {/* Primeia Linha: Ícone/Logo + Nome + Flechinha Acessar + Chevron Expandir */}
-                    <div className="flex items-center justify-between gap-3">
+                    {/* Primeia Linha: Clicável no Card Inteiro para Acessar a Unidade */}
+                    <div
+                      onClick={() => selecionarNegocio(negocio.id)}
+                      className="flex items-center justify-between gap-3 cursor-pointer group"
+                      title="Clique para acessar esta unidade"
+                    >
                       <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                         {/* Ícone com a letra (ou logo se cadastrado) */}
                         {negocio.logoUrl ? (
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-emerald-500/50 transition-colors">
                             <img src={negocio.logoUrl} alt={negocio.nome} className="w-full h-full object-contain p-1" />
                           </div>
                         ) : (
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-800 text-emerald-400 flex items-center justify-center font-black text-base sm:text-lg border border-gray-700 flex-shrink-0 shadow-sm">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-800 text-emerald-400 flex items-center justify-center font-black text-base sm:text-lg border border-gray-700 flex-shrink-0 shadow-sm group-hover:border-emerald-500/50 transition-colors">
                             <span>{negocio.nome.charAt(0).toUpperCase()}</span>
                           </div>
                         )}
 
                         {/* Nome da Unidade */}
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-sm sm:text-base uppercase tracking-tight text-white truncate">
+                          <h4 className="font-black text-sm sm:text-base uppercase tracking-tight text-white group-hover:text-emerald-400 transition-colors truncate">
                             {negocio.nome}
                           </h4>
                         </div>
                       </div>
 
-                      {/* Botões do Header: Flechinha de Acessar + Chevron de Expandir */}
-                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      {/* Somente o Chevron para Expandir/Recolher */}
+                      <div className="flex items-center flex-shrink-0">
                         <button
                           type="button"
-                          onClick={() => selecionarNegocio(negocio.id)}
-                          className="p-2 sm:p-2.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 hover:text-emerald-300 rounded-xl border border-emerald-900/60 hover:border-emerald-500/50 transition-all cursor-pointer flex items-center justify-center shadow-sm active:scale-95"
-                          title="Acessar esta unidade"
-                        >
-                          <ArrowRight size={18} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => toggleExpandir(negocio.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpandir(negocio.id);
+                          }}
                           className="p-2 sm:p-2.5 text-gray-400 hover:text-white bg-gray-950 hover:bg-gray-800 rounded-xl border border-gray-800 transition-all cursor-pointer flex items-center justify-center"
                           title={isExpandido ? "Recolher detalhes" : "Expandir detalhes"}
                         >
@@ -232,15 +229,6 @@ export function Perfil() {
                             <Trash2 size={13} className="flex-shrink-0" />
                             <span>Excluir</span>
                           </button>
-
-                          <button
-                            type="button"
-                            onClick={() => selecionarNegocio(negocio.id)}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer border-none shadow-sm"
-                          >
-                            <span>Acessar</span>
-                            <ArrowRight size={13} className="flex-shrink-0" />
-                          </button>
                         </div>
                       </div>
                     )}
@@ -278,8 +266,7 @@ export function Perfil() {
               <div className="flex items-center gap-3">
                 <Palette size={18} className="text-emerald-400" />
                 <div className="text-left">
-                  <h3 className="text-xs font-black uppercase text-gray-200 tracking-wider">Personalização & Cores de Destaque</h3>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Clique para expandir e alterar o tema do sistema</p>
+                  <h3 className="text-xs font-black uppercase text-gray-200 tracking-wider">Personalização</h3>
                 </div>
               </div>
               {personalizacaoAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
