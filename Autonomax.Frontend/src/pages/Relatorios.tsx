@@ -1,76 +1,119 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
   BarChart3, 
   ChevronLeft, ChevronRight,
   TrendingUp, ChevronDown, ChevronUp, 
   LineChart as LineChartIcon, 
-  BarChart as BarChartIcon,
-  Trophy
+  PieChart as PieChartIcon,
+  Trophy, ArrowUpRight, CreditCard, ShoppingBag, User, CalendarDays
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Legend, 
-  BarChart, Bar
+  PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
 
-interface Item { nome: string; quantidade: number; }
+interface Item { 
+  nome: string; 
+  quantidade: number;
+  precoUnitario?: number;
+  preco?: number;
+  valorTotal?: number;
+}
+
 interface Transacao {
   id: number; 
   valor: number; 
   tipo: string; 
   data: string;
-  cliente?: { nome: string }; 
+  cliente?: { id?: number; nome: string }; 
   itens: Item[];
   metodoPagamento?: string;
   status?: string;
 }
 
+interface ProdutoServico {
+  id: number;
+  nome: string;
+  preco: number;
+  ehServico: boolean;
+}
+
+const COLORS_PAGAMENTO = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
+
 export function Relatorios() {
   const negocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [produtosCatalogo, setProdutosCatalogo] = useState<ProdutoServico[]>([]);
   const [loading, setLoading] = useState(true);
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
   const [resumoAberto, setResumoAberto] = useState(false);
   const [modoComparativo, setModoComparativo] = useState<'Bruto' | 'Despesa' | 'Líquido'>('Líquido');
+  const [modoItemRanking, setModoItemRanking] = useState<'unidades' | 'valor'>('unidades');
 
   useEffect(() => {
-    async function carregarEstatisticas() {
+    async function carregarDados() {
       if (!negocioId) return;
       try {
         setLoading(true);
-        const res = await api.get(`/Transacoes/por-negocio/${negocioId}`);
-        setTransacoes(res.data);
-      } catch (err) { console.error(err); } 
-      finally { setLoading(false); }
+        const [resTrans, resCat] = await Promise.all([
+          api.get(`/Transacoes/por-negocio/${negocioId}`),
+          api.get(`/ProdutosServicos/por-negocio/${negocioId}`).catch(() => ({ data: [] }))
+        ]);
+        setTransacoes(resTrans.data);
+        setProdutosCatalogo(resCat.data || []);
+      } catch (err) { 
+        console.error(err); 
+      } finally { 
+        setLoading(false); 
+      }
     }
-    carregarEstatisticas();
+    carregarDados();
   }, [negocioId]);
 
-  const transacoesDoAno = transacoes.filter(t => new Date(t.data).getFullYear() === anoAtivo);
-  const transacoesEntrada = transacoesDoAno.filter(t => t.tipo === 'Entrada');
-  const transacoesSaida = transacoesDoAno.filter(t => t.tipo === 'Saida');
+  const transacoesDoAno = useMemo(() => 
+    transacoes.filter(t => new Date(t.data).getFullYear() === anoAtivo),
+  [transacoes, anoAtivo]);
 
-  const totalEntradas = transacoesEntrada.reduce((acc, t) => acc + t.valor, 0);
-  const totalSaidas = transacoesSaida.reduce((acc, t) => acc + t.valor, 0);
+  const transacoesEntrada = useMemo(() => 
+    transacoesDoAno.filter(t => t.tipo === 'Entrada'),
+  [transacoesDoAno]);
+
+  const transacoesSaida = useMemo(() => 
+    transacoesDoAno.filter(t => t.tipo === 'Saida'),
+  [transacoesDoAno]);
+
+  const totalEntradas = useMemo(() => 
+    transacoesEntrada.reduce((acc, t) => acc + t.valor, 0),
+  [transacoesEntrada]);
+
+  const totalSaidas = useMemo(() => 
+    transacoesSaida.reduce((acc, t) => acc + t.valor, 0),
+  [transacoesSaida]);
+
   const faturamentoLiquido = totalEntradas - totalSaidas;
-
   const ticketMedio = transacoesEntrada.length > 0 ? totalEntradas / transacoesEntrada.length : 0;
   const totalTransacoes = transacoesDoAno.length;
   const margemLucro = totalEntradas > 0 ? ((totalEntradas - totalSaidas) / totalEntradas) * 100 : 0;
 
-  const dadosGrafico = Array.from({ length: 12 }, (_, i) => {
-    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const transacoesMes = transacoesDoAno.filter(t => new Date(t.data).getMonth() === i);
-    const ent = transacoesMes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
-    const sai = transacoesMes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
-    return { name: meses[i], entradas: ent, saidas: sai, saldo: ent - sai };
-  });
+  const dadosGrafico = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const transacoesMes = transacoesDoAno.filter(t => new Date(t.data).getMonth() === i);
+      const ent = transacoesMes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
+      const sai = transacoesMes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
+      return { name: meses[i], entradas: ent, saidas: sai, saldo: ent - sai };
+    });
+  }, [transacoesDoAno]);
 
-  const melhorMes = dadosGrafico.reduce((prev, curr) => (curr.entradas > prev.entradas ? curr : prev), dadosGrafico[0]);
+  const melhorMes = useMemo(() => 
+    dadosGrafico.reduce((prev, curr) => (curr.entradas > prev.entradas ? curr : prev), dadosGrafico[0]),
+  [dadosGrafico]);
 
   // Média mensal líquida considerando apenas meses fechados (desconsiderando o mês ativo)
   const hoje = new Date();
@@ -98,31 +141,107 @@ export function Relatorios() {
 
   const formatarTooltip = (value: any): [string, string] => [formatarMoeda(Number(value || 0)), ''];
 
-  const rankingItens = Object.entries(transacoesEntrada.flatMap(t => t.itens || [])
-    .reduce((acc: Record<string, number>, item) => {
-      const nome = item.nome?.replace(/^[\d\s*xX•\-_/]+/, '').trim() || item.nome?.trim(); 
-      if (nome) acc[nome] = (acc[nome] || 0) + Math.max(1, item.quantidade || 1);
-      return acc;
-    }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
+  // Dados para o Gráfico de Pizza (Formas de Pagamento)
+  const dadosPizzaPagamento = useMemo(() => {
+    const mapPagamentos: Record<string, number> = {};
+    transacoesEntrada.forEach(t => {
+      const m = t.metodoPagamento?.trim() || 'Não Informado';
+      mapPagamentos[m] = (mapPagamentos[m] || 0) + t.valor;
+    });
 
-  const rankingClientes = Object.entries(transacoesEntrada.filter(t => t.cliente)
-    .reduce((acc: Record<string, number>, t) => {
-      acc[t.cliente!.nome] = (acc[t.cliente!.nome] || 0) + t.valor;
-      return acc;
-    }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
+    return Object.entries(mapPagamentos)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [transacoesEntrada]);
 
-  const rankingMetodos = Object.entries(transacoesEntrada
-    .reduce((acc: Record<string, number>, t) => {
-      const m = t.metodoPagamento || 'Não Informado';
-      acc[m] = (acc[m] || 0) + t.valor;
-      return acc;
-    }, {})).sort(([, a], [, b]) => b - a).slice(0, 10);
+  // Rankings
+  const rankingItensUnidades = useMemo(() => {
+    const mapUnidades: Record<string, number> = {};
+    transacoesEntrada.flatMap(t => t.itens || []).forEach(item => {
+      const nome = item.nome?.replace(/^[\d\s*xX•\-_/]+/, '').trim() || item.nome?.trim();
+      if (nome) {
+        mapUnidades[nome] = (mapUnidades[nome] || 0) + Math.max(1, item.quantidade || 1);
+      }
+    });
+
+    return Object.entries(mapUnidades)
+      .map(([nome, val]) => ({ nome, val }))
+      .sort((a, b) => b.val - a.val)
+      .slice(0, 10);
+  }, [transacoesEntrada]);
+
+  const rankingItensValor = useMemo(() => {
+    const mapValor: Record<string, number> = {};
+    transacoesEntrada.forEach(t => {
+      const itens = t.itens || [];
+      if (itens.length === 0) return;
+      const somaQtd = itens.reduce((acc, it) => acc + Math.max(1, it.quantidade || 1), 0);
+
+      itens.forEach(item => {
+        const nome = item.nome?.replace(/^[\d\s*xX•\-_/]+/, '').trim() || item.nome?.trim();
+        if (!nome) return;
+        const qtd = Math.max(1, item.quantidade || 1);
+        let valItem = 0;
+        if (item.valorTotal) {
+          valItem = item.valorTotal;
+        } else if (item.precoUnitario) {
+          valItem = item.precoUnitario * qtd;
+        } else if (item.preco) {
+          valItem = item.preco * qtd;
+        } else {
+          valItem = somaQtd > 0 ? (t.valor * (qtd / somaQtd)) : t.valor;
+        }
+        mapValor[nome] = (mapValor[nome] || 0) + valItem;
+      });
+    });
+
+    return Object.entries(mapValor)
+      .map(([nome, val]) => ({ nome, val }))
+      .sort((a, b) => b.val - a.val)
+      .slice(0, 10);
+  }, [transacoesEntrada]);
+
+  const rankingClientes = useMemo(() => {
+    const mapClientes: Record<string, { id?: number; nome: string; valor: number }> = {};
+    transacoesEntrada.forEach(t => {
+      if (!t.cliente || !t.cliente.nome) return;
+      const nome = t.cliente.nome;
+      if (!mapClientes[nome]) {
+        mapClientes[nome] = { id: t.cliente.id, nome, valor: 0 };
+      }
+      mapClientes[nome].valor += t.valor;
+    });
+
+    return Object.values(mapClientes)
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 10);
+  }, [transacoesEntrada]);
+
+  const rankingMetodos = useMemo(() => {
+    const mapMetodos: Record<string, number> = {};
+    transacoesEntrada.forEach(t => {
+      const m = t.metodoPagamento?.trim() || 'Não Informado';
+      mapMetodos[m] = (mapMetodos[m] || 0) + t.valor;
+    });
+
+    return Object.entries(mapMetodos)
+      .map(([nome, val]) => ({ nome, val }))
+      .sort((a, b) => b.val - a.val)
+      .slice(0, 10);
+  }, [transacoesEntrada]);
+
+  const encontrarIdProduto = (nomeItem: string): number | null => {
+    if (!produtosCatalogo.length) return null;
+    const nomeNorm = nomeItem.toLowerCase().trim();
+    const prod = produtosCatalogo.find(p => p.nome.toLowerCase().trim() === nomeNorm);
+    return prod ? prod.id : null;
+  };
 
   const renderBadgePosicao = (index: number) => {
-    if (index === 0) return <Trophy size={14} className="text-yellow-400 mr-2 inline" />;
-    if (index === 1) return <Trophy size={14} className="text-gray-400 mr-2 inline" />;
-    if (index === 2) return <Trophy size={14} className="text-amber-700 mr-2 inline" />;
-    return <span className="w-5 inline-block text-gray-500 mr-1">{index + 1}.</span>;
+    if (index === 0) return <Trophy size={14} className="text-yellow-400 mr-2 inline flex-shrink-0" />;
+    if (index === 1) return <Trophy size={14} className="text-gray-400 mr-2 inline flex-shrink-0" />;
+    if (index === 2) return <Trophy size={14} className="text-amber-700 mr-2 inline flex-shrink-0" />;
+    return <span className="w-5 inline-block text-gray-500 mr-1 flex-shrink-0 font-mono text-[10px]">{index + 1}.</span>;
   };
 
   if (loading) return (
@@ -130,6 +249,8 @@ export function Relatorios() {
       <LoadingProgress message="Carregando dados analíticos..." />
     </Layout>
   );
+
+  const rankingItensAtual = modoItemRanking === 'unidades' ? rankingItensUnidades : rankingItensValor;
 
   return (
     <Layout>
@@ -148,17 +269,17 @@ export function Relatorios() {
               </div>
             </div>
             <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 p-1 rounded-md self-start sm:self-auto">
-              <button onClick={() => setAnoAtivo(a => a - 1)} className="p-2 text-gray-500 hover:text-white transition-colors"><ChevronLeft size={18}/></button>
+              <button onClick={() => setAnoAtivo(a => a - 1)} className="p-2 text-gray-500 hover:text-white transition-colors cursor-pointer bg-transparent border-none"><ChevronLeft size={18}/></button>
               <span className="font-black text-sm px-2">{anoAtivo}</span>
-              <button onClick={() => setAnoAtivo(a => a + 1)} className="p-2 text-gray-500 hover:text-white transition-colors"><ChevronRight size={18}/></button>
+              <button onClick={() => setAnoAtivo(a => a + 1)} className="p-2 text-gray-500 hover:text-white transition-colors cursor-pointer bg-transparent border-none"><ChevronRight size={18}/></button>
             </div>
           </div>
 
-          {/* Resumo */}
+          {/* Resumo (KPIs) */}
           <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
              <button 
                onClick={() => setResumoAberto(!resumoAberto)} 
-               className="w-full px-6 py-4 flex justify-between items-center border-b border-gray-800 hover:bg-gray-800/30 transition-colors"
+               className="w-full px-6 py-4 flex justify-between items-center border-b border-gray-800 hover:bg-gray-800/30 transition-colors bg-transparent text-left cursor-pointer border-none"
              >
                <span className="text-xs font-black uppercase flex items-center gap-2">
                  <TrendingUp size={16} className="text-emerald-400"/> Indicadores Principais (KPIs)
@@ -223,10 +344,14 @@ export function Relatorios() {
              )}
           </div>
 
-          {/* Gráficos de Linha e Barra */}
+          {/* Gráficos Principais: Mês a Mês (Evolução) & Formas de Pagamento */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Gráfico Mês a Mês */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2"><LineChartIcon size={16} className="text-blue-400"/> Evolução Mensal</h3>
+                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2">
+                  <LineChartIcon size={16} className="text-blue-400"/> Gráfico Mês a Mês
+                </h3>
                 <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={dadosGrafico} margin={{top: 5, right: 10, left: 10, bottom: 5}}>
@@ -243,35 +368,53 @@ export function Relatorios() {
                 </div>
             </div>
 
+            {/* Gráfico de Formas de Pagamento */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2"><BarChartIcon size={16} className="text-amber-400"/> Comparativo Mensal</h3>
+                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2">
+                  <PieChartIcon size={16} className="text-purple-400"/> Formas de Pagamento
+                </h3>
                 <div className="h-64">
+                  {dadosPizzaPagamento.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dadosGrafico} margin={{top: 5, right: 10, left: 10, bottom: 5}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false}/>
-                          <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tickMargin={10}/>
-                          <YAxis stroke="#6b7280" fontSize={10} tickFormatter={(val) => `R$ ${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} width={45}/>
-                          <Tooltip formatter={formatarTooltip} cursor={{fill: '#1f2937'}} contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}/>
+                        <PieChart>
+                          <Pie
+                            data={dadosPizzaPagamento}
+                            innerRadius={55}
+                            outerRadius={80}
+                            paddingAngle={4}
+                            dataKey="value"
+                            nameKey="name"
+                          >
+                            {dadosPizzaPagamento.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS_PAGAMENTO[index % COLORS_PAGAMENTO.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(val: any) => [formatarMoeda(Number(val || 0)), 'Receita']} 
+                            contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}
+                          />
                           <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}}/>
-                          <Bar name="Receitas" dataKey="entradas" fill="#10b981" radius={[4, 4, 0, 0]} />
-                          <Bar name="Despesas" dataKey="saidas" fill="#f43f5e" radius={[4, 4, 0, 0]} />
-                        </BarChart>
+                        </PieChart>
                     </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-gray-500 italic">
+                      Nenhuma transação com forma de pagamento registrada
+                    </div>
+                  )}
                 </div>
             </div>
+
           </div>
 
-          {/* Seção de Rankings e Comparativo Mensal (4 cards em formato de lista) */}
+          {/* Seção de Rankings e Lista Mês a Mês (Cards interativos clicáveis) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
             
-            {/* Card 1: Comparativo Mês a Mês com Toggle Bruto - Despesa - Líquido */}
-            <div 
-              className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col"
-              style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
-            >
+            {/* Card 1: Lista Mês a Mês Clicável */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
               <div className="p-3.5 border-b border-gray-800 bg-gray-900/50 space-y-2">
-                <div className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                  Mês a Mês ({anoAtivo})
+                <div className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <CalendarDays size={13} className="text-blue-400" />
+                  <span>Mês a Mês ({anoAtivo})</span>
                 </div>
                 
                 {/* Toggle Bruto - Despesa - Líquido */}
@@ -297,10 +440,7 @@ export function Relatorios() {
                 </div>
               </div>
 
-              <div 
-                className="bg-gray-900 divide-y divide-gray-800/40"
-                style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
-              >
+              <div className="bg-gray-900 divide-y divide-gray-800/40">
                 {dadosGrafico.map((item, idx) => {
                   let valor = item.saldo;
                   let corBadge = item.saldo >= 0 ? 'text-emerald-400 bg-emerald-950/40' : 'text-red-400 bg-red-950/40';
@@ -314,52 +454,156 @@ export function Relatorios() {
                   }
 
                   return (
-                    <div key={idx} className="flex items-center justify-between py-1.5 px-3 hover:bg-gray-800/50 transition-colors">
-                      <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
-                        <span className="w-5 inline-block text-[10px] text-gray-500 font-mono">{idx + 1}.</span>
+                    <Link 
+                      key={idx}
+                      to={`/fluxo-caixa/${idx + 1}/${anoAtivo}`}
+                      className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                      title={`Ver fluxo de caixa de ${item.name}`}
+                    >
+                      <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate pr-2">
+                        <span className="w-5 inline-block text-[10px] text-gray-500 font-mono flex-shrink-0">{idx + 1}.</span>
                         <span className="truncate">{item.name}</span>
+                        <ArrowUpRight size={12} className="ml-1 opacity-0 group-hover:opacity-100 text-blue-400 transition-opacity flex-shrink-0" />
                       </div>
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded whitespace-nowrap ${corBadge}`}>
                         {formatarMoeda(valor)}
                       </span>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             </div>
 
-            {/* Cards 2, 3, 4: Top Produtos/Serviços, Top Clientes, Formas de Pagamento */}
-            {[ 
-              {t: 'Top Produtos/Serviços', d: rankingItens, u: 'UN'}, 
-              {t: 'Top Clientes', d: rankingClientes, u: 'R$'},
-              {t: 'Formas de Pagamento', d: rankingMetodos, u: 'R$'}
-            ].map((rank, i) => (
-                <div 
-                  key={i} 
-                  className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col"
-                  style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
-                >
-                    <div className="p-3 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50">{rank.t}</div>
-                    <div 
-                      className="bg-gray-900 divide-y divide-gray-800/40"
-                      style={{ overflow: 'visible', maxHeight: 'none', height: 'auto' }}
-                    >
-                      {rank.d.length > 0 ? rank.d.map(([nome, val], idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 px-3 hover:bg-gray-800 transition-colors">
-                            <div className="flex items-center text-xs font-bold text-gray-200 truncate pr-2">
-                              {renderBadgePosicao(idx)}
-                              <span className="truncate">{nome}</span>
-                            </div>
-                            <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
-                              {rank.u === 'R$' ? formatarMoeda(val as number) : `${val} UN`}
-                            </span>
-                        </div>
-                      )) : (
-                        <div className="p-3 text-xs text-gray-500 italic text-center">Nenhum dado</div>
-                      )}
-                    </div>
+            {/* Card 2: Top Produtos/Serviços com Toggle Unidades/Valor e Links */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
+              <div className="p-3.5 border-b border-gray-800 bg-gray-900/50 space-y-2">
+                <div className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <ShoppingBag size={13} className="text-emerald-400" />
+                  <span>Top Produtos / Serviços</span>
                 </div>
-            ))}
+
+                {/* Toggle Unidades (UN) / Valor (R$) */}
+                <div className="grid grid-cols-2 gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setModoItemRanking('unidades')}
+                    className={`py-1 text-[9px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                      modoItemRanking === 'unidades'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Unidades (UN)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoItemRanking('valor')}
+                    className={`py-1 text-[9px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                      modoItemRanking === 'valor'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Valor (R$)
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gray-900 divide-y divide-gray-800/40">
+                {rankingItensAtual.length > 0 ? (
+                  rankingItensAtual.map((item, idx) => {
+                    const prodId = encontrarIdProduto(item.nome);
+                    const linkPath = prodId ? `/catalogo/${prodId}` : `/catalogo?busca=${encodeURIComponent(item.nome)}`;
+                    
+                    return (
+                      <Link
+                        key={idx}
+                        to={linkPath}
+                        className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                        title={`Ver detalhes do produto/serviço ${item.nome}`}
+                      >
+                        <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-emerald-400 transition-colors truncate pr-2">
+                          {renderBadgePosicao(idx)}
+                          <span className="truncate">{item.nome}</span>
+                          <ArrowUpRight size={12} className="ml-1 opacity-0 group-hover:opacity-100 text-emerald-400 transition-opacity flex-shrink-0" />
+                        </div>
+                        <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
+                          {modoItemRanking === 'valor' ? formatarMoeda(item.val) : `${item.val} UN`}
+                        </span>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum item registrado</div>
+                )}
+              </div>
+            </div>
+
+            {/* Card 3: Top Clientes Clicável */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
+              <div className="p-3.5 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50 flex items-center gap-1.5">
+                <User size={13} className="text-amber-400" />
+                <span>Top Clientes</span>
+              </div>
+              <div className="bg-gray-900 divide-y divide-gray-800/40">
+                {rankingClientes.length > 0 ? (
+                  rankingClientes.map((c, idx) => {
+                    const linkPath = c.id ? `/clientes/${c.id}` : '/clientes';
+                    return (
+                      <Link
+                        key={idx}
+                        to={linkPath}
+                        className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                        title={`Ver perfil do cliente ${c.nome}`}
+                      >
+                        <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-amber-400 transition-colors truncate pr-2">
+                          {renderBadgePosicao(idx)}
+                          <span className="truncate">{c.nome}</span>
+                          <ArrowUpRight size={12} className="ml-1 opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity flex-shrink-0" />
+                        </div>
+                        <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
+                          {formatarMoeda(c.valor)}
+                        </span>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum cliente registrado</div>
+                )}
+              </div>
+            </div>
+
+            {/* Card 4: Formas de Pagamento Clicável */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
+              <div className="p-3.5 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50 flex items-center gap-1.5">
+                <CreditCard size={13} className="text-purple-400" />
+                <span>Formas de Pagamento</span>
+              </div>
+              <div className="bg-gray-900 divide-y divide-gray-800/40">
+                {rankingMetodos.length > 0 ? (
+                  rankingMetodos.map((item, idx) => (
+                    <Link
+                      key={idx}
+                      to="/fluxo-caixa"
+                      className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                      title={`Ver lançamentos para ${item.nome}`}
+                    >
+                      <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-purple-400 transition-colors truncate pr-2">
+                        {renderBadgePosicao(idx)}
+                        <span className="truncate">{item.nome}</span>
+                        <ArrowUpRight size={12} className="ml-1 opacity-0 group-hover:opacity-100 text-purple-400 transition-opacity flex-shrink-0" />
+                      </div>
+                      <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
+                        {formatarMoeda(item.val)}
+                      </span>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="p-4 text-xs text-gray-500 italic text-center">Nenhuma forma informada</div>
+                )}
+              </div>
+            </div>
+
           </div>
 
         </div>
