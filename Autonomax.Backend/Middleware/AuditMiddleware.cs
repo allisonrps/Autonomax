@@ -15,28 +15,37 @@ public class AuditMiddleware
 
     public async Task InvokeAsync(HttpContext context, AppDbContext dbContext)
     {
-        var metodo = context.Request.Method;
-
-        // Só auditamos o que altera dados
-        if (metodo == "POST" || metodo == "PUT" || metodo == "DELETE")
-        {
-            var usuarioIdStr = context.User.FindFirst("id")?.Value;
-            var path = context.Request.Path;
-
-            // Captura o corpo da requisição ou parâmetros se necessário
-            var log = new LogSeguranca
-            {
-                Evento = $"ACAO_{metodo}",
-                Descricao = $"O usuário realizou um {metodo} no caminho: {path}",
-                IpOrigem = context.Connection.RemoteIpAddress?.ToString(),
-                Data = DateTime.UtcNow,
-                UsuarioId = !string.IsNullOrEmpty(usuarioIdStr) ? int.Parse(usuarioIdStr) : null
-            };
-
-            dbContext.LogsSeguranca.Add(log);
-            await dbContext.SaveChangesAsync();
-        }
-
+        // 1. Executa o próximo middleware na pipeline (processa a requisição primeiro)
         await _next(context);
+
+        // 2. Só gravamos log para requisições de mutação (POST/PUT/DELETE) bem-sucedidas (2xx)
+        var metodo = context.Request.Method;
+        if ((metodo == "POST" || metodo == "PUT" || metodo == "DELETE") 
+            && context.Response.StatusCode >= 200 
+            && context.Response.StatusCode < 300)
+        {
+            try
+            {
+                var usuarioIdStr = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                                  ?? context.User.FindFirst("id")?.Value;
+                var path = context.Request.Path;
+
+                var log = new LogSeguranca
+                {
+                    Evento = $"ACAO_{metodo}",
+                    Descricao = $"Ação {metodo} realizada no caminho: {path}",
+                    IpOrigem = context.Connection.RemoteIpAddress?.ToString(),
+                    Data = DateTime.UtcNow,
+                    UsuarioId = int.TryParse(usuarioIdStr, out var id) ? id : null
+                };
+
+                dbContext.LogsSeguranca.Add(log);
+                await dbContext.SaveChangesAsync();
+            }
+            catch
+            {
+                // Falha secundária ao salvar log de auditoria não deve derrubar a resposta do usuário
+            }
+        }
     }
 }

@@ -18,26 +18,35 @@ public class ErrorHandlingMiddleware
     {
         try
         {
-            // Tenta seguir para o próximo passo da API
             await _next(context);
         }
         catch (Exception ex)
         {
-            // Se der erro em QUALQUER lugar da API, ele cai aqui
-            _logger.LogError(ex, "Ocorreu um erro não tratado.");
+            _logger.LogError(ex, "Ocorreu um erro não tratado na API.");
             await HandleExceptionAsync(context, ex);
         }
     }
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        // Garante que cabeçalhos de CORS existam mesmo em caso de erro 500
+        if (context.Request.Headers.TryGetValue("Origin", out var origin) && !string.IsNullOrEmpty(origin))
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = origin.ToString();
+            context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        }
+        else
+        {
+            context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+        }
+
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
         var response = new
         {
             status = context.Response.StatusCode,
-            message = "Ocorreu um erro interno no servidor. Tente novamente mais tarde.",
+            message = "Ocorreu um erro interno no servidor.",
             detail = exception.Message 
         };
 

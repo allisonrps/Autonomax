@@ -105,63 +105,15 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
-// --- POLÍTICA DE CORS ---
-var defaultOrigins = new[] 
-{ 
-    "https://autonomax.vercel.app", 
-    "http://localhost:5173", 
-    "http://localhost:3000" 
-};
-
-var configOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>();
-var envOrigins = Environment.GetEnvironmentVariable("AllowedOrigins") 
-                 ?? Environment.GetEnvironmentVariable("ALLOWED_ORIGINS");
-
-var originsList = new List<string>(defaultOrigins);
-
-if (configOrigins != null && configOrigins.Length > 0)
-{
-    originsList.AddRange(configOrigins);
-}
-
-if (!string.IsNullOrWhiteSpace(envOrigins))
-{
-    var split = envOrigins.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-    originsList.AddRange(split);
-}
-
-var finalOrigins = originsList.Select(o => o.Trim().TrimEnd('/')).Distinct().ToArray();
-
+// --- POLÍTICA DE CORS (DINÂMICA E PERMISSIVA PARA VERCEL, LOCALHOST E DISPOSITIVOS) ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.SetIsOriginAllowed(origin =>
-        {
-            if (string.IsNullOrWhiteSpace(origin)) return false;
-            
-            try
-            {
-                var uri = new Uri(origin);
-                var host = uri.Host;
-                
-                if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                    host.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase) ||
-                    host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase) ||
-                    finalOrigins.Any(o => string.Equals(o, origin, StringComparison.OrdinalIgnoreCase)))
-                {
-                    return true;
-                }
-            }
-            catch
-            {
-                // Ignora URIs inválidos
-            }
-            return false;
-        })
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials();
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -181,13 +133,14 @@ builder.Services.AddControllers()
 
 var app = builder.Build();
 
-// --- MIDDLEWARE E PIPELINE ---
-app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
-
-// CORS OBRIGATORIAMENTE no topo para responder preflight (OPTIONS) antes de qualquer bloqueio
+// --- MIDDLEWARE E PIPELINE (ORDEM CRÍTICA) ---
+// 1. CORS OBRIGATORIAMENTE no topo para responder preflight (OPTIONS) antes de qualquer middleware
 app.UseCors("FrontendPolicy");
 
-// Security Headers HTTP
+// 2. Error Handling captura exceções das rotas subsequentes garantindo resposta JSON com CORS
+app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
+
+// 3. Security Headers HTTP
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -200,12 +153,13 @@ app.Use(async (context, next) =>
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseMiddleware<Autonomax.Backend.Middleware.AuditMiddleware>();
-
 app.UseHttpsRedirection();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// 4. AuditMiddleware roda após processar o controller sem travar a resposta
+app.UseMiddleware<Autonomax.Backend.Middleware.AuditMiddleware>();
 
 app.MapControllers();
 
