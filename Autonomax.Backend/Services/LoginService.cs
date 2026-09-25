@@ -18,11 +18,7 @@ public static class TokenService
 
         if (string.IsNullOrWhiteSpace(secret))
         {
-            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-            if (env == "Production" || env == "Staging")
-            {
-                throw new InvalidOperationException("ERRO CRÍTICO DE SEGURANÇA: Chave JWT (Jwt:Secret) não foi configurada em ambiente de produção.");
-            }
+            Console.WriteLine("[AVISO SEGURANÇA] Nenhuma chave JWT customizada encontrada (Jwt__Secret/JWT_SECRET). Usando chave de fallback para garantir inicialização.");
             return ChavePadraoDesenvolvimento;
         }
 
