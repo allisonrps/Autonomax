@@ -2,8 +2,10 @@ using Autonomax.Backend.Controllers;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.DTOs;
 using Autonomax.Backend.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using Xunit;
 
 namespace Autonomax.Backend.Tests;
@@ -16,6 +18,53 @@ public class ProdutosServicosTests
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
         return new AppDbContext(options);
+    }
+
+    private static ProdutosServicosController CriarProdutosServicosController(AppDbContext db, int negocioId = 1, int usuarioId = 1)
+    {
+        GarantirNegocioEUsuario(db, negocioId, usuarioId);
+
+        var controller = new ProdutosServicosController(db);
+        SetUserContext(controller, usuarioId);
+        return controller;
+    }
+
+    private static TransacoesController CriarTransacoesController(AppDbContext db, int negocioId = 1, int usuarioId = 1)
+    {
+        GarantirNegocioEUsuario(db, negocioId, usuarioId);
+
+        var controller = new TransacoesController(db);
+        SetUserContext(controller, usuarioId);
+        return controller;
+    }
+
+    private static void GarantirNegocioEUsuario(AppDbContext db, int negocioId, int usuarioId)
+    {
+        if (!db.Usuarios.Any(u => u.Id == usuarioId))
+        {
+            db.Usuarios.Add(new Usuario { Id = usuarioId, Nome = "Test User", Email = $"user{usuarioId}@test.com", SenhaHash = "hash" });
+        }
+        if (!db.Negocios.Any(n => n.Id == negocioId))
+        {
+            db.Negocios.Add(new Negocio { Id = negocioId, Nome = $"Negocio {negocioId}", UsuarioId = usuarioId });
+        }
+        db.SaveChanges();
+    }
+
+    private static void SetUserContext(ControllerBase controller, int usuarioId)
+    {
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, usuarioId.ToString()),
+            new Claim("id", usuarioId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
     }
 
     [Fact]
@@ -102,11 +151,8 @@ public class ProdutosServicosTests
             .Where(p => p.NegocioId == negocioId)
             .ToListAsync();
 
-        // Deve conter o item vendido
-        Assert.Contains(itensCadastrados, p => p.Nome.Equals("Banner Lona", StringComparison.OrdinalIgnoreCase));
-
-        // Deve ter removido o item que pertencia exclusivamente a despesas
-        Assert.DoesNotContain(itensCadastrados, p => p.Nome.Equals("Aluguel Sala", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(itensCadastrados);
+        Assert.Equal("Banner Lona", itensCadastrados[0].Nome);
     }
 
     [Fact]
@@ -147,7 +193,7 @@ public class ProdutosServicosTests
 
         await db.SaveChangesAsync();
 
-        var controller = new ProdutosServicosController(db);
+        var controller = CriarProdutosServicosController(db, negocioId);
         var result = await controller.GetDetalhes(produto.Id, negocioId, 2026) as OkObjectResult;
 
         Assert.NotNull(result);
@@ -173,7 +219,7 @@ public class ProdutosServicosTests
     {
         var db = GetDatabase();
         int negocioId = 4;
-        var controller = new ProdutosServicosController(db);
+        var controller = CriarProdutosServicosController(db, negocioId);
 
         // 1. Cadastra novo item com preço inicial R$ 50
         var createResult = await controller.Post(new ProdutoServicoCreateDto
@@ -277,7 +323,7 @@ public class ProdutosServicosTests
 
         await db.SaveChangesAsync();
 
-        var controller = new ProdutosServicosController(db);
+        var controller = CriarProdutosServicosController(db, negocioId);
         var result = await controller.GetDetalhes(produto.Id, negocioId, DateTime.Now.Year) as OkObjectResult;
 
         Assert.NotNull(result);
@@ -294,7 +340,6 @@ public class ProdutosServicosTests
         var transacoes = root.GetProperty("transacoes");
         Assert.Equal(4, transacoes.GetArrayLength());
 
-        // Cada transação vinculada deve ter quantidadeItem maior que zero correspondente
         foreach (var t in transacoes.EnumerateArray())
         {
             var qtd = t.GetProperty("quantidadeItem").GetInt32();
@@ -327,11 +372,9 @@ public class ProdutosServicosTests
         var itens = transacoes[0].Itens;
         Assert.Equal(2, itens.Count);
 
-        // Item 1 deve ter quantidade 2
         Assert.Equal("Cartaz Duplo", itens[0].Nome);
         Assert.Equal(2, itens[0].Quantidade);
 
-        // Item 2 deve ter quantidade 3
         Assert.Equal("Adesivo Vinil", itens[1].Nome);
         Assert.Equal(3, itens[1].Quantidade);
     }
@@ -354,7 +397,7 @@ public class ProdutosServicosTests
         db.Transacoes.Add(transacao);
         await db.SaveChangesAsync();
 
-        var controller = new TransacoesController(db);
+        var controller = CriarTransacoesController(db, negocioId);
         var result = await controller.GetTransacoesPorPeriodo(negocioId, 7, 2026);
 
         var lista = result.Value as List<Transacao>;
@@ -392,8 +435,8 @@ public class ProdutosServicosTests
         db.Transacoes.Add(transacao);
         await db.SaveChangesAsync();
 
-        var controller = new ProdutosServicosController(db);
-        var result = await controller.GetDetalhes(produto.Id, negocioId, 2026) as Microsoft.AspNetCore.Mvc.OkObjectResult;
+        var controller = CriarProdutosServicosController(db, negocioId);
+        var result = await controller.GetDetalhes(produto.Id, negocioId, 2026) as OkObjectResult;
 
         Assert.NotNull(result);
         var json = System.Text.Json.JsonSerializer.Serialize(result.Value);
@@ -423,26 +466,23 @@ public class ProdutosServicosTests
             Tipo = "Entrada",
             Data = new DateTime(2026, 9, 4)
         };
-        // Ordem diferente da descrição e quantidades iniciais desatualizadas (1)
         transacao.Itens.Add(new ItemTransacao { Nome = "CARTAZ M", Quantidade = 1 });
         transacao.Itens.Add(new ItemTransacao { Nome = "CARTAZ G", Quantidade = 1 });
         transacao.Itens.Add(new ItemTransacao { Nome = "CARTAZ PP", Quantidade = 1 });
         db.Transacoes.Add(transacao);
         await db.SaveChangesAsync();
 
-        var controller = new ProdutosServicosController(db);
-        var result = await controller.GetDetalhes(cartazG.Id, negocioId, 2026) as Microsoft.AspNetCore.Mvc.OkObjectResult;
+        var controller = CriarProdutosServicosController(db, negocioId);
+        var result = await controller.GetDetalhes(cartazG.Id, negocioId, 2026) as OkObjectResult;
 
         Assert.NotNull(result);
         var json = System.Text.Json.JsonSerializer.Serialize(result.Value);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        // O item visualizado (CARTAZ G) deve ter quantidade 6 e faturamento 48 (6 x 8)
         Assert.Equal(6, root.GetProperty("quantidadeTotal").GetInt32());
         Assert.Equal(48m, root.GetProperty("totalFaturado").GetDecimal());
 
-        // A lista de itens retornada para o card expandido deve ter TODOS os itens normalizados
         var transacoes = root.GetProperty("transacoes");
         Assert.Equal(1, transacoes.GetArrayLength());
         var itens = transacoes[0].GetProperty("itens");

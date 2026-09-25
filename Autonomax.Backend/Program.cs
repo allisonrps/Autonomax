@@ -6,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using System.Text.Json.Serialization; //IgnoreCycles
+using Microsoft.AspNetCore.HttpOverrides;
+
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -117,6 +119,14 @@ builder.Services.AddCors(options =>
     });
 });
 
+// --- FORWARDED HEADERS (RAILWAY / REVERSE PROXY) ---
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // --- CONFIGURAÇÃO DE CONTROLLERS (RESOLVE ERRO 400 E 500) ---
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -134,13 +144,33 @@ builder.Services.AddControllers()
 var app = builder.Build();
 
 // --- MIDDLEWARE E PIPELINE (ORDEM CRÍTICA) ---
-// 1. CORS OBRIGATORIAMENTE no topo para responder preflight (OPTIONS) antes de qualquer middleware
+// 1. Respeita os cabeçalhos do proxy reverso da Railway (X-Forwarded-For, X-Forwarded-Proto)
+app.UseForwardedHeaders();
+
+// 2. CORS OBRIGATORIAMENTE no topo para responder preflight (OPTIONS) antes de qualquer middleware
 app.UseCors("FrontendPolicy");
 
-// 2. Error Handling captura exceções das rotas subsequentes garantindo resposta JSON com CORS
+// 3. Short-circuit para requisições de preflight OPTIONS (evita redirecionamentos 307 e erros de CORS)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Method == "OPTIONS")
+    {
+        var origin = context.Request.Headers["Origin"].ToString();
+        context.Response.Headers["Access-Control-Allow-Origin"] = string.IsNullOrEmpty(origin) ? "*" : origin;
+        context.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH";
+        context.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin";
+        context.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        context.Response.StatusCode = 200;
+        await context.Response.CompleteAsync();
+        return;
+    }
+    await next();
+});
+
+// 4. Error Handling captura exceções das rotas subsequentes garantindo resposta JSON com CORS
 app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
 
-// 3. Security Headers HTTP
+// 5. Security Headers HTTP
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -153,12 +183,12 @@ app.Use(async (context, next) =>
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // Removido para evitar redirecionamento HTTP 307 no proxy da Railway que quebra CORS Preflight
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 4. AuditMiddleware roda após processar o controller sem travar a resposta
+// 6. AuditMiddleware roda após processar o controller sem travar a resposta
 app.UseMiddleware<Autonomax.Backend.Middleware.AuditMiddleware>();
 
 app.MapControllers();

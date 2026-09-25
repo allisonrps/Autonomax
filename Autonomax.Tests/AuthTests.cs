@@ -22,7 +22,8 @@ public class AuthTests
     // Função auxiliar para configurar o Controller com um Contexto falso
     private AuthController PrepararController(AppDbContext db)
     {
-        var controller = new AuthController(db);
+        var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
+        var controller = new AuthController(db, config);
         
         // Contexto de requisição falso para evitar o NullReference no HttpContext
         controller.ControllerContext = new ControllerContext
