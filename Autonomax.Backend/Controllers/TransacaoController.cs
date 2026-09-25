@@ -6,7 +6,7 @@ using Autonomax.Backend.DTOs;
 using Autonomax.Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using QuestPDF.Fluent;
-
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
@@ -24,6 +24,12 @@ public class TransacoesController : ControllerBase
     [HttpGet("por-negocio/{negocioId:int}")] 
     public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoes(int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
+
         var transacoes = await _context.Transacoes
             .Include(t => t.Cliente) 
             .Include(t => t.Itens)
@@ -38,6 +44,11 @@ public class TransacoesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Transacao>> PostTransacao(Transacao transacao)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(transacao.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para criar transações neste negócio." });
+        }
         try 
         {
             if (transacao.Data == DateTime.MinValue) transacao.Data = DateTime.Now;
@@ -113,11 +124,17 @@ public class TransacoesController : ControllerBase
     {
         if (id != transacao.Id) return BadRequest();
 
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var transacaoExistente = await _context.Transacoes
             .Include(t => t.Itens)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transacaoExistente == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(transacaoExistente.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para alterar esta transação." });
+        }
 
         transacaoExistente.Descricao = transacao.Descricao;
         transacaoExistente.Valor = transacao.Valor;
@@ -193,6 +210,12 @@ public class TransacoesController : ControllerBase
     [HttpGet("por-cliente/{clienteId}")] 
     public async Task<IActionResult> GetPorCliente(int clienteId, [FromQuery] int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
         var cliente = await _context.Clientes.AsNoTracking().FirstOrDefaultAsync(c => c.Id == clienteId);
         if (cliente == null) return NotFound(new { mensagem = "Cliente não encontrado." });
 
@@ -207,10 +230,15 @@ public class TransacoesController : ControllerBase
         return Ok(new { cliente, transacoes });
     }
 
-
     [HttpGet("por-fornecedor/{fornecedorId}")] 
     public async Task<IActionResult> GetPorFornecedor(int fornecedorId, [FromQuery] int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
         var fornecedor = await _context.Fornecedores
             .AsNoTracking() 
             .FirstOrDefaultAsync(f => f.Id == fornecedorId && f.NegocioId == negocioId);
@@ -231,6 +259,12 @@ public class TransacoesController : ControllerBase
     [HttpGet("por-periodo/{negocioId}")]
     public async Task<ActionResult<IEnumerable<Transacao>>> GetTransacoesPorPeriodo(int negocioId, [FromQuery] int mes, [FromQuery] int ano)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
         var transacoes = await _context.Transacoes
             .Include(t => t.Cliente)
             .Include(t => t.Fornecedor)
@@ -247,8 +281,15 @@ public class TransacoesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteTransacao(int id)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var transacao = await _context.Transacoes.FindAsync(id);
         if (transacao == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(transacao.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para excluir esta transação." });
+        }
+
         _context.Transacoes.Remove(transacao);
         await _context.SaveChangesAsync();
         return NoContent();

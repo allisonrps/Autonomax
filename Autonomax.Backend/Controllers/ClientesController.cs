@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
 using Microsoft.AspNetCore.Authorization;
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
@@ -18,74 +19,83 @@ public class ClientesController : ControllerBase
         _context = context;
     }
 
-[HttpGet("por-negocio/{negocioId}")]
-public async Task<IActionResult> GetClientes(int negocioId)
-{
-    try
+    [HttpGet("por-negocio/{negocioId}")]
+    public async Task<IActionResult> GetClientes(int negocioId)
     {
-        // Buscamos os clientes e suas transações vinculadas
-        var clientesComTransacoes = await _context.Clientes
-            .Include(c => c.Transacoes) 
-            .Where(c => c.NegocioId == negocioId)
-            .ToListAsync();
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
 
+        try
+        {
+            var clientesComTransacoes = await _context.Clientes
+                .Include(c => c.Transacoes) 
+                .Where(c => c.NegocioId == negocioId)
+                .ToListAsync();
 
-        var resultado = clientesComTransacoes.Select(c => new {
-            c.Id,
-            c.Nome,
-            c.Celular,
-            c.Endereco,
-            c.Cidade,
-            c.Estado,
-            c.Observacoes,
-            c.NegocioId,
-            
-            // Soma faturamento (apenas entradas)
-            TotalComprado = c.Transacoes
-                .Where(t => t.Tipo == "Entrada")
-                .Sum(t => t.Valor),
-            
-            // Quantidade total de pedidos/movimentações
-            QtdMovimentacoes = c.Transacoes.Count,
+            var resultado = clientesComTransacoes.Select(c => new {
+                c.Id,
+                c.Nome,
+                c.Celular,
+                c.Endereco,
+                c.Cidade,
+                c.Estado,
+                c.Observacoes,
+                c.NegocioId,
                 
-            // Pega a data da última transação (se existir)
-            UltimaMovimentacao = c.Transacoes
-                .OrderByDescending(t => t.Data)
-                .Select(t => t.Data.ToString("yyyy-MM-ddTHH:mm:ss"))
-                .FirstOrDefault()
-        })
-        .OrderBy(c => c.Nome)
-        .ToList();
+                TotalComprado = c.Transacoes
+                    .Where(t => t.Tipo == "Entrada")
+                    .Sum(t => t.Valor),
+                
+                QtdMovimentacoes = c.Transacoes.Count,
+                    
+                UltimaMovimentacao = c.Transacoes
+                    .OrderByDescending(t => t.Data)
+                    .Select(t => t.Data.ToString("yyyy-MM-ddTHH:mm:ss"))
+                    .FirstOrDefault()
+            })
+            .OrderBy(c => c.Nome)
+            .ToList();
 
-        return Ok(resultado);
+            return Ok(resultado);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Erro interno ao buscar clientes: {ex.Message}");
+        }
     }
-    catch (Exception ex)
-    {
-        return StatusCode(500, $"Erro interno: {ex.Message}");
-    }
-}
 
-    // POST: api/Clientes
     [HttpPost]
     public async Task<ActionResult<Cliente>> PostCliente(Cliente cliente)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(cliente.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para cadastrar clientes neste negócio." });
+        }
+
         _context.Clientes.Add(cliente);
         await _context.SaveChangesAsync();
 
-        // Ajustado para retornar o objeto criado corretamente
         return CreatedAtAction(nameof(GetClientes), new { negocioId = cliente.NegocioId }, cliente);
     }
 
-    // GET: api/Clientes/ranking/1
     [HttpGet("ranking/{negocioId}")]
     public async Task<IActionResult> GetRanking(int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
         var ranking = await _context.Transacoes
             .Where(t => t.NegocioId == negocioId && t.Tipo == "Entrada" && t.ClienteId != null)
             .GroupBy(t => t.ClienteId)
             .Select(grupo => new {
                 ClienteId = grupo.Key,
-                // O ?. e ?? "Desconhecido" resolvem o Warning CS8602
                 NomeCliente = _context.Clientes.FirstOrDefault(c => c.Id == grupo.Key)!.Nome ?? "Desconhecido",
                 TotalGasto = grupo.Sum(t => t.Valor)
             })
@@ -96,41 +106,65 @@ public async Task<IActionResult> GetClientes(int negocioId)
         return Ok(ranking);
     }
 
-
-[HttpPut("{id}")]
-public async Task<IActionResult> PutCliente(int id, Cliente cliente)
-{
-    if (id != cliente.Id) return BadRequest();
-
-    _context.Entry(cliente).State = EntityState.Modified;
-
-    try {
-        await _context.SaveChangesAsync();
-    } catch (DbUpdateConcurrencyException) {
-        if (!_context.Clientes.Any(e => e.Id == id)) return NotFound();
-        else throw;
-    }
-    return NoContent();
-}
-
-// DELETE: api/Clientes/5
-[HttpDelete("{id}")]
-public async Task<IActionResult> DeleteCliente(int id)
-{
-    var cliente = await _context.Clientes.FindAsync(id);
-    if (cliente == null) return NotFound();
-
-    _context.Clientes.Remove(cliente);
-    await _context.SaveChangesAsync();
-    return NoContent();
-}
-
-[HttpGet("{id}")]
-    public async Task<ActionResult<Cliente>> GetById(int id)
+    [HttpPut("{id}")]
+    public async Task<IActionResult> PutCliente(int id, Cliente cliente)
     {
+        if (id != cliente.Id) return BadRequest();
+
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        var clienteExistente = await _context.Clientes.FirstOrDefaultAsync(c => c.Id == id);
+        if (clienteExistente == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(clienteExistente.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para alterar este cliente." });
+        }
+
+        clienteExistente.Nome = cliente.Nome;
+        clienteExistente.Celular = cliente.Celular;
+        clienteExistente.Endereco = cliente.Endereco;
+        clienteExistente.Cidade = cliente.Cidade;
+        clienteExistente.Estado = cliente.Estado;
+        clienteExistente.Observacoes = cliente.Observacoes;
+
+        try {
+            await _context.SaveChangesAsync();
+        } catch (DbUpdateConcurrencyException) {
+            if (!_context.Clientes.Any(e => e.Id == id)) return NotFound();
+            else throw;
+        }
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCliente(int id)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var cliente = await _context.Clientes.FindAsync(id);
         if (cliente == null) return NotFound();
-        return cliente;
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(cliente.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para excluir este cliente." });
+        }
+
+        _context.Clientes.Remove(cliente);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Cliente>> GetById(int id)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        var cliente = await _context.Clientes.FindAsync(id);
+        if (cliente == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(cliente.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado aos dados deste cliente." });
+        }
+
+        return cliente;
+    }
 }

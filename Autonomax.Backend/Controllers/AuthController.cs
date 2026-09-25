@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
@@ -14,10 +14,12 @@ namespace Autonomax.Backend.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(AppDbContext context)
+    public AuthController(AppDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
    [EnableRateLimiting("login_policy")]
@@ -45,7 +47,7 @@ public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
     }
 
     // LOGIN COM SUCESSO
-    var token = TokenService.GerarToken(usuario);
+    var token = TokenService.GerarToken(usuario, _configuration);
 
     return Ok(new
     {

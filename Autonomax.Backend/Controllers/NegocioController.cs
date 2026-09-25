@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
@@ -19,41 +19,38 @@ public class NegociosController : ControllerBase
         _context = context;
     }
 
-    // 1. LISTAR apenas os negócios do usuário logado
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Negocio>>> GetMeusNegocios()
     {
-        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-        var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
 
         return await _context.Negocios
-            .Where(n => n.UsuarioId == usuarioId)
+            .Where(n => n.UsuarioId == usuarioId.Value)
             .ToListAsync();
     }
 
-    // 2. BUSCAR um negócio específico
     [HttpGet("{id}")]
     public async Task<ActionResult<Negocio>> GetNegocio(int id)
     {
-        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-        var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
 
         var negocio = await _context.Negocios
-            .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
+            .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId.Value);
 
         if (negocio == null) return NotFound("Negócio não encontrado.");
 
         return negocio;
     }
 
-    // 3. CADASTRAR novo negócio
     [HttpPost]
     public async Task<ActionResult<Negocio>> PostNegocio(Negocio negocio)
     {
-        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-        var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
 
-        negocio.UsuarioId = usuarioId;
+        negocio.UsuarioId = usuarioId.Value;
 
         _context.Negocios.Add(negocio);
         await _context.SaveChangesAsync();
@@ -61,39 +58,35 @@ public class NegociosController : ControllerBase
         return CreatedAtAction(nameof(GetNegocio), new { id = negocio.Id }, negocio);
     }
 
-    // 4. ATUALIZAR um negócio
     [HttpPut("{id}")]
     public async Task<IActionResult> PutNegocio(int id, Negocio negocio)
     {
-    // O ID da URL deve ser o mesmo do objeto enviado
-    if (id != negocio.Id) return BadRequest("IDs não coincidem.");
+        if (id != negocio.Id) return BadRequest("IDs não coincidem.");
 
-    var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-    var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
 
-    // Segurança: Garante que o usuário só edite o que é dele
-    var negocioOriginal = await _context.Negocios
-        .AsNoTracking()
-        .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
+        var negocioOriginal = await _context.Negocios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId.Value);
 
-    if (negocioOriginal == null) return NotFound("Permissão negada.");
+        if (negocioOriginal == null) return NotFound("Permissão negada.");
 
-    negocio.UsuarioId = usuarioId;
-    _context.Entry(negocio).State = EntityState.Modified;
+        negocio.UsuarioId = usuarioId.Value;
+        _context.Entry(negocio).State = EntityState.Modified;
 
-    await _context.SaveChangesAsync();
-    return NoContent();
-}
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
 
-    // 5. DELETAR um negócio
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteNegocio(int id)
     {
-        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-        var usuarioId = int.Parse(usuarioIdStr);
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
 
         var negocio = await _context.Negocios
-            .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId);
+            .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId.Value);
 
         if (negocio == null) return NotFound();
 
@@ -101,10 +94,5 @@ public class NegociosController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
-    }
-
-    private bool NegocioExists(int id)
-    {
-        return _context.Negocios.Any(e => e.Id == id);
     }
 }

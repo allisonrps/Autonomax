@@ -33,7 +33,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }));
 
 // --- SEGURANÇA (JWT) ---
-var chave = Encoding.ASCII.GetBytes("Sua_Chave_Super_Secreta_De_32_Caracteres_Minimo");
+var secretKey = Autonomax.Backend.Services.TokenService.ObterChaveSecret(builder.Configuration);
+var chave = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication(x =>
 {
@@ -49,7 +50,9 @@ builder.Services.AddAuthentication(x =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(chave),
         ValidateIssuer = false,
-        ValidateAudience = false
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
     };
 });
 
@@ -135,6 +138,16 @@ var app = builder.Build();
 
 // --- MIDDLEWARE E PIPELINE ---
 app.UseMiddleware<Autonomax.Backend.Middleware.ErrorHandlingMiddleware>();
+
+// Security Headers HTTP
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();

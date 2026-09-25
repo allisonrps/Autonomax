@@ -4,6 +4,7 @@ using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
 using Autonomax.Backend.DTOs;
 using Microsoft.AspNetCore.Authorization;
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
@@ -22,6 +23,12 @@ public class ProdutosServicosController : ControllerBase
     [HttpGet("por-negocio/{negocioId}")]
     public async Task<ActionResult<IEnumerable<ProdutoServico>>> GetPorNegocio(int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
+
         try
         {
             await SincronizarItensDoHistoricoInternoAsync(_context, negocioId);
@@ -43,13 +50,26 @@ public class ProdutosServicosController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ProdutoServico>> GetById(int id)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var item = await _context.ProdutosServicos.FindAsync(id);
-        return item == null ? NotFound() : item;
+        if (item == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(item.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado ao item deste negócio." });
+        }
+
+        return Ok(item);
     }
 
     [HttpGet("{id}/detalhes")]
     public async Task<IActionResult> GetDetalhes(int id, [FromQuery] int negocioId, [FromQuery] int? ano)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
         var produto = await _context.ProdutosServicos.FindAsync(id);
         if (produto == null) return NotFound(new { message = "Produto ou serviço não encontrado." });
 
@@ -258,6 +278,12 @@ public class ProdutosServicosController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProdutoServico>> Post([FromBody] ProdutoServicoCreateDto dto)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(dto.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para cadastrar itens neste negócio." });
+        }
+
         try
         {
             if (string.IsNullOrWhiteSpace(dto.Nome))
@@ -302,8 +328,14 @@ public class ProdutosServicosController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Put(int id, [FromBody] ProdutoServicoUpdateDto dto)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var item = await _context.ProdutosServicos.FindAsync(id);
         if (item == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(item.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para alterar este item." });
+        }
 
         var precoAnterior = item.Preco;
         var novoPreco = dto.Preco >= 0 ? dto.Preco : 0;
@@ -346,8 +378,14 @@ public class ProdutosServicosController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var item = await _context.ProdutosServicos.FindAsync(id);
         if (item == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(item.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para excluir este item." });
+        }
 
         _context.ProdutosServicos.Remove(item);
         await _context.SaveChangesAsync();

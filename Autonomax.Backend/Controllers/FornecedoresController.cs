@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
 using Microsoft.AspNetCore.Authorization;
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
@@ -18,6 +19,12 @@ public class FornecedoresController : ControllerBase
     [HttpGet("por-negocio/{negocioId}")]
     public async Task<IActionResult> GetFornecedores(int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
+
         try
         {
             var fornecedoresComTransacoes = await _context.Fornecedores
@@ -35,15 +42,12 @@ public class FornecedoresController : ControllerBase
                 f.NegocioId,
                 f.DataCriacao,
 
-                // Soma total gasto (saídas vinculadas a este parceiro)
                 TotalGasto = f.Transacoes != null 
                     ? f.Transacoes.Where(t => t.Tipo == "Saida" || t.Tipo == "Saída").Sum(t => t.Valor) 
                     : 0,
 
-                // Quantidade total de lançamentos
                 QtdLancamentos = f.Transacoes != null ? f.Transacoes.Count : 0,
 
-                // Pega a data da última transação (se existir)
                 UltimaMovimentacao = f.Transacoes != null
                     ? f.Transacoes
                         .OrderByDescending(t => t.Data)
@@ -65,13 +69,27 @@ public class FornecedoresController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Fornecedor>> GetFornecedor(int id)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var fornecedor = await _context.Fornecedores.FindAsync(id);
-        return fornecedor == null ? NotFound() : fornecedor;
+        if (fornecedor == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(fornecedor.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado aos dados deste parceiro." });
+        }
+
+        return Ok(fornecedor);
     }
 
     [HttpPost]
     public async Task<ActionResult<Fornecedor>> PostFornecedor(Fornecedor fornecedor)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(fornecedor.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para cadastrar parceiro neste negócio." });
+        }
+
         _context.Fornecedores.Add(fornecedor);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetFornecedor), new { id = fornecedor.Id }, fornecedor);
@@ -81,8 +99,24 @@ public class FornecedoresController : ControllerBase
     public async Task<IActionResult> PutFornecedor(int id, Fornecedor fornecedor)
     {
         if (id != fornecedor.Id) return BadRequest();
-        _context.Entry(fornecedor).State = EntityState.Modified;
-        try { await _context.SaveChangesAsync(); }
+
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        var existente = await _context.Fornecedores.FirstOrDefaultAsync(f => f.Id == id);
+        if (existente == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(existente.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para alterar este parceiro." });
+        }
+
+        existente.Nome = fornecedor.Nome;
+        existente.Telefone = fornecedor.Telefone;
+        existente.Categoria = fornecedor.Categoria;
+        existente.Observacoes = fornecedor.Observacoes;
+
+        try { 
+            await _context.SaveChangesAsync(); 
+        }
         catch (DbUpdateConcurrencyException) {
             if (!_context.Fornecedores.Any(e => e.Id == id)) return NotFound();
             throw;
@@ -93,8 +127,15 @@ public class FornecedoresController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteFornecedor(int id)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
         var fornecedor = await _context.Fornecedores.FindAsync(id);
         if (fornecedor == null) return NotFound();
+
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(fornecedor.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Sem permissão para excluir este parceiro." });
+        }
+
         _context.Fornecedores.Remove(fornecedor);
         await _context.SaveChangesAsync();
         return NoContent();
@@ -103,13 +144,17 @@ public class FornecedoresController : ControllerBase
     [HttpGet("por-fornecedor/{fornecedorId}")]
     public async Task<ActionResult> GetPorFornecedor(int fornecedorId, [FromQuery] int negocioId)
     {
-        // 1. Busca os dados do fornecedor 
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
         var fornecedor = await _context.Fornecedores
             .FirstOrDefaultAsync(f => f.Id == fornecedorId && f.NegocioId == negocioId);
 
         if (fornecedor == null) return NotFound("Parceiro não encontrado.");
 
-        // 2. Busca as transações vinculadas a este fornecedor com os itens
         var transacoes = await _context.Transacoes
             .Include(t => t.Itens)
             .Where(t => t.FornecedorId == fornecedorId && t.NegocioId == negocioId)
@@ -122,6 +167,4 @@ public class FornecedoresController : ControllerBase
             transacoes
         });
     }
-
-
 }
