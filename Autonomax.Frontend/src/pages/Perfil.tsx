@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout';
 import { 
   Trash2, Edit3, X, Building2, 
   AlertTriangle, Rocket, ChevronDown, ChevronUp, Lock, 
-  ShieldCheck, Palette, Check, Upload
+  ShieldCheck, Palette, Check, Upload, ArrowRight
 } from 'lucide-react';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -145,44 +145,109 @@ export function Perfil() {
             <div className="flex flex-col gap-2.5">
               {negocios.map(negocio => {
                 const dados = detalhesFinanceiros[negocio.id];
+                const isExpandido = negocioExpandido === negocio.id;
+
                 return (
-                  <div key={negocio.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 md:px-6 md:py-4 flex flex-col transition-all hover:border-gray-700">
+                  <div key={negocio.id} className="bg-gray-900 rounded-xl border border-gray-800 p-3.5 sm:p-4 md:px-6 md:py-4 flex flex-col transition-all hover:border-gray-700">
+                    
+                    {/* Primeia Linha: Ícone/Logo + Nome + Flechinha Acessar + Chevron Expandir */}
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-4 min-w-0">
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                        {/* Ícone com a letra (ou logo se cadastrado) */}
                         {negocio.logoUrl ? (
-                          <div className="w-12 h-12 rounded-lg bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-950 border border-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
                             <img src={negocio.logoUrl} alt={negocio.nome} className="w-full h-full object-contain p-1" />
                           </div>
                         ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-800 text-gray-300 flex items-center justify-center font-black text-lg border border-gray-700 flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gray-800 text-emerald-400 flex items-center justify-center font-black text-base sm:text-lg border border-gray-700 flex-shrink-0 shadow-sm">
                             <span>{negocio.nome.charAt(0).toUpperCase()}</span>
                           </div>
                         )}
 
-                        <div className="min-w-0">
-                          <h4 className="font-black text-sm sm:text-base uppercase tracking-tight text-white truncate">{negocio.nome}</h4>
-                          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Unidade Ativa</span>
+                        {/* Nome da Unidade */}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-black text-xs sm:text-sm md:text-base uppercase tracking-tight text-white truncate">
+                            {negocio.nome}
+                          </h4>
+                          <span className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider block truncate">
+                            Unidade Operacional
+                          </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => selecionarNegocio(negocio.id)} className="bg-emerald-950/50 text-emerald-400 px-4 py-2 rounded-md text-[10px] font-black uppercase hover:bg-emerald-900/40 border border-emerald-900/50 transition-colors cursor-pointer">Acessar</button>
-                        <button onClick={() => toggleExpandir(negocio.id)} className="p-2 text-gray-500 hover:text-white transition-colors cursor-pointer bg-transparent border-none">{negocioExpandido === negocio.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}</button>
-                        <button onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }} className="p-2 text-gray-500 hover:text-emerald-400 transition-colors cursor-pointer bg-transparent border-none" title="Editar perfil / logo"><Edit3 size={16}/></button>
-                        <button onClick={() => setConfirmarExclusao(negocio.id)} className="p-2 text-gray-500 hover:text-red-400 transition-colors cursor-pointer bg-transparent border-none" title="Excluir unidade"><Trash2 size={16}/></button>
+                      {/* Botões do Header: Flechinha de Acessar + Chevron de Expandir */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => selecionarNegocio(negocio.id)}
+                          className="p-2 sm:p-2.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-400 hover:text-emerald-300 rounded-xl border border-emerald-900/60 hover:border-emerald-500/50 transition-all cursor-pointer flex items-center justify-center shadow-sm active:scale-95"
+                          title="Acessar esta unidade"
+                        >
+                          <ArrowRight size={18} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandir(negocio.id)}
+                          className="p-2 sm:p-2.5 text-gray-400 hover:text-white bg-gray-950 hover:bg-gray-800 rounded-xl border border-gray-800 transition-all cursor-pointer flex items-center justify-center"
+                          title={isExpandido ? "Recolher detalhes" : "Expandir detalhes"}
+                        >
+                          {isExpandido ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
                       </div>
                     </div>
 
-                    {negocioExpandido === negocio.id && (
-                      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3 pt-4 border-t border-gray-800 animate-in slide-in-from-top duration-200">
-                        {[ {l: 'Receitas', v: dados?.receitas || 0, c: 'text-emerald-400'}, {l: 'Pendentes', v: dados?.pendentes || 0, c: 'text-amber-400'}, {l: 'Despesas', v: dados?.despesas || 0, c: 'text-red-400'}, {l: 'Líquido', v: dados?.liquido || 0, c: (dados?.liquido || 0) >= 0 ? 'text-blue-400' : 'text-red-400'} ].map((f, i) => (
-                           <div key={i} className="bg-gray-950 p-3 rounded-lg border border-gray-800">
-                             <p className="text-[9px] font-bold text-gray-500 uppercase">{f.l}</p>
-                             <p className={`text-xs font-black ${f.c}`}>R$ {f.v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                           </div>
-                        ))}
+                    {/* Conteúdo do Card Expandido */}
+                    {isExpandido && (
+                      <div className="mt-4 pt-4 border-t border-gray-800 space-y-4 animate-in slide-in-from-top duration-200">
+                        {/* Métricas Financeiras sem o card de Pendentes (apenas Receitas, Despesas, Líquido) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                          {[
+                            { l: 'Receitas', v: dados?.receitas || 0, c: 'text-emerald-400' },
+                            { l: 'Despesas', v: dados?.despesas || 0, c: 'text-red-400' },
+                            { l: 'Líquido', v: dados?.liquido || 0, c: (dados?.liquido || 0) >= 0 ? 'text-blue-400' : 'text-red-400' }
+                          ].map((f, i) => (
+                            <div key={i} className="bg-gray-950 p-3 rounded-xl border border-gray-800">
+                              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{f.l}</p>
+                              <p className={`text-xs sm:text-sm font-black ${f.c}`}>
+                                R$ {f.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Botões de Ação da Unidade */}
+                        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-gray-800/80">
+                          <button
+                            type="button"
+                            onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }}
+                            className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 text-gray-300 hover:text-white px-3 py-2 rounded-xl border border-gray-800 text-[10px] font-black uppercase transition-all cursor-pointer"
+                          >
+                            <Edit3 size={14} className="text-emerald-400" />
+                            <span>Editar Unidade</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setConfirmarExclusao(negocio.id)}
+                            className="flex items-center gap-1.5 bg-gray-950 hover:bg-red-950/50 text-gray-400 hover:text-red-400 px-3 py-2 rounded-xl border border-gray-800 hover:border-red-900/60 text-[10px] font-black uppercase transition-all cursor-pointer"
+                          >
+                            <Trash2 size={14} />
+                            <span>Excluir Unidade</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => selecionarNegocio(negocio.id)}
+                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer border-none shadow-sm"
+                          >
+                            <span>Acessar</span>
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
                       </div>
                     )}
+
                   </div>
                 );
               })}
