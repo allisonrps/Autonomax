@@ -77,13 +77,18 @@ export function Dashboard() {
   const [editando, setEditando] = useState<Transacao | null>(null);
   const [novoItemEdicao, setNovoItemEdicao] = useState<{ nome: string; qtd: number | string }>({ nome: '', qtd: 1 });
 
-  // Modal de Nova Venda (Clean & Rápido)
+  // Modal de Nova Venda (Dividido em 3 Fases / Abas)
   const [modalVendaAberto, setModalVendaAberto] = useState(false);
+  const [etapaVenda, setEtapaVenda] = useState<1 | 2 | 3>(1);
   const [salvandoVenda, setSalvandoVenda] = useState(false);
   const [clienteId, setClienteId] = useState('');
   const [metodoPagamento, setMetodoPagamento] = useState('Pix');
   const [statusPagamento, setStatusPagamento] = useState('Pago');
   const [dataVenda, setDataVenda] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const [horaVenda, setHoraVenda] = useState(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
   const [valorTotalEditavel, setValorTotalEditavel] = useState('');
   const [valorFoiEditadoManualmente, setValorFoiEditadoManualmente] = useState(false);
 
@@ -267,13 +272,16 @@ export function Dashboard() {
     setMetodoPagamento('Pix');
     setStatusPagamento('Pago');
     setDataVenda(new Date().toLocaleDateString('en-CA'));
+    const d = new Date();
+    setHoraVenda(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
     setValorTotalEditavel('');
     setValorFoiEditadoManualmente(false);
     setItemQtd(1);
+    setEtapaVenda(1);
     setModalVendaAberto(true);
   };
 
-  // Salvar Venda (captura horário real HH:mm:ss)
+  // Salvar Venda (captura horário real ou informado HH:mm)
   const handleFinalizarVenda = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (itensVenda.length === 0) {
@@ -283,9 +291,8 @@ export function Dashboard() {
 
     try {
       setSalvandoVenda(true);
-      const agora = new Date();
-      const horaStr = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`;
-      const dataFormatada = new Date(`${dataVenda}T${horaStr}`);
+      const horaFinal = horaVenda || `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+      const dataFormatada = new Date(`${dataVenda}T${horaFinal}:00`);
       const itensFormatados = itensVenda.map(it => ({
         nome: it.item,
         quantidade: it.qtd
@@ -316,6 +323,7 @@ export function Dashboard() {
       setValorTotalEditavel('');
       setValorFoiEditadoManualmente(false);
       setItemQtd(1);
+      setEtapaVenda(1);
       setModalVendaAberto(false);
 
       carregarDados();
@@ -898,243 +906,377 @@ export function Dashboard() {
       </div>
 
       {/* ============================================================ */}
-      {/* 5. MODAL DE REGISTRAR NOVA VENDA (MODELO CLEAN E RÁPIDO)    */}
+      {/* 5. MODAL DE REGISTRAR NOVA VENDA (3 FASES / ABAS CLEAN)     */}
       {/* ============================================================ */}
       {modalVendaAberto && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
           <div className="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150">
-            {/* Cabeçalho Clean */}
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-gray-900/90 flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 rounded-xl">
-                  <Plus size={18} />
+            
+            {/* Cabeçalho com Indicador de 3 Fases / Abas */}
+            <div className="p-4 border-b border-gray-800 bg-gray-900/90 flex-shrink-0 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 rounded-xl">
+                    <Plus size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                      Nova Venda
+                    </h3>
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                      Fase {etapaVenda} de 3
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-white">
-                    Nova Venda
-                  </h3>
-                  <p className="text-[10px] font-bold text-gray-500">
-                    Lançamento rápido de pedido
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalVendaAberto(false)}
+                  className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setModalVendaAberto(false)}
-                className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors bg-transparent border-none cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+
+              {/* Barra de Navegação por Abas (1. Cliente & Data | 2. Itens | 3. Pagamento) */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-950 rounded-xl border border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setEtapaVenda(1)}
+                  className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none ${
+                    etapaVenda === 1
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[9px]">1</span>
+                  <span className="truncate">Cliente & Data</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEtapaVenda(2)}
+                  className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none ${
+                    etapaVenda === 2
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[9px]">2</span>
+                  <span className="truncate">Itens</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEtapaVenda(3)}
+                  className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none ${
+                    etapaVenda === 3
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[9px]">3</span>
+                  <span className="truncate">Pagamento</span>
+                </button>
+              </div>
             </div>
 
-            {/* Conteúdo com Scroll */}
+            {/* Conteúdo com Scroll para cada Fase */}
             <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
 
-              {/* 1. Cliente */}
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">
-                  Cliente
-                </label>
-                <select
-                  value={clienteId}
-                  onChange={e => setClienteId(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500 cursor-pointer"
-                >
-                  <option value="">👤 Consumidor Não Identificado (Venda Avulsa)</option>
-                  {clientes.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 2. Adicionar Itens ao Pedido */}
-              <div className="space-y-2">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400">
-                  Itens do Pedido
-                </label>
-
-                {/* Seleção rápida do Catálogo */}
-                {produtosServicos.length > 0 && (
-                  <select
-                    value={itemCatalogoId}
-                    onChange={e => handleSelecionarCatalogo(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs font-bold text-emerald-400 outline-none focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="">⚡ Selecionar do Catálogo (Preço automático)...</option>
-                    {produtosServicos.map(ps => (
-                      <option key={ps.id} value={ps.id}>
-                        {ps.ehServico ? '🛠️' : '📦'} {ps.nome} — R$ {Number(ps.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* Inputs de Item / Qtd / Preço */}
-                <div className="grid grid-cols-12 gap-1.5">
-                  <input
-                    type="text"
-                    placeholder="Descrição do produto/serviço..."
-                    value={itemNome}
-                    onChange={e => setItemNome(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemVenda(); } }}
-                    className="col-span-6 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs font-bold text-white placeholder-gray-600 outline-none focus:border-emerald-500"
-                  />
-                  <input
-                    type="number"
-                    placeholder="Qtd"
-                    min="1"
-                    value={itemQtd}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val === '') {
-                        setItemQtd('');
-                      } else {
-                        const parsed = parseInt(val, 10);
-                        setItemQtd(isNaN(parsed) ? '' : parsed);
-                      }
-                    }}
-                    onBlur={() => {
-                      if (itemQtd === '' || Number(itemQtd) < 1) setItemQtd(1);
-                    }}
-                    className="col-span-2 bg-gray-950 border border-gray-800 rounded-xl px-2 py-2 text-xs font-bold text-center text-white outline-none focus:border-emerald-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="R$ Unit"
-                    value={itemPrecoUnitario}
-                    onChange={e => setItemPrecoUnitario(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemVenda(); } }}
-                    className="col-span-3 bg-gray-950 border border-gray-800 rounded-xl px-2.5 py-2 text-xs font-bold text-emerald-400 placeholder-gray-600 outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAdicionarItemVenda}
-                    className="col-span-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center cursor-pointer border-none transition-colors"
-                    title="Adicionar item"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
-
-                {/* Pílulas dos Itens Inclusos */}
-                {itensVenda.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {itensVenda.map((it, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-gray-950 border border-gray-800 px-2.5 py-1 rounded-lg flex items-center gap-1.5 text-xs font-bold text-gray-200"
-                      >
-                        <span className="text-emerald-400 font-black">{it.qtd}x</span>
-                        <span className="truncate max-w-[140px]">{it.item}</span>
-                        <span className="text-gray-400 text-[10px]">
-                          (R$ {(it.qtd * it.precoUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoverItemVenda(idx)}
-                          className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer p-0.5 ml-0.5"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Valor Total & Pagamento */}
-              <div className="pt-2 border-t border-gray-800/80 space-y-3">
-                {/* Valor Total Editável */}
-                <div className="bg-emerald-950/30 border border-emerald-900/60 p-3 rounded-xl flex items-center justify-between gap-3">
+              {/* FASE 1: CLIENTE, DATA E HORA */}
+              {etapaVenda === 1 && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  {/* Cliente */}
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
-                      Valor Total (R$)
-                    </span>
-                    <span className="text-[9px] text-gray-500">Editável se necessário</span>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      Selecione o Cliente
+                    </label>
+                    <select
+                      value={clienteId}
+                      onChange={e => setClienteId(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-3 text-xs font-bold text-white outline-none focus:border-emerald-500 cursor-pointer"
+                    >
+                      <option value="">👤 Consumidor Não Identificado (Venda Avulsa)</option>
+                      {clientes.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="flex items-center gap-1 bg-gray-950 border border-emerald-500/50 rounded-lg px-2.5 py-1.5">
-                    <span className="text-xs font-black text-emerald-400">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={valorTotalEditavel}
-                      onChange={e => {
-                        setValorTotalEditavel(e.target.value);
-                        setValorFoiEditadoManualmente(true);
-                      }}
-                      className="w-28 bg-transparent text-right text-base font-black text-emerald-400 outline-none"
-                      placeholder={valorTotalCalculado.toFixed(2)}
-                    />
+
+                  {/* Data e Hora */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                        Data da Venda
+                      </label>
+                      <input
+                        type="date"
+                        value={dataVenda}
+                        onChange={e => setDataVenda(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                        Horário da Venda
+                      </label>
+                      <input
+                        type="time"
+                        value={horaVenda}
+                        onChange={e => setHoraVenda(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500"
+                      />
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {/* Meio de Pagamento */}
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                    Forma de Pagamento
-                  </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {['Pix', 'Cartão', 'Dinheiro', 'Boleto'].map(m => (
+              {/* FASE 2: ADICIONAR ITENS */}
+              {etapaVenda === 2 && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400">
+                      Adicionar Produtos ou Serviços
+                    </label>
+
+                    {/* Seleção rápida do Catálogo */}
+                    {produtosServicos.length > 0 && (
+                      <select
+                        value={itemCatalogoId}
+                        onChange={e => handleSelecionarCatalogo(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-emerald-400 outline-none focus:border-emerald-500 cursor-pointer"
+                      >
+                        <option value="">⚡ Selecionar do Catálogo (Preço automático)...</option>
+                        {produtosServicos.map(ps => (
+                          <option key={ps.id} value={ps.id}>
+                            {ps.ehServico ? '🛠️' : '📦'} {ps.nome} — R$ {Number(ps.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    {/* Inputs de Item / Qtd / Preço */}
+                    <div className="grid grid-cols-12 gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Descrição do item..."
+                        value={itemNome}
+                        onChange={e => setItemNome(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemVenda(); } }}
+                        className="col-span-6 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white placeholder-gray-600 outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Qtd"
+                        min="1"
+                        value={itemQtd}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setItemQtd('');
+                          } else {
+                            const parsed = parseInt(val, 10);
+                            setItemQtd(isNaN(parsed) ? '' : parsed);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (itemQtd === '' || Number(itemQtd) < 1) setItemQtd(1);
+                        }}
+                        className="col-span-2 bg-gray-950 border border-gray-800 rounded-xl px-2 py-2.5 text-xs font-bold text-center text-white outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="R$ Unit"
+                        value={itemPrecoUnitario}
+                        onChange={e => setItemPrecoUnitario(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemVenda(); } }}
+                        className="col-span-3 bg-gray-950 border border-gray-800 rounded-xl px-2.5 py-2.5 text-xs font-bold text-emerald-400 placeholder-gray-600 outline-none focus:border-emerald-500"
+                      />
                       <button
-                        key={m}
                         type="button"
-                        onClick={() => setMetodoPagamento(m)}
-                        className={`py-2 px-1 rounded-xl border text-[11px] font-black uppercase tracking-wide flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                          metodoPagamento === m
-                            ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-sm'
+                        onClick={handleAdicionarItemVenda}
+                        className="col-span-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center justify-center cursor-pointer border-none transition-colors"
+                        title="Adicionar item"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+
+                    {/* Pílulas dos Itens Inclusos */}
+                    {itensVenda.length === 0 ? (
+                      <div className="p-6 bg-gray-950/50 rounded-xl border border-dashed border-gray-800 text-center">
+                        <p className="text-xs font-bold text-gray-500">Nenhum item adicionado ainda.</p>
+                        <p className="text-[10px] text-gray-600 mt-1">Selecione do catálogo ou digite acima e clique no botão (+).</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {itensVenda.map((it, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-gray-950 border border-gray-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-bold text-gray-200"
+                          >
+                            <span className="text-emerald-400 font-black">{it.qtd}x</span>
+                            <span className="truncate max-w-[140px]">{it.item}</span>
+                            <span className="text-gray-400 text-[10px]">
+                              (R$ {(it.qtd * it.precoUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoverItemVenda(idx)}
+                              className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer p-0.5 ml-0.5"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* FASE 3: PAGAMENTO E CONCLUSÃO */}
+              {etapaVenda === 3 && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  {/* Resumo Rápido de Itens */}
+                  <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-300">Total de Itens</span>
+                    <span className="text-xs font-black text-emerald-400">{itensVenda.length} {itensVenda.length === 1 ? 'item' : 'itens'}</span>
+                  </div>
+
+                  {/* Valor Total Editável */}
+                  <div className="bg-emerald-950/30 border border-emerald-900/60 p-4 rounded-xl flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
+                        Valor Total da Venda
+                      </span>
+                      <span className="text-[9px] text-gray-500">Calculado automaticamente (editável)</span>
+                    </div>
+                    <div className="flex items-center gap-1 bg-gray-950 border border-emerald-500/50 rounded-xl px-3 py-2">
+                      <span className="text-xs font-black text-emerald-400">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={valorTotalEditavel}
+                        onChange={e => {
+                          setValorTotalEditavel(e.target.value);
+                          setValorFoiEditadoManualmente(true);
+                        }}
+                        className="w-28 bg-transparent text-right text-lg font-black text-emerald-400 outline-none"
+                        placeholder={valorTotalCalculado.toFixed(2)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Meio de Pagamento */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      Forma de Pagamento
+                    </label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {['Pix', 'Cartão', 'Dinheiro', 'Boleto'].map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setMetodoPagamento(m)}
+                          className={`py-2.5 px-1 rounded-xl border text-[11px] font-black uppercase tracking-wide flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                            metodoPagamento === m
+                              ? 'bg-emerald-950/80 border-emerald-500 text-emerald-300 shadow-sm'
+                              : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          {getIconePagamento(m)}
+                          <span>{m}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Status da Venda */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      Status do Pagamento
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setStatusPagamento('Pago')}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          statusPagamento === 'Pago'
+                            ? 'bg-emerald-950/80 border-emerald-500 text-emerald-400'
                             : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-gray-200'
                         }`}
                       >
-                        {getIconePagamento(m)}
-                        <span>{m}</span>
+                        <CheckCircle2 size={14} />
+                        <span>Pago (Recebido)</span>
                       </button>
-                    ))}
+
+                      <button
+                        type="button"
+                        onClick={() => setStatusPagamento('Pendente')}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          statusPagamento === 'Pendente'
+                            ? 'bg-amber-950/80 border-amber-500 text-amber-400'
+                            : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        <span>⏳ Pendente</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Status & Data (Linha Rápida) */}
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={statusPagamento}
-                    onChange={e => setStatusPagamento(e.target.value)}
-                    className="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs font-bold text-white outline-none focus:border-emerald-500 cursor-pointer"
-                  >
-                    <option value="Pago">✅ Pago (Recebido)</option>
-                    <option value="Pendente">⏳ Pendente (A Receber)</option>
-                  </select>
-
-                  <input
-                    type="date"
-                    value={dataVenda}
-                    onChange={e => setDataVenda(e.target.value)}
-                    className="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs font-bold text-white outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
+              )}
 
             </div>
 
-            {/* Footer Botão OK */}
-            <div className="p-4 border-t border-gray-800 bg-gray-900/90 flex items-center justify-end gap-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setModalVendaAberto(false)}
-                className="px-4 py-2.5 rounded-xl border border-gray-800 text-gray-400 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-transparent"
-              >
-                Cancelar
-              </button>
+            {/* Footer com Navegação por Botões de Avançar / Voltar / Concluir */}
+            <div className="p-4 border-t border-gray-800 bg-gray-900/90 flex items-center justify-between gap-2 flex-shrink-0">
+              {etapaVenda === 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setModalVendaAberto(false)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-800 text-gray-400 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-transparent"
+                >
+                  Cancelar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEtapaVenda(prev => (prev - 1) as 1 | 2 | 3)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-800 text-gray-300 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-gray-950"
+                >
+                  ⬅ Voltar
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={handleFinalizarVenda}
-                disabled={salvandoVenda || itensVenda.length === 0}
-                className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer border-none flex items-center gap-2"
-              >
-                <CheckCircle2 size={16} />
-                <span>{salvandoVenda ? 'Salvando...' : 'Concluir Venda (OK)'}</span>
-              </button>
+              {etapaVenda < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (etapaVenda === 2 && itensVenda.length === 0) {
+                      return alert('Adicione pelo menos um item à venda para continuar.');
+                    }
+                    setEtapaVenda(prev => (prev + 1) as 1 | 2 | 3);
+                  }}
+                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer border-none flex items-center gap-1.5"
+                >
+                  <span>Avançar</span>
+                  <span>➔</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFinalizarVenda}
+                  disabled={salvandoVenda || itensVenda.length === 0}
+                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 transition-all cursor-pointer border-none flex items-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{salvandoVenda ? 'Salvando...' : 'Concluir Venda (OK)'}</span>
+                </button>
+              )}
             </div>
 
           </div>
