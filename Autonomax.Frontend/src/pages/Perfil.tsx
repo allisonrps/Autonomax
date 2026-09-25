@@ -166,12 +166,9 @@ export function Perfil() {
 
                         {/* Nome da Unidade */}
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-xs sm:text-sm md:text-base uppercase tracking-tight text-white truncate">
+                          <h4 className="font-black text-sm sm:text-base uppercase tracking-tight text-white truncate">
                             {negocio.nome}
                           </h4>
-                          <span className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider block truncate">
-                            Unidade Operacional
-                          </span>
                         </div>
                       </div>
 
@@ -200,49 +197,49 @@ export function Perfil() {
                     {/* Conteúdo do Card Expandido */}
                     {isExpandido && (
                       <div className="mt-4 pt-4 border-t border-gray-800 space-y-4 animate-in slide-in-from-top duration-200">
-                        {/* Métricas Financeiras sem o card de Pendentes (apenas Receitas, Despesas, Líquido) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+                        {/* Métricas Financeiras em 1 única linha no mobile */}
+                        <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
                           {[
                             { l: 'Receitas', v: dados?.receitas || 0, c: 'text-emerald-400' },
                             { l: 'Despesas', v: dados?.despesas || 0, c: 'text-red-400' },
                             { l: 'Líquido', v: dados?.liquido || 0, c: (dados?.liquido || 0) >= 0 ? 'text-blue-400' : 'text-red-400' }
                           ].map((f, i) => (
-                            <div key={i} className="bg-gray-950 p-3 rounded-xl border border-gray-800">
-                              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{f.l}</p>
-                              <p className={`text-xs sm:text-sm font-black ${f.c}`}>
+                            <div key={i} className="bg-gray-950 p-2 sm:p-3 rounded-xl border border-gray-800 text-center sm:text-left">
+                              <p className="text-[8px] sm:text-[9px] font-bold text-gray-500 uppercase tracking-wider truncate">{f.l}</p>
+                              <p className={`text-[10px] sm:text-sm font-black truncate ${f.c}`}>
                                 R$ {f.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </p>
                             </div>
                           ))}
                         </div>
 
-                        {/* Botões de Ação da Unidade */}
-                        <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-gray-800/80">
+                        {/* Botões de Ação Responsivos */}
+                        <div className="flex items-center justify-end gap-1.5 sm:gap-2 pt-2 border-t border-gray-800/80 w-full">
                           <button
                             type="button"
                             onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }}
-                            className="flex items-center gap-1.5 bg-gray-950 hover:bg-gray-800 text-gray-300 hover:text-white px-3 py-2 rounded-xl border border-gray-800 text-[10px] font-black uppercase transition-all cursor-pointer"
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-950 hover:bg-gray-800 text-gray-300 hover:text-white px-2.5 sm:px-3.5 py-2 rounded-xl border border-gray-800 text-[10px] font-black uppercase transition-all cursor-pointer"
                           >
-                            <Edit3 size={14} className="text-emerald-400" />
-                            <span>Editar Unidade</span>
+                            <Edit3 size={13} className="text-emerald-400 flex-shrink-0" />
+                            <span>Editar</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => setConfirmarExclusao(negocio.id)}
-                            className="flex items-center gap-1.5 bg-gray-950 hover:bg-red-950/50 text-gray-400 hover:text-red-400 px-3 py-2 rounded-xl border border-gray-800 hover:border-red-900/60 text-[10px] font-black uppercase transition-all cursor-pointer"
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-950 hover:bg-red-950/50 text-gray-400 hover:text-red-400 px-2.5 sm:px-3.5 py-2 rounded-xl border border-gray-800 hover:border-red-900/60 text-[10px] font-black uppercase transition-all cursor-pointer"
                           >
-                            <Trash2 size={14} />
-                            <span>Excluir Unidade</span>
+                            <Trash2 size={13} className="flex-shrink-0" />
+                            <span>Excluir</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => selecionarNegocio(negocio.id)}
-                            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer border-none shadow-sm"
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 sm:px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all cursor-pointer border-none shadow-sm"
                           >
                             <span>Acessar</span>
-                            <ArrowRight size={14} />
+                            <ArrowRight size={13} className="flex-shrink-0" />
                           </button>
                         </div>
                       </div>
