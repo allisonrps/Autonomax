@@ -7,11 +7,11 @@ import {
   TrendingUp, ChevronDown, ChevronUp, 
   LineChart as LineChartIcon, 
   PieChart as PieChartIcon,
-  Trophy, ArrowUpRight, CreditCard, ShoppingBag, User, CalendarDays
+  Trophy, ArrowUpRight, ShoppingBag, User, CalendarDays
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Legend, 
+  Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
@@ -115,7 +115,7 @@ export function Relatorios() {
     dadosGrafico.reduce((prev, curr) => (curr.entradas > prev.entradas ? curr : prev), dadosGrafico[0]),
   [dadosGrafico]);
 
-  // Média mensal líquida considerando apenas meses fechados (desconsiderando o mês ativo)
+  // Média mensal líquida considerando apenas meses fechados
   const hoje = new Date();
   const anoAtual = hoje.getFullYear();
   const mesAtualIndex = hoje.getMonth();
@@ -141,7 +141,7 @@ export function Relatorios() {
 
   const formatarTooltip = (value: any): [string, string] => [formatarMoeda(Number(value || 0)), ''];
 
-  // Dados para o Gráfico de Pizza (Formas de Pagamento)
+  // Dados para o Gráfico e Estatísticas de Formas de Pagamento
   const dadosPizzaPagamento = useMemo(() => {
     const mapPagamentos: Record<string, number> = {};
     transacoesEntrada.forEach(t => {
@@ -214,19 +214,6 @@ export function Relatorios() {
 
     return Object.values(mapClientes)
       .sort((a, b) => b.valor - a.valor)
-      .slice(0, 10);
-  }, [transacoesEntrada]);
-
-  const rankingMetodos = useMemo(() => {
-    const mapMetodos: Record<string, number> = {};
-    transacoesEntrada.forEach(t => {
-      const m = t.metodoPagamento?.trim() || 'Não Informado';
-      mapMetodos[m] = (mapMetodos[m] || 0) + t.valor;
-    });
-
-    return Object.entries(mapMetodos)
-      .map(([nome, val]) => ({ nome, val }))
-      .sort((a, b) => b.val - a.val)
       .slice(0, 10);
   }, [transacoesEntrada]);
 
@@ -344,11 +331,11 @@ export function Relatorios() {
              )}
           </div>
 
-          {/* Gráficos Principais: Mês a Mês (Evolução) & Formas de Pagamento */}
+          {/* Gráficos Principais: Mês a Mês (Evolução) & Formas de Pagamento Avançado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Gráfico Mês a Mês */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
                 <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2">
                   <LineChartIcon size={16} className="text-blue-400"/> Gráfico Mês a Mês
                 </h3>
@@ -359,7 +346,6 @@ export function Relatorios() {
                           <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tickMargin={10}/>
                           <YAxis stroke="#6b7280" fontSize={10} tickFormatter={(val) => `R$ ${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} width={45}/>
                           <Tooltip formatter={formatarTooltip} contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}/>
-                          <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}}/>
                           <Line type="monotone" name="Receitas" dataKey="entradas" stroke="#10b981" strokeWidth={3} dot={{r: 2}} activeDot={{r: 5}}/>
                           <Line type="monotone" name="Despesas" dataKey="saidas" stroke="#f43f5e" strokeWidth={3} dot={{r: 2}} activeDot={{r: 5}}/>
                           <Line type="monotone" name="Saldo Líquido" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={false}/>
@@ -368,19 +354,27 @@ export function Relatorios() {
                 </div>
             </div>
 
-            {/* Gráfico de Formas de Pagamento */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2">
-                  <PieChartIcon size={16} className="text-purple-400"/> Formas de Pagamento
-                </h3>
-                <div className="h-64">
-                  {dadosPizzaPagamento.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+            {/* Card Completo de Formas de Pagamento (Gráfico Donut + Estatísticas Detalhadas com Valores e %) */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-black uppercase flex items-center gap-2">
+                    <PieChartIcon size={16} className="text-purple-400"/> Formas de Pagamento
+                  </h3>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                    {dadosPizzaPagamento.length} {dadosPizzaPagamento.length === 1 ? 'método' : 'métodos'}
+                  </span>
+                </div>
+
+                {dadosPizzaPagamento.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center flex-1">
+                    {/* Gráfico Donut */}
+                    <div className="sm:col-span-5 h-56 flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={dadosPizzaPagamento}
-                            innerRadius={55}
-                            outerRadius={80}
+                            innerRadius={45}
+                            outerRadius={70}
                             paddingAngle={4}
                             dataKey="value"
                             nameKey="name"
@@ -393,21 +387,54 @@ export function Relatorios() {
                             formatter={(val: any) => [formatarMoeda(Number(val || 0)), 'Receita']} 
                             contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}
                           />
-                          <Legend wrapperStyle={{fontSize: '11px', paddingTop: '10px'}}/>
                         </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-xs text-gray-500 italic">
-                      Nenhuma transação com forma de pagamento registrada
+                      </ResponsiveContainer>
                     </div>
-                  )}
-                </div>
+
+                    {/* Lista Estilizada de Estatísticas por Método (Valor e %) */}
+                    <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {dadosPizzaPagamento.map((item, idx) => {
+                        const pct = totalEntradas > 0 ? (item.value / totalEntradas) * 100 : 0;
+                        const cor = COLORS_PAGAMENTO[idx % COLORS_PAGAMENTO.length];
+                        return (
+                          <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                                <span className="truncate">{item.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
+                                  {pct.toFixed(1)}%
+                                </span>
+                                <span className="font-black text-white text-xs">
+                                  {formatarMoeda(item.value)}
+                                </span>
+                              </div>
+                            </div>
+                            {/* Barra de Progresso em % */}
+                            <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: cor }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-56 flex items-center justify-center text-xs text-gray-500 italic">
+                    Nenhuma transação com forma de pagamento registrada
+                  </div>
+                )}
             </div>
 
           </div>
 
-          {/* Seção de Rankings e Lista Mês a Mês (Cards interativos clicáveis) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+          {/* Seção de Rankings (3 Cards Expandidos no Desktop) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             
             {/* Card 1: Lista Mês a Mês Clicável */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
@@ -457,7 +484,7 @@ export function Relatorios() {
                     <Link 
                       key={idx}
                       to={`/fluxo-caixa/${idx + 1}/${anoAtivo}`}
-                      className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                      className="group flex items-center justify-between py-2.5 px-3.5 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
                       title={`Ver fluxo de caixa de ${item.name}`}
                     >
                       <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate pr-2">
@@ -519,7 +546,7 @@ export function Relatorios() {
                       <Link
                         key={idx}
                         to={linkPath}
-                        className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                        className="group flex items-center justify-between py-2.5 px-3.5 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
                         title={`Ver detalhes do produto/serviço ${item.nome}`}
                       >
                         <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-emerald-400 transition-colors truncate pr-2">
@@ -553,7 +580,7 @@ export function Relatorios() {
                       <Link
                         key={idx}
                         to={linkPath}
-                        className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                        className="group flex items-center justify-between py-2.5 px-3.5 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
                         title={`Ver perfil do cliente ${c.nome}`}
                       >
                         <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-amber-400 transition-colors truncate pr-2">
@@ -569,37 +596,6 @@ export function Relatorios() {
                   })
                 ) : (
                   <div className="p-4 text-xs text-gray-500 italic text-center">Nenhum cliente registrado</div>
-                )}
-              </div>
-            </div>
-
-            {/* Card 4: Formas de Pagamento Clicável */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col overflow-hidden">
-              <div className="p-3.5 border-b border-gray-800 text-[10px] font-black uppercase tracking-wider text-gray-400 bg-gray-900/50 flex items-center gap-1.5">
-                <CreditCard size={13} className="text-purple-400" />
-                <span>Formas de Pagamento</span>
-              </div>
-              <div className="bg-gray-900 divide-y divide-gray-800/40">
-                {rankingMetodos.length > 0 ? (
-                  rankingMetodos.map((item, idx) => (
-                    <Link
-                      key={idx}
-                      to="/fluxo-caixa"
-                      className="group flex items-center justify-between py-2 px-3 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
-                      title={`Ver lançamentos para ${item.nome}`}
-                    >
-                      <div className="flex items-center text-xs font-bold text-gray-200 group-hover:text-purple-400 transition-colors truncate pr-2">
-                        {renderBadgePosicao(idx)}
-                        <span className="truncate">{item.nome}</span>
-                        <ArrowUpRight size={12} className="ml-1 opacity-0 group-hover:opacity-100 text-purple-400 transition-opacity flex-shrink-0" />
-                      </div>
-                      <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
-                        {formatarMoeda(item.val)}
-                      </span>
-                    </Link>
-                  ))
-                ) : (
-                  <div className="p-4 text-xs text-gray-500 italic text-center">Nenhuma forma informada</div>
                 )}
               </div>
             </div>
