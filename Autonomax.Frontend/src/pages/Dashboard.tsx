@@ -5,7 +5,7 @@ import {
   Calendar, Plus, ChevronDown, ChevronUp, 
   TrendingUp, DollarSign, ShoppingBag, 
   CreditCard, QrCode, Banknote, FileText, CheckCircle2, 
-  Trash2, X, User, Sparkles, RotateCcw, Edit3, Save, Tag, HandCoins, CalendarDays
+  Trash2, X, User, Sparkles, RotateCcw, Edit3, Save, Tag, HandCoins, CalendarDays, Clock
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -923,9 +923,6 @@ export function Dashboard() {
                     <h3 className="text-sm font-black uppercase tracking-wider text-white">
                       Nova Venda
                     </h3>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                      Fase {etapaVenda} de 3
-                    </p>
                   </div>
                 </div>
                 <button
@@ -1005,29 +1002,31 @@ export function Dashboard() {
                     </select>
                   </div>
 
-                  {/* Data e Hora */}
+                  {/* Data e Hora Nativo */}
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                        Data da Venda
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
+                        <Calendar size={13} className="text-emerald-400" />
+                        <span>Data da Venda</span>
                       </label>
                       <input
                         type="date"
                         value={dataVenda}
                         onChange={e => setDataVenda(e.target.value)}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500"
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500 [color-scheme:dark] cursor-pointer"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                        Horário da Venda
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
+                        <Clock size={13} className="text-emerald-400" />
+                        <span>Horário da Venda</span>
                       </label>
                       <input
                         type="time"
                         value={horaVenda}
                         onChange={e => setHoraVenda(e.target.value)}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500"
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-emerald-500 [color-scheme:dark] cursor-pointer"
                       />
                     </div>
                   </div>
@@ -1147,16 +1146,13 @@ export function Dashboard() {
                     <span className="text-xs font-black text-emerald-400">{itensVenda.length} {itensVenda.length === 1 ? 'item' : 'itens'}</span>
                   </div>
 
-                  {/* Valor Total Editável */}
-                  <div className="bg-emerald-950/30 border border-emerald-900/60 p-4 rounded-xl flex items-center justify-between gap-3">
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 block">
-                        Valor Total da Venda
-                      </span>
-                      <span className="text-[9px] text-gray-500">Calculado automaticamente (editável)</span>
-                    </div>
-                    <div className="flex items-center gap-1 bg-gray-950 border border-emerald-500/50 rounded-xl px-3 py-2">
-                      <span className="text-xs font-black text-emerald-400">R$</span>
+                  {/* Valor Total Direto e Simples */}
+                  <div className="flex items-center justify-between py-2 px-1 border-b border-gray-800">
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      TOTAL:
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-base font-black text-emerald-400">R$</span>
                       <input
                         type="number"
                         step="0.01"
@@ -1165,7 +1161,7 @@ export function Dashboard() {
                           setValorTotalEditavel(e.target.value);
                           setValorFoiEditadoManualmente(true);
                         }}
-                        className="w-28 bg-transparent text-right text-lg font-black text-emerald-400 outline-none"
+                        className="w-32 bg-transparent text-right text-lg font-black text-emerald-400 outline-none border-b border-emerald-500/30 focus:border-emerald-400 transition-colors"
                         placeholder={valorTotalCalculado.toFixed(2)}
                       />
                     </div>
