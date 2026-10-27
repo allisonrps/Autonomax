@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, } from 'react-router-dom'
 import { Lock, LogIn } from 'lucide-react';
 
 import { Login } from './pages/Login';
+import { LandingPage } from './pages/LandingPage';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { FluxoCaixa } from './pages/FluxoCaixa';
@@ -63,7 +64,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* Rotas Públicas */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
         {/* Rotas Protegidas envolvidas pela lógica de segurança */}
