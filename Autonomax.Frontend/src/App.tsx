@@ -17,15 +17,18 @@ import { Catalogo } from './pages/Catalogo';
 import { DetalhesProduto } from './pages/DetalhesProduto';
 import { EsqueceuSenha } from './pages/EsqueceuSenha';
 
+import { isTokenExpired } from './utils/auth';
+
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
 // COMPONENTE DE PROTEÇÃO COM TELA DE AVISO
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const token = localStorage.getItem('@Autonomax:token');
+  const rawToken = localStorage.getItem('@Autonomax:token');
+  const tokenValido = rawToken && !isTokenExpired(rawToken);
 
-  if (!token) {
+  if (!tokenValido) {
     return (
       <div className="min-h-screen bg-emerald-50/30 flex items-center justify-center p-4 font-sans text-gray-800">
         <div className="max-w-md w-full bg-white rounded-[40px] border border-gray-200 shadow-2xl p-10 text-center space-y-6 animate-in fade-in zoom-in duration-300">
@@ -41,7 +44,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
           </div>
 
           <Link 
-            to="/" 
+            to="/login" 
             className="flex items-center justify-center gap-3 w-full bg-emerald-950 text-white py-5 rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl hover:bg-black transition-all active:scale-95 border-none"
           >
             <LogIn size={18} />

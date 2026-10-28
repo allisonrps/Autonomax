@@ -1,11 +1,12 @@
 import axios from 'axios';
+import { getToken, clearAuthSession } from '../utils/auth';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('@Autonomax:token');
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -16,12 +17,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response, 
   (error) => {
-    // Se a API retornar 401 (Token inválido/expirado)
+    // Se a API retornar 401 (Não autorizado / token expirado ou inválido)
     if (error.response?.status === 401) {
-      localStorage.removeItem('@Autonomax:token'); // Remove o token
+      clearAuthSession();
       
-      // Redireciona para a raiz para disparar a tela de "Acesso Restrito"
-      window.location.href = '/'; 
+      // Só redireciona se já não estiver na página de login ou apresentação
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+        window.location.href = '/login'; 
+      }
     }
     return Promise.reject(error);
   }
