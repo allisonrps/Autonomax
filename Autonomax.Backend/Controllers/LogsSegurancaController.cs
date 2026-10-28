@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
@@ -21,14 +22,18 @@ public class LogsSegurancaController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<LogSeguranca>>> GetLogs()
     {
-        var usuarioIdStr = User.FindFirst("id")?.Value ?? "0";
-        var usuarioId = int.Parse(usuarioIdStr);
-        
-        // Retorna logs do próprio usuário ou tentativas de login falhas
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        // Retorna estritamente logs gerados pelas ações do próprio usuário logado
         return await _context.LogsSeguranca
-            .Where(l => l.UsuarioId == usuarioId || l.Evento == "LOGIN_FALHO")
+            .AsNoTracking()
+            .Where(l => l.UsuarioId == usuarioId.Value)
             .OrderByDescending(l => l.Data)
-            .Take(10)
+            .Take(20)
             .ToListAsync();
     }
 }

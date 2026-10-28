@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Autonomax.Backend.Data;
 using Autonomax.Backend.Models;
+using Microsoft.AspNetCore.Authorization;
+using Autonomax.Backend.Security;
 
 namespace Autonomax.Backend.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class DashboardController : ControllerBase
@@ -20,6 +23,12 @@ public class DashboardController : ControllerBase
     [HttpGet("{negocioId}")]
     public async Task<IActionResult> GetDashboard(int negocioId)
     {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
+
         // 1. Busca todas as transações do negócio específico
         var transacoes = await _context.Transacoes
             .Where(t => t.NegocioId == negocioId)
