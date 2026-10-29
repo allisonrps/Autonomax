@@ -241,11 +241,25 @@ using (var scope = app.Services.CreateScope())
                 ""Motivo"" text NULL,
                 ""NegocioId"" integer NOT NULL
             );
+
+            -- --- CRIAÇÃO DE ÍNDICES ESTRATÉGICOS DE ALTA PERFORMANCE (POSTGRESQL) ---
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Usuarios_Email"" ON ""Usuarios"" (""Email"");
+            CREATE INDEX IF NOT EXISTS ""IX_Negocios_UsuarioId"" ON ""Negocios"" (""UsuarioId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Transacoes_NegocioId_Data"" ON ""Transacoes"" (""NegocioId"", ""Data"" DESC);
+            CREATE INDEX IF NOT EXISTS ""IX_Transacoes_ClienteId"" ON ""Transacoes"" (""ClienteId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Transacoes_FornecedorId"" ON ""Transacoes"" (""FornecedorId"");
+            CREATE INDEX IF NOT EXISTS ""IX_ItensTransacao_TransacaoId"" ON ""ItensTransacao"" (""TransacaoId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Clientes_NegocioId"" ON ""Clientes"" (""NegocioId"");
+            CREATE INDEX IF NOT EXISTS ""IX_Fornecedores_NegocioId"" ON ""Fornecedores"" (""NegocioId"");
+            CREATE INDEX IF NOT EXISTS ""IX_ProdutosServicos_NegocioId"" ON ""ProdutosServicos"" (""NegocioId"");
+            CREATE INDEX IF NOT EXISTS ""IX_HistoricoPrecosProdutos_ProdutoServicoId"" ON ""HistoricoPrecosProdutos"" (""ProdutoServicoId"");
+            CREATE INDEX IF NOT EXISTS ""IX_HistoricoPrecosProdutos_NegocioId"" ON ""HistoricoPrecosProdutos"" (""NegocioId"");
+            CREATE INDEX IF NOT EXISTS ""IX_LogsSeguranca_UsuarioId_Data"" ON ""LogsSeguranca"" (""UsuarioId"", ""Data"" DESC);
         ");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Aviso na verificação de tabelas: {ex.Message}");
+        Console.WriteLine($"Aviso na verificação de tabelas/índices: {ex.Message}");
     }
     
     Autonomax.Backend.Data.DbSeeder.Seed(context);
