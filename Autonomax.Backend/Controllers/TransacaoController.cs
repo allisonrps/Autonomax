@@ -138,6 +138,7 @@ public class TransacoesController : ControllerBase
 
         transacaoExistente.Descricao = transacao.Descricao;
         transacaoExistente.Valor = transacao.Valor;
+        transacaoExistente.Desconto = transacao.Desconto;
         transacaoExistente.Tipo = transacao.Tipo;
         transacaoExistente.Status = transacao.Status;
         transacaoExistente.MetodoPagamento = transacao.MetodoPagamento;

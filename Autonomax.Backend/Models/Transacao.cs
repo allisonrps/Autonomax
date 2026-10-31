@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace Autonomax.Backend.Models;
 
@@ -14,6 +14,9 @@ public class Transacao
     [Range(0.01, 9999999.99, ErrorMessage = "O valor deve ser maior que zero.")]
     public decimal Valor { get; set; }
 
+    [Range(0, 9999999.99, ErrorMessage = "O desconto não pode ser negativo.")]
+    public decimal Desconto { get; set; } = 0.0m;
+
     [Required]
     public string Tipo { get; set; } = "Entrada"; 
 
@@ -27,10 +30,10 @@ public class Transacao
     public Cliente? Cliente { get; set; }
 
     public string Status { get; set; } = "Pendente";
-public string MetodoPagamento { get; set; } = "Pix";
+    public string MetodoPagamento { get; set; } = "Pix";
+    
     // Relacionamento: Uma transação tem muitos itens
     public List<ItemTransacao> Itens { get; set; } = new List<ItemTransacao>();
-public int? FornecedorId { get; set; }
-public Fornecedor? Fornecedor { get; set; }
-
+    public int? FornecedorId { get; set; }
+    public Fornecedor? Fornecedor { get; set; }
 }

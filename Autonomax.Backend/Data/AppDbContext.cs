@@ -26,6 +26,10 @@ public class AppDbContext : DbContext
             .Property(t => t.Valor)
             .HasPrecision(18, 2);
 
+        modelBuilder.Entity<Transacao>()
+            .Property(t => t.Desconto)
+            .HasPrecision(18, 2);
+
         modelBuilder.Entity<ProdutoServico>()
             .Property(p => p.Preco)
             .HasPrecision(18, 2);

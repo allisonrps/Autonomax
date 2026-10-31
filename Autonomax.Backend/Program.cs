@@ -230,6 +230,7 @@ using (var scope = app.Services.CreateScope())
             );
 
             ALTER TABLE ""Transacoes"" ADD COLUMN IF NOT EXISTS ""FornecedorId"" integer NULL;
+            ALTER TABLE ""Transacoes"" ADD COLUMN IF NOT EXISTS ""Desconto"" numeric(18,2) NOT NULL DEFAULT 0.0;
             ALTER TABLE ""Negocios"" ADD COLUMN IF NOT EXISTS ""LogoUrl"" text NULL;
 
             CREATE TABLE IF NOT EXISTS ""HistoricoPrecosProdutos"" (

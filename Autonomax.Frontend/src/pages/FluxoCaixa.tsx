@@ -25,6 +25,7 @@ interface Transacao {
   id: number;
   descricao: string;
   valor: number;
+  desconto?: number;
   tipo: string;
   status: string;
   metodoPagamento: string;
@@ -65,9 +66,61 @@ export function FluxoCaixa() {
   const [itemCatalogoId, setItemCatalogoId] = useState<string>('');
   
   const [novaTransacao, setNovaTransacao] = useState({
-    valor: '', tipo: 'Entrada', status: 'Pago', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
+    valor: '', desconto: '', tipo: 'Entrada', status: 'Pago', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
     data: new Date().toLocaleDateString('en-CA')
   });
+
+  const subtotalItens = useMemo(() => {
+    return itensTemporarios.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
+  }, [itensTemporarios]);
+
+  const handleValorChange = (valStr: string) => {
+    const numValor = parseFloat(valStr);
+    let novoDesconto = novaTransacao.desconto;
+
+    if (subtotalItens > 0 && !isNaN(numValor)) {
+      if (numValor < subtotalItens) {
+        novoDesconto = (subtotalItens - numValor).toFixed(2);
+      } else {
+        novoDesconto = '0.00';
+      }
+    }
+
+    setNovaTransacao(prev => ({
+      ...prev,
+      valor: valStr,
+      desconto: novoDesconto
+    }));
+  };
+
+  const handleDescontoChange = (descStr: string) => {
+    const numDesc = parseFloat(descStr);
+
+    if (subtotalItens > 0 && !isNaN(numDesc)) {
+      const valorCalculado = Math.max(0, subtotalItens - numDesc);
+      setNovaTransacao(prev => ({
+        ...prev,
+        desconto: descStr,
+        valor: valorCalculado.toFixed(2)
+      }));
+    } else {
+      setNovaTransacao(prev => ({
+        ...prev,
+        desconto: descStr
+      }));
+    }
+  };
+
+  const aplicarDescontoPercentual = (porcentagem: number) => {
+    if (subtotalItens <= 0) return;
+    const valorDesc = Number(((subtotalItens * porcentagem) / 100).toFixed(2));
+    const valorFinal = Math.max(0, subtotalItens - valorDesc);
+    setNovaTransacao(prev => ({
+      ...prev,
+      desconto: valorDesc.toFixed(2),
+      valor: valorFinal.toFixed(2)
+    }));
+  };
 
   const mesesNome = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -183,7 +236,9 @@ export function FluxoCaixa() {
     // Se houver preço unitário calculado, recalcula o valor total automaticamente
     const totalItens = novosItens.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
     if (totalItens > 0) {
-      setNovaTransacao(prev => ({ ...prev, valor: totalItens.toFixed(2) }));
+      const descAtual = parseFloat(novaTransacao.desconto) || 0;
+      const valorFinal = Math.max(0, totalItens - descAtual);
+      setNovaTransacao(prev => ({ ...prev, valor: valorFinal.toFixed(2) }));
     }
 
     setNovoItem({ item: '', qtd: 1, precoUnitario: '' });
@@ -195,9 +250,11 @@ export function FluxoCaixa() {
     setItensTemporarios(atualizados);
     const totalItens = atualizados.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
     if (totalItens > 0) {
-      setNovaTransacao(prev => ({ ...prev, valor: totalItens.toFixed(2) }));
+      const descAtual = parseFloat(novaTransacao.desconto) || 0;
+      const valorFinal = Math.max(0, totalItens - descAtual);
+      setNovaTransacao(prev => ({ ...prev, valor: valorFinal.toFixed(2) }));
     } else if (atualizados.length === 0) {
-      setNovaTransacao(prev => ({ ...prev, valor: '' }));
+      setNovaTransacao(prev => ({ ...prev, valor: '', desconto: '' }));
     }
   };
 
@@ -218,6 +275,7 @@ export function FluxoCaixa() {
     const payload = {
       descricao: itensFormatados.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
       valor: Number(novaTransacao.valor), 
+      desconto: Number(novaTransacao.desconto) || 0,
       tipo: novaTransacao.tipo,
       status: novaTransacao.status, 
       metodoPagamento: novaTransacao.metodoPagamento,
@@ -230,7 +288,7 @@ export function FluxoCaixa() {
     try {
       await api.post('/Transacoes', payload);
       setItensTemporarios([]);
-      setNovaTransacao({ ...novaTransacao, valor: '', clienteId: '', fornecedorId: '' });
+      setNovaTransacao({ ...novaTransacao, valor: '', desconto: '', clienteId: '', fornecedorId: '' });
       setFormAberto(false);
       carregarDados();
     } catch (err) { alert("Erro ao salvar."); }
@@ -295,6 +353,7 @@ export function FluxoCaixa() {
 
     const payload = {
       ...editando,
+      desconto: Number(editando.desconto) || 0,
       itens: itensLimpos,
       descricao: itensLimpos.length > 0
         ? itensLimpos.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
@@ -699,6 +758,49 @@ export function FluxoCaixa() {
                   </div>
                 )}
 
+                {/* RESUMO DE SUBTOTAL E DESCONTOS */}
+                {subtotalItens > 0 && (
+                  <div className="p-2.5 bg-gray-950/70 border border-gray-800 rounded-md flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-gray-400 font-bold">
+                        Subtotal dos Itens: <strong className="text-gray-200 font-black">R$ {subtotalItens.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      </span>
+                      {Number(novaTransacao.desconto) > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          <Tag size={11} />
+                          Desconto: R$ {Number(novaTransacao.desconto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          {' '}({((Number(novaTransacao.desconto) / subtotalItens) * 100).toFixed(1)}% OFF)
+                        </span>
+                      )}
+                    </div>
+                    {/* Atalhos de Desconto rápido */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase mr-1">Desconto rápido:</span>
+                      {[5, 10, 15, 20].map(pct => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => aplicarDescontoPercentual(pct)}
+                          className="px-2 py-0.5 bg-gray-900 hover:bg-gray-800 border border-gray-700/70 rounded text-[10px] font-black text-amber-300 transition-colors"
+                          title={`Aplicar ${pct}% de desconto`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                      {Number(novaTransacao.desconto) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleDescontoChange('0.00')}
+                          className="px-2 py-0.5 bg-gray-900 hover:bg-red-950/40 border border-gray-800 hover:border-red-800 rounded text-[10px] font-black text-gray-400 hover:text-red-400 transition-colors"
+                          title="Remover desconto"
+                        >
+                          Zerar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* CONTROLADORES COMPACTOS */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
                   
@@ -718,17 +820,34 @@ export function FluxoCaixa() {
                   </div>
 
                   {/* Inputs de Dados */}
-                  <div className="lg:col-span-6 grid grid-cols-2 md:grid-cols-3 gap-2 w-full">
-                    <input type="number" placeholder="Valor R$" className="p-2.5 bg-gray-950 border border-gray-800 rounded-md font-black text-emerald-400 outline-none text-sm text-center focus:border-emerald-600 placeholder-gray-700" value={novaTransacao.valor} onChange={e => setNovaTransacao({...novaTransacao, valor: e.target.value})} />
+                  <div className="lg:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Valor Final R$" 
+                      className={`w-full p-2.5 bg-gray-950 border rounded-md font-black outline-none text-sm text-center placeholder-gray-700 ${novaTransacao.tipo === 'Entrada' ? 'text-emerald-400 border-gray-800 focus:border-emerald-600' : 'text-red-400 border-gray-800 focus:border-red-600'}`} 
+                      value={novaTransacao.valor} 
+                      onChange={e => handleValorChange(e.target.value)} 
+                      title="Valor cobrado do cliente (já com desconto)"
+                    />
+                    <input 
+                      type="number" 
+                      step="0.01" 
+                      placeholder="Desconto R$" 
+                      className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-amber-400 outline-none text-sm text-center focus:border-amber-600 placeholder-gray-700" 
+                      value={novaTransacao.desconto} 
+                      onChange={e => handleDescontoChange(e.target.value)} 
+                      title="Desconto concedido (calculado automaticamente ou manual)"
+                    />
                     <input type="date" className="p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-sm text-center focus:border-emerald-600" value={novaTransacao.data} onChange={e => setNovaTransacao({...novaTransacao, data: e.target.value})} />
                     
                     {novaTransacao.tipo === 'Entrada' ? (
-                      <select className="col-span-2 md:col-span-1 p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-400 outline-none text-xs focus:border-emerald-600" value={novaTransacao.clienteId} onChange={e => setNovaTransacao({...novaTransacao, clienteId: e.target.value})}>
+                      <select className="p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-400 outline-none text-xs focus:border-emerald-600 truncate" value={novaTransacao.clienteId} onChange={e => setNovaTransacao({...novaTransacao, clienteId: e.target.value})}>
                         <option value="">Sem Cliente</option>
                         {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                       </select>
                     ) : (
-                      <select className="col-span-2 md:col-span-1 p-2.5 bg-gray-950 border border-gray-800 text-red-400 rounded-md font-bold outline-none text-xs focus:border-red-600" value={novaTransacao.fornecedorId} onChange={e => setNovaTransacao({...novaTransacao, fornecedorId: e.target.value})}>
+                      <select className="p-2.5 bg-gray-950 border border-gray-800 text-red-400 rounded-md font-bold outline-none text-xs focus:border-red-600 truncate" value={novaTransacao.fornecedorId} onChange={e => setNovaTransacao({...novaTransacao, fornecedorId: e.target.value})}>
                         <option value="">Sem Fornecedor</option>
                         {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
                       </select>
@@ -851,7 +970,12 @@ export function FluxoCaixa() {
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3 flex-shrink-0">
+                              <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                                {Boolean(t.desconto && t.desconto > 0) && (
+                                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.5 rounded" title="Desconto concedido">
+                                    Desc: -R$ {(t.desconto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </span>
+                                )}
                                 <span className={`text-sm font-black tracking-tight ${t.status === 'Pendente' ? 'text-amber-400' : isEntrada ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </span>
@@ -861,6 +985,19 @@ export function FluxoCaixa() {
 
                             {itemAberto === t.id && (
                               <div className="px-4 pb-4 pt-1 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-950/20 border-t border-gray-800/60">
+                                {Boolean(t.desconto && t.desconto > 0) && (
+                                  <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-gray-950/60 rounded-md border border-amber-900/40 text-xs">
+                                    <span className="text-gray-400 font-medium">
+                                      Subtotal Bruto: <strong className="text-gray-200 font-bold">R$ {(t.valor + (t.desconto || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                                    </span>
+                                    <span className="text-amber-400 font-black">
+                                      Desconto: -R$ {(t.desconto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    <span className="text-emerald-400 font-black">
+                                      Total Cobrado: R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800">
                                   {itensExibicao.length > 0 ? (
                                     <div className="flex flex-wrap gap-1.5">
@@ -952,8 +1089,9 @@ export function FluxoCaixa() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1"><label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1"><DollarSign size={10}/> Valor R$</label><input type="number" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-black text-emerald-400 outline-none text-sm focus:border-emerald-600" value={editando.valor} onChange={e => setEditando({...editando, valor: Number(e.target.value)})} /></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-1"><label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1"><DollarSign size={10}/> Valor Final R$</label><input type="number" step="0.01" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-black text-emerald-400 outline-none text-sm focus:border-emerald-600" value={editando.valor} onChange={e => setEditando({...editando, valor: Number(e.target.value)})} /></div>
+                <div className="space-y-1"><label className="flex items-center gap-1.5 text-[9px] font-black text-amber-500 uppercase ml-1"><Tag size={10}/> Desconto R$</label><input type="number" step="0.01" placeholder="0,00" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-black text-amber-400 outline-none text-sm focus:border-amber-600" value={editando.desconto ?? ''} onChange={e => setEditando({...editando, desconto: e.target.value === '' ? 0 : Number(e.target.value)})} /></div>
                 <div className="space-y-1"><label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1"><HandCoins size={10}/> Método</label><select className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600" value={editando.metodoPagamento} onChange={e => setEditando({...editando, metodoPagamento: e.target.value})}><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option></select></div>
                 <div className="space-y-1"><label className="flex items-center gap-1.5 text-[9px] font-black text-gray-400 uppercase ml-1"><CalendarDays size={10}/> Data</label><input type="date" className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-sm focus:border-emerald-600" value={editando.data.split('T')[0]} onChange={e => setEditando({...editando, data: e.target.value})} /></div>
                 <div className="space-y-1"><label className="flex items-center gap-1.5 text-[9px] font-black text-gray-500 uppercase ml-1"><CheckCircle2 size={10}/> Status</label><select className="w-full p-3 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600" value={editando.status} onChange={e => setEditando({...editando, status: e.target.value})}><option value="Pago">✅ Pago</option><option value="Pendente">⏳ Pendente</option></select></div>
