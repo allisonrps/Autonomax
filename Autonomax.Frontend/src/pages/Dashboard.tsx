@@ -75,12 +75,11 @@ export function Dashboard() {
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  // Modal de Lançar Despesa
+  // Modal de Lançar Despesa (Dividido em 3 Fases / Abas)
   const [modalDespesaAberto, setModalDespesaAberto] = useState(false);
+  const [etapaDespesa, setEtapaDespesa] = useState<1 | 2 | 3>(1);
   const [salvandoDespesa, setSalvandoDespesa] = useState(false);
-  const [despesaDescricao, setDespesaDescricao] = useState('');
-  const [despesaValor, setDespesaValor] = useState('');
-  const [despesaFornecedorId, setDespesaFornecedorId] = useState('');
+  const [fornecedorIdDespesa, setFornecedorIdDespesa] = useState('');
   const [despesaMetodo, setDespesaMetodo] = useState('Pix');
   const [despesaStatus, setDespesaStatus] = useState('Pago');
   const [despesaData, setDespesaData] = useState(() => new Date().toLocaleDateString('en-CA'));
@@ -88,6 +87,13 @@ export function Dashboard() {
     const d = new Date();
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   });
+
+  // Itens da nova despesa
+  const [itensDespesa, setItensDespesa] = useState<ItemTemporario[]>([]);
+  const [itemDespesaNome, setItemDespesaNome] = useState('');
+  const [itemDespesaQtd, setItemDespesaQtd] = useState<number | string>(1);
+  const [itemDespesaPrecoUnitario, setItemDespesaPrecoUnitario] = useState('');
+  const [valorTotalDespesaEditavel, setValorTotalDespesaEditavel] = useState('');
 
   // Cards Expansíveis (FECHADOS POR PADRÃO conforme solicitado)
   const [resumoAberto, setResumoAberto] = useState(false);
@@ -219,7 +225,6 @@ export function Dashboard() {
   const totalDespesasDoDia = useMemo(() => despesasDoDia.reduce((acc, t) => acc + t.valor, 0), [despesasDoDia]);
   const saldoDoDia = totalVendasDoDia - totalDespesasDoDia;
   const qtdVendasDoDia = vendasDoDia.length;
-  const ticketMedioDoDia = qtdVendasDoDia > 0 ? totalVendasDoDia / qtdVendasDoDia : 0;
 
   // Breakdown por Formas de Pagamento do Dia Selecionado
   const pagamentosBreakdown = useMemo(() => {
@@ -367,49 +372,93 @@ export function Dashboard() {
     }
   };
 
-  // Abrir e Salvar Despesa
+  // Cálculos e Ações da Despesa em 3 Etapas
+  const valorTotalDespesaCalculado = useMemo(() => {
+    return itensDespesa.reduce((acc, it) => acc + (it.qtd * it.precoUnitario), 0);
+  }, [itensDespesa]);
+
+  useEffect(() => {
+    if (etapaDespesa === 2 || etapaDespesa === 3) {
+      setValorTotalDespesaEditavel(valorTotalDespesaCalculado > 0 ? valorTotalDespesaCalculado.toFixed(2) : '');
+    }
+  }, [valorTotalDespesaCalculado, etapaDespesa]);
+
+  const handleAdicionarItemDespesa = () => {
+    if (!itemDespesaNome.trim()) return alert('Informe a descrição do item ou insumo.');
+    const preco = parseFloat(itemDespesaPrecoUnitario.replace(',', '.')) || 0;
+    if (preco < 0) return alert('O valor não pode ser negativo.');
+    const qtd = Math.max(1, Number(itemDespesaQtd) || 1);
+
+    setItensDespesa(prev => [
+      ...prev,
+      {
+        item: itemDespesaNome.trim(),
+        qtd,
+        precoUnitario: preco
+      }
+    ]);
+
+    setItemDespesaNome('');
+    setItemDespesaPrecoUnitario('');
+    setItemDespesaQtd(1);
+  };
+
+  const handleRemoverItemDespesa = (index: number) => {
+    setItensDespesa(prev => prev.filter((_, i) => i !== index));
+  };
+
   const abrirModalDespesa = () => {
-    setDespesaDescricao('');
-    setDespesaValor('');
-    setDespesaFornecedorId('');
+    setItensDespesa([]);
+    setItemDespesaNome('');
+    setItemDespesaQtd(1);
+    setItemDespesaPrecoUnitario('');
+    setFornecedorIdDespesa('');
     setDespesaMetodo('Pix');
     setDespesaStatus('Pago');
     setDespesaData(dataSelecionada || new Date().toLocaleDateString('en-CA'));
     setDespesaHora(`${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`);
+    setValorTotalDespesaEditavel('');
+    setEtapaDespesa(1);
     setModalDespesaAberto(true);
   };
 
   const handleFinalizarDespesa = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!despesaDescricao.trim()) return alert('Informe a descrição da despesa.');
-    const valorNum = parseFloat(despesaValor.replace(',', '.'));
-    if (isNaN(valorNum) || valorNum <= 0) return alert('Informe um valor válido maior que zero.');
+    if (itensDespesa.length === 0) {
+      return alert('Adicione pelo menos um item à despesa.');
+    }
     if (!negocioId) return;
 
     try {
       setSalvandoDespesa(true);
       const horaFinal = despesaHora || `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
       const dataFormatada = new Date(`${despesaData}T${horaFinal}:00`);
+      const itensFormatados = itensDespesa.map(it => ({
+        nome: it.item,
+        quantidade: it.qtd
+      }));
+
+      const valorFinal = Number(valorTotalDespesaEditavel) > 0 ? Number(valorTotalDespesaEditavel) : valorTotalDespesaCalculado;
 
       const payload = {
-        descricao: despesaDescricao.trim(),
-        valor: valorNum,
+        descricao: itensFormatados.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
+        valor: valorFinal,
         tipo: 'Saida',
         status: despesaStatus,
         metodoPagamento: despesaMetodo,
         negocioId: Number(negocioId),
         clienteId: null,
-        fornecedorId: despesaFornecedorId ? Number(despesaFornecedorId) : null,
+        fornecedorId: fornecedorIdDespesa ? Number(fornecedorIdDespesa) : null,
         data: dataFormatada.toISOString(),
-        itens: []
+        itens: itensFormatados
       };
 
       await api.post('/Transacoes', payload);
       setModalDespesaAberto(false);
       carregarDados();
     } catch (err) {
-      console.error('Erro ao registrar despesa:', err);
-      alert('Erro ao registrar despesa. Tente novamente.');
+      console.error('Erro ao finalizar despesa:', err);
+      alert('Erro ao registrar a despesa. Tente novamente.');
     } finally {
       setSalvandoDespesa(false);
     }
@@ -568,166 +617,7 @@ export function Dashboard() {
     return (
       <Layout>
         <LoadingProgress message="Iniciando painel operacional do dia..." />
-  
-      {/* ============================================================ */}
-      {/* MODAL DE LANÇAR DESPESA                                      */}
-      {/* ============================================================ */}
-      {modalDespesaAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            {/* Cabeçalho */}
-            <div className="p-4 sm:p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/60">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-red-950/60 border border-red-900/60 text-red-400 rounded-xl">
-                  <ArrowDownRight size={20} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider text-white">Lançar Despesa</h3>
-                  <p className="text-[10px] text-gray-400 font-medium">Registre uma saída ou custo operacional do dia</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalDespesaAberto(false)}
-                className="text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-xl transition-colors cursor-pointer border-none bg-transparent"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Formulário */}
-            <form onSubmit={handleFinalizarDespesa} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
-              {/* Descrição */}
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                  Descrição da Despesa *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Compra de embalagens, Conta de luz, Frete..."
-                  value={despesaDescricao}
-                  onChange={e => setDespesaDescricao(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-3 text-xs font-bold text-white placeholder-gray-600 outline-none focus:border-red-500 transition-colors"
-                />
-              </div>
-
-              {/* Valor R$ */}
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                  Valor R$ *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-red-400">R$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    placeholder="0,00"
-                    value={despesaValor}
-                    onChange={e => setDespesaValor(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-10 pr-3.5 py-3 text-sm font-black text-red-400 outline-none focus:border-red-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Fornecedor / Parceiro Opcional */}
-              <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                  Fornecedor / Parceiro (Opcional)
-                </label>
-                <select
-                  value={despesaFornecedorId}
-                  onChange={e => setDespesaFornecedorId(e.target.value)}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-200 outline-none focus:border-red-500 cursor-pointer"
-                >
-                  <option value="">Sem fornecedor vinculado</option>
-                  {fornecedores.map(f => (
-                    <option key={f.id} value={f.id}>{f.nome}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Método de Pagamento e Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                    Forma de Pagamento
-                  </label>
-                  <select
-                    value={despesaMetodo}
-                    onChange={e => setDespesaMetodo(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-200 outline-none focus:border-red-500 cursor-pointer"
-                  >
-                    <option value="Pix">Pix</option>
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Cartão de Débito">Cartão de Débito</option>
-                    <option value="Boleto">Boleto</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
-                    Status
-                  </label>
-                  <select
-                    value={despesaStatus}
-                    onChange={e => setDespesaStatus(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-200 outline-none focus:border-red-500 cursor-pointer"
-                  >
-                    <option value="Pago">✅ Pago</option>
-                    <option value="Pendente">⏳ Pendente</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Data e Hora */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
-                    <Calendar size={13} className="text-red-400" />
-                    <span>Data</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={despesaData}
-                    onChange={e => setDespesaData(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-red-500 [color-scheme:dark] cursor-pointer"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
-                    <Clock size={13} className="text-red-400" />
-                    <span>Horário</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={despesaHora}
-                    onChange={e => setDespesaHora(e.target.value)}
-                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-red-500 [color-scheme:dark] cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* Botão Salvar Despesa */}
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={salvandoDespesa}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 transition-all active:scale-95 cursor-pointer border-none disabled:opacity-50"
-                >
-                  {salvandoDespesa ? 'Registrando...' : 'Registrar Despesa'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-    </Layout>
+      </Layout>
     );
   }
 
@@ -905,9 +795,6 @@ export function Dashboard() {
                     </p>
                     <p className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">
                       {qtdVendasDoDia} <span className="text-xs font-bold text-gray-400">{qtdVendasDoDia === 1 ? 'pedido' : 'pedidos'}</span>
-                    </p>
-                    <p className="text-[10px] font-bold text-gray-500 truncate">
-                      Méd. R$ {ticketMedioDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -1690,6 +1577,360 @@ export function Dashboard() {
                 Salvar Alterações <Save size={14} className="inline ml-1" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ============================================================ */}
+      {/* MODAL DE NOVA DESPESA (3 ETAPAS / MESMO MOLDE DE VENDA)     */}
+      {/* ============================================================ */}
+      {modalDespesaAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            
+            {/* Header com Abas de Navegação (1. Fornecedor & Data | 2. Itens | 3. Pagamento) */}
+            <div className="p-4 sm:p-5 border-b border-gray-800 bg-gray-950/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-red-950/70 border border-red-900/60 text-red-400 rounded-xl">
+                    <ArrowDownRight size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                      Nova Despesa
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalDespesaAberto(false)}
+                  className="text-gray-500 hover:text-white p-2 rounded-lg hover:bg-gray-800 transition-colors bg-transparent border-none cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Barra de Navegação por Abas */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-950 rounded-xl border border-gray-800">
+                <button
+                  type="button"
+                  onClick={() => setEtapaDespesa(1)}
+                  className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none ${
+                    etapaDespesa === 1
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'bg-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[9px]">1</span>
+                  <span className="truncate">Fornecedor & Data</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEtapaDespesa(2)}
+                  className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none ${
+                    etapaDespesa === 2
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'bg-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[9px]">2</span>
+                  <span className="truncate">Itens</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEtapaDespesa(3)}
+                  className={`py-1.5 px-2 rounded-lg text-[10px] font-black uppercase tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer border-none ${
+                    etapaDespesa === 3
+                      ? 'bg-red-600 text-white shadow-sm'
+                      : 'bg-transparent text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[9px]">3</span>
+                  <span className="truncate">Pagamento</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Conteúdo das Fases */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+
+              {/* FASE 1: FORNECEDOR, DATA E HORA */}
+              {etapaDespesa === 1 && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      Fornecedor / Parceiro
+                    </label>
+                    <select
+                      value={fornecedorIdDespesa}
+                      onChange={e => setFornecedorIdDespesa(e.target.value)}
+                      className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-3 text-xs font-bold text-white outline-none focus:border-red-500 cursor-pointer"
+                    >
+                      <option value="">🏢 Gasto Geral / Sem Fornecedor Vinculado</option>
+                      {fornecedores.map(f => (
+                        <option key={f.id} value={f.id}>
+                          {f.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
+                        <Calendar size={13} className="text-red-400" />
+                        <span>Data da Despesa</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={despesaData}
+                        onChange={e => setDespesaData(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-red-500 [color-scheme:dark] cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
+                        <Clock size={13} className="text-red-400" />
+                        <span>Horário da Despesa</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={despesaHora}
+                        onChange={e => setDespesaHora(e.target.value)}
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-red-500 [color-scheme:dark] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* FASE 2: ADICIONAR ITENS / INSUMOS */}
+              {etapaDespesa === 2 && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400">
+                      Adicionar Itens ou Custos
+                    </label>
+
+                    <div className="grid grid-cols-12 gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Ex: Embalagens, Frete, Luz..."
+                        value={itemDespesaNome}
+                        onChange={e => setItemDespesaNome(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemDespesa(); } }}
+                        className="col-span-6 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white placeholder-gray-600 outline-none focus:border-red-500"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Qtd"
+                        min="1"
+                        value={itemDespesaQtd}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setItemDespesaQtd('');
+                          } else {
+                            const parsed = parseInt(val, 10);
+                            setItemDespesaQtd(isNaN(parsed) ? '' : parsed);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (itemDespesaQtd === '' || Number(itemDespesaQtd) < 1) setItemDespesaQtd(1);
+                        }}
+                        className="col-span-2 bg-gray-950 border border-gray-800 rounded-xl px-2 py-2.5 text-xs font-bold text-center text-white outline-none focus:border-red-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="R$ Unit"
+                        value={itemDespesaPrecoUnitario}
+                        onChange={e => setItemDespesaPrecoUnitario(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdicionarItemDespesa(); } }}
+                        className="col-span-3 bg-gray-950 border border-gray-800 rounded-xl px-2.5 py-2.5 text-xs font-bold text-red-400 placeholder-gray-600 outline-none focus:border-red-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAdicionarItemDespesa}
+                        className="col-span-1 bg-red-600 hover:bg-red-500 text-white rounded-xl flex items-center justify-center cursor-pointer border-none transition-colors"
+                        title="Adicionar item à despesa"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+
+                    {/* Pílulas dos Itens da Despesa */}
+                    {itensDespesa.length === 0 ? (
+                      <div className="p-6 bg-gray-950/50 rounded-xl border border-dashed border-gray-800 text-center">
+                        <p className="text-xs font-bold text-gray-500">Nenhum item adicionado ainda.</p>
+                        <p className="text-[10px] text-gray-600 mt-1">Digite o nome e valor acima e clique no botão (+).</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {itensDespesa.map((it, idx) => (
+                          <div
+                            key={idx}
+                            className="bg-gray-950 border border-gray-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-bold text-gray-200"
+                          >
+                            <span className="text-red-400 font-black">{it.qtd}x</span>
+                            <span className="truncate max-w-[140px]">{it.item}</span>
+                            <span className="text-gray-400 text-[10px]">
+                              (R$ {(it.qtd * it.precoUnitario).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoverItemDespesa(idx)}
+                              className="text-gray-500 hover:text-red-400 bg-transparent border-none cursor-pointer p-0.5 ml-0.5"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* FASE 3: PAGAMENTO E CONCLUSÃO */}
+              {etapaDespesa === 3 && (
+                <div className="space-y-4 animate-in fade-in duration-150">
+                  <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-300">Total de Itens</span>
+                    <span className="text-xs font-black text-red-400">{itensDespesa.length} {itensDespesa.length === 1 ? 'item' : 'itens'}</span>
+                  </div>
+
+                  {/* Valor Total Direto */}
+                  <div className="flex items-center justify-between py-2 px-1 border-b border-gray-800">
+                    <span className="text-xs font-black text-white uppercase tracking-wider">
+                      TOTAL:
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-base font-black text-red-400">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={valorTotalDespesaEditavel}
+                        onChange={e => {
+                          setValorTotalDespesaEditavel(e.target.value);
+                        }}
+                        className="w-32 bg-transparent text-right text-lg font-black text-red-400 outline-none border-b border-red-500/30 focus:border-red-400 transition-colors"
+                        placeholder={valorTotalDespesaCalculado.toFixed(2)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Forma de Pagamento */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      Forma de Pagamento
+                    </label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {['Pix', 'Cartão', 'Dinheiro', 'Boleto'].map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setDespesaMetodo(m)}
+                          className={`py-2.5 px-1 rounded-xl border text-[11px] font-black uppercase tracking-wide flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                            despesaMetodo === m
+                              ? 'bg-red-950/80 border-red-500 text-red-300 shadow-sm'
+                              : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          {getIconePagamento(m)}
+                          <span>{m}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Status da Despesa */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                      Status da Despesa
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDespesaStatus('Pago')}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          despesaStatus === 'Pago'
+                            ? 'bg-red-950/80 border-red-500 text-red-400'
+                            : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>Pago (Liquidado)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDespesaStatus('Pendente')}
+                        className={`py-2.5 px-3 rounded-xl border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          despesaStatus === 'Pendente'
+                            ? 'bg-amber-950/80 border-amber-500 text-amber-400'
+                            : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        <span>⏳ Pendente</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer de Navegação */}
+            <div className="p-4 border-t border-gray-800 bg-gray-900/90 flex items-center justify-between gap-2 flex-shrink-0">
+              {etapaDespesa === 1 ? (
+                <button
+                  type="button"
+                  onClick={() => setModalDespesaAberto(false)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-800 text-gray-400 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-transparent"
+                >
+                  Cancelar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEtapaDespesa(prev => (prev - 1) as 1 | 2 | 3)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-800 text-gray-300 hover:text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer bg-gray-950"
+                >
+                  ⬅ Voltar
+                </button>
+              )}
+
+              {etapaDespesa < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (etapaDespesa === 2 && itensDespesa.length === 0) {
+                      return alert('Adicione pelo menos um item à despesa para continuar.');
+                    }
+                    setEtapaDespesa(prev => (prev + 1) as 1 | 2 | 3);
+                  }}
+                  className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 transition-all cursor-pointer border-none flex items-center gap-1.5"
+                >
+                  <span>Avançar</span>
+                  <span>➔</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleFinalizarDespesa}
+                  disabled={salvandoDespesa || itensDespesa.length === 0}
+                  className="px-6 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 transition-all cursor-pointer border-none flex items-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{salvandoDespesa ? 'Salvando...' : 'Concluir Despesa (OK)'}</span>
+                </button>
+              )}
+            </div>
+
           </div>
         </div>
       )}

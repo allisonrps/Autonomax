@@ -5,7 +5,7 @@ import {
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, FileDown,
   ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight,
+  BarChart3, User, DollarSign, HandCoins, Plus, Wallet, ArrowUpRight, ArrowDownRight,
   Filter, Coins, QrCode, CreditCard, LineChart as LineChartIcon
 } from 'lucide-react';
 import { 
@@ -16,10 +16,6 @@ import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
 
 interface Item { nome: string; quantidade: number; }
-interface Cliente { id: number; nome: string; }
-interface Fornecedor { id: number; nome: string; }
-interface ProdutoServico { id: number; nome: string; preco: number; ehServico: boolean; }
-interface ItemTemporario { item: string; qtd: number; precoUnitario?: number; }
 
 interface Transacao {
   id: number;
@@ -53,74 +49,9 @@ export function FluxoCaixa() {
 
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [carregando, setCarregando] = useState(false);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   
-  const [formAberto, setFormAberto] = useState(false);
   const [editando, setEditando] = useState<Transacao | null>(null);
   const [novoItemEdicao, setNovoItemEdicao] = useState<{ nome: string; qtd: number | string }>({ nome: '', qtd: 1 });
-
-  const [itensTemporarios, setItensTemporarios] = useState<ItemTemporario[]>([]);
-  const [novoItem, setNovoItem] = useState<{ item: string; qtd: number | string; precoUnitario: string }>({ item: '', qtd: 1, precoUnitario: '' });
-  const [itemCatalogoId, setItemCatalogoId] = useState<string>('');
-  
-  const [novaTransacao, setNovaTransacao] = useState({
-    valor: '', desconto: '', tipo: 'Entrada', status: 'Pago', metodoPagamento: 'Pix', clienteId: '', fornecedorId: '',
-    data: new Date().toLocaleDateString('en-CA')
-  });
-
-  const subtotalItens = useMemo(() => {
-    return itensTemporarios.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
-  }, [itensTemporarios]);
-
-  const handleValorChange = (valStr: string) => {
-    const numValor = parseFloat(valStr);
-    let novoDesconto = novaTransacao.desconto;
-
-    if (subtotalItens > 0 && !isNaN(numValor)) {
-      if (numValor < subtotalItens) {
-        novoDesconto = (subtotalItens - numValor).toFixed(2);
-      } else {
-        novoDesconto = '0.00';
-      }
-    }
-
-    setNovaTransacao(prev => ({
-      ...prev,
-      valor: valStr,
-      desconto: novoDesconto
-    }));
-  };
-
-  const handleDescontoChange = (descStr: string) => {
-    const numDesc = parseFloat(descStr);
-
-    if (subtotalItens > 0 && !isNaN(numDesc)) {
-      const valorCalculado = Math.max(0, subtotalItens - numDesc);
-      setNovaTransacao(prev => ({
-        ...prev,
-        desconto: descStr,
-        valor: valorCalculado.toFixed(2)
-      }));
-    } else {
-      setNovaTransacao(prev => ({
-        ...prev,
-        desconto: descStr
-      }));
-    }
-  };
-
-  const aplicarDescontoPercentual = (porcentagem: number) => {
-    if (subtotalItens <= 0) return;
-    const valorDesc = Number(((subtotalItens * porcentagem) / 100).toFixed(2));
-    const valorFinal = Math.max(0, subtotalItens - valorDesc);
-    setNovaTransacao(prev => ({
-      ...prev,
-      desconto: valorDesc.toFixed(2),
-      valor: valorFinal.toFixed(2)
-    }));
-  };
 
   const mesesNome = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -143,36 +74,14 @@ export function FluxoCaixa() {
     if (!negocioId) return;
     setCarregando(true);
     try {
-      const [resTrans, resCli, resFor, resProd] = await Promise.allSettled([
-        api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`),
-        api.get(`/Clientes/por-negocio/${negocioId}`),
-        api.get(`/Fornecedores/por-negocio/${negocioId}`),
-        api.get(`/ProdutosServicos/por-negocio/${negocioId}`)
-      ]);
-
-      if (resTrans.status === 'fulfilled') {
-        const transData = resTrans.value.data || [];
-        const ordenadas = transData.sort((a: Transacao, b: Transacao) => 
-          new Date(b.data).getTime() - new Date(a.data).getTime()
-        );
-        setTransacoes(ordenadas);
-      } else {
-        console.error("Erro ao carregar transações:", resTrans.reason);
-      }
-
-      if (resCli.status === 'fulfilled') {
-        setClientes(resCli.value.data || []);
-      }
-
-      if (resFor.status === 'fulfilled') {
-        setFornecedores(resFor.value.data || []);
-      }
-
-      if (resProd.status === 'fulfilled') {
-        setProdutosServicos(resProd.value.data || []);
-      }
+      const resTrans = await api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`);
+      const transData = resTrans.data || [];
+      const ordenadas = transData.sort((a: Transacao, b: Transacao) => 
+        new Date(b.data).getTime() - new Date(a.data).getTime()
+      );
+      setTransacoes(ordenadas);
     } catch (err) { 
-      console.error("Erro ao carregar dados do dashboard:", err); 
+      console.error("Erro ao carregar transações do período:", err); 
     } finally {
       setCarregando(false);
     }
@@ -205,103 +114,6 @@ export function FluxoCaixa() {
       a.click();
     } catch (err) { alert("Erro ao gerar PDF."); }
   };
-
-  const handleSelecionarDoCatalogo = (idStr: string) => {
-    setItemCatalogoId(idStr);
-    if (!idStr) return;
-    const prod = produtosServicos.find(p => p.id === Number(idStr));
-    if (prod) {
-      setNovoItem({
-        item: prod.nome,
-        qtd: 1,
-        precoUnitario: String(prod.preco)
-      });
-    }
-  };
-
-  const handleAdicionarItem = () => {
-    if (!novoItem.item.trim()) return;
-    let itemNome = novoItem.item.trim();
-    let qtdNum = Number(novoItem.qtd) || 1;
-    
-    // Detecta se usuário digitou prefixo de quantidade no nome (ex: "2x Cartaz" ou "2 Cartazes")
-    const matchQtd = itemNome.match(/^\s*(\d{1,4})\s*(?:[xX*•\-]|un|unid|unidade|unidades|peças|pecas|pcs|pc)?\s*(.+)$/i);
-    if (matchQtd && matchQtd[2]) {
-      const qExtr = parseInt(matchQtd[1], 10);
-      if (qExtr > 0) {
-        qtdNum = Math.max(qtdNum, qExtr);
-        itemNome = matchQtd[2].trim();
-      }
-    }
-    itemNome = itemNome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || itemNome;
-    const precoNum = Number(novoItem.precoUnitario) || 0;
-
-    const novosItens = [
-      ...itensTemporarios, 
-      { item: itemNome, qtd: Math.max(1, qtdNum), precoUnitario: precoNum }
-    ];
-    setItensTemporarios(novosItens);
-
-    // Se houver preço unitário calculado, recalcula o valor total automaticamente
-    const totalItens = novosItens.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
-    if (totalItens > 0) {
-      const descAtual = parseFloat(novaTransacao.desconto) || 0;
-      const valorFinal = Math.max(0, totalItens - descAtual);
-      setNovaTransacao(prev => ({ ...prev, valor: valorFinal.toFixed(2) }));
-    }
-
-    setNovoItem({ item: '', qtd: 1, precoUnitario: '' });
-    setItemCatalogoId('');
-  };
-
-  const handleRemoverItem = (idxRemover: number) => {
-    const atualizados = itensTemporarios.filter((_, i) => i !== idxRemover);
-    setItensTemporarios(atualizados);
-    const totalItens = atualizados.reduce((acc, it) => acc + (it.qtd * (it.precoUnitario || 0)), 0);
-    if (totalItens > 0) {
-      const descAtual = parseFloat(novaTransacao.desconto) || 0;
-      const valorFinal = Math.max(0, totalItens - descAtual);
-      setNovaTransacao(prev => ({ ...prev, valor: valorFinal.toFixed(2) }));
-    } else if (atualizados.length === 0) {
-      setNovaTransacao(prev => ({ ...prev, valor: '', desconto: '' }));
-    }
-  };
-
-  async function handleAddTransacao() {
-    if (itensTemporarios.length === 0) return alert("Adicione pelo menos um item.");
-    if (!novaTransacao.valor) return alert("Informe o valor.");
-    const agora = new Date();
-    const horaStr = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}:${String(agora.getSeconds()).padStart(2, '0')}`;
-    const dataAjustada = new Date(`${novaTransacao.data}T${horaStr}`);
-    const itensFormatados = itensTemporarios.map(it => {
-      const nomeLimpo = it.item.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.item;
-      return {
-        nome: nomeLimpo,
-        quantidade: Math.max(1, it.qtd || 1)
-      };
-    });
-
-    const payload = {
-      descricao: itensFormatados.map(it => `${it.quantidade}x ${it.nome}`).join(', '),
-      valor: Number(novaTransacao.valor), 
-      desconto: Number(novaTransacao.desconto) || 0,
-      tipo: novaTransacao.tipo,
-      status: novaTransacao.status, 
-      metodoPagamento: novaTransacao.metodoPagamento,
-      negocioId: Number(negocioId), 
-      clienteId: novaTransacao.tipo === 'Entrada' ? Number(novaTransacao.clienteId) || null : null,
-      fornecedorId: novaTransacao.tipo === 'Saida' ? Number(novaTransacao.fornecedorId) || null : null,
-      data: dataAjustada.toISOString(),
-      itens: itensFormatados
-    };
-    try {
-      await api.post('/Transacoes', payload);
-      setItensTemporarios([]);
-      setNovaTransacao({ ...novaTransacao, valor: '', desconto: '', clienteId: '', fornecedorId: '' });
-      setFormAberto(false);
-      carregarDados();
-    } catch (err) { alert("Erro ao salvar."); }
-  }
 
   const abrirEdicao = (t: Transacao) => {
     let itensIniciais = (t.itens || []).map(it => {
@@ -660,235 +472,6 @@ export function FluxoCaixa() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* NOVO LANÇAMENTO */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <button onClick={() => setFormAberto(!formAberto)} className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-colors border-none outline-none cursor-pointer border-b border-gray-800">
-              <div className="flex items-center gap-2"><PackagePlus size={18} className="text-emerald-400"/><h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">Novo Lançamento</h3></div>
-              {formAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
-            </button>
-            
-            {formAberto && (
-              <div className="p-5 md:p-6 space-y-4 bg-gray-900">
-                
-                {/* SELETOR PRINCIPAL DE TIPO: RECEITA VS DESPESA */}
-                <div className="bg-gray-950 p-1.5 rounded-lg flex gap-1.5 border border-gray-800">
-                  <button 
-                    type="button" 
-                    onClick={() => setNovaTransacao({ ...novaTransacao, tipo: 'Entrada' })} 
-                    className={`flex-1 py-2.5 rounded-md font-black text-xs uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950' : 'bg-transparent text-gray-500 hover:text-gray-300'}`}
-                  >
-                    <ArrowUpRight size={15} /> Receita / Venda
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setNovaTransacao({ ...novaTransacao, tipo: 'Saida' })} 
-                    className={`flex-1 py-2.5 rounded-md font-black text-xs uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1.5 ${novaTransacao.tipo === 'Saida' ? 'bg-red-600 text-white shadow-md shadow-red-950' : 'bg-transparent text-gray-500 hover:text-gray-300'}`}
-                  >
-                    <ArrowDownRight size={15} /> Despesa / Saída
-                  </button>
-                </div>
-
-                {/* ENTRADA DOS PRODUTOS / SELEÇÃO DO CATÁLOGO */}
-                <div className="space-y-2">
-                  {novaTransacao.tipo === 'Entrada' && produtosServicos.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <select 
-                        value={itemCatalogoId} 
-                        onChange={e => handleSelecionarDoCatalogo(e.target.value)}
-                        className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-xs focus:border-emerald-600 cursor-pointer"
-                      >
-                        <option value="">⚡ Selecionar do Catálogo de Produtos/Serviços (Preço automático)...</option>
-                        {produtosServicos.map(ps => (
-                          <option key={ps.id} value={ps.id}>
-                            {ps.ehServico ? '🛠️ [Serviço]' : '📦 [Produto]'} {ps.nome} — R$ {Number(ps.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col md:flex-row gap-2">
-                    <input 
-                      placeholder={novaTransacao.tipo === 'Entrada' ? "Descreva o produto ou serviço vendido..." : "Descreva a despesa ou insumo comprado..."} 
-                      className={`flex-1 p-3 bg-gray-950 border border-gray-800 rounded-md outline-none text-white font-medium text-sm transition-all placeholder-gray-600 ${novaTransacao.tipo === 'Entrada' ? 'focus:border-emerald-500' : 'focus:border-red-500'}`} 
-                      value={novoItem.item} 
-                      onChange={e => { setNovoItem({...novoItem, item: e.target.value}); setItemCatalogoId(''); }} 
-                    />
-                    <div className="flex gap-2 w-full md:w-auto">
-                      <input 
-                        type="number" 
-                        step="0.01"
-                        placeholder="R$ Unit." 
-                        className="w-24 sm:w-28 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-bold text-sm text-emerald-400 outline-none focus:border-emerald-500 placeholder-gray-600" 
-                        value={novoItem.precoUnitario} 
-                        onChange={e => setNovoItem({...novoItem, precoUnitario: e.target.value})} 
-                        title="Preço unitário (opcional, calcula total automático)"
-                      />
-                      <input 
-                        type="number" 
-                        min="1"
-                        className="w-16 p-3 bg-gray-950 border border-gray-800 rounded-md text-center font-black text-sm text-white outline-none focus:border-emerald-500" 
-                        value={novoItem.qtd} 
-                        onChange={e => {
-                          const val = e.target.value;
-                          setNovoItem(prev => ({
-                            ...prev,
-                            qtd: val === '' ? '' : (parseInt(val, 10) || '')
-                          }));
-                        }} 
-                        onBlur={() => {
-                          if (novoItem.qtd === '' || Number(novoItem.qtd) < 1) {
-                            setNovoItem(prev => ({ ...prev, qtd: 1 }));
-                          }
-                        }}
-                        title="Quantidade"
-                      />
-                      <button 
-                        type="button"
-                        onClick={handleAdicionarItem} 
-                        className={`text-white px-4 rounded-md border cursor-pointer flex items-center justify-center transition-all ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-800' : 'bg-red-700 hover:bg-red-600 border-red-800'}`}
-                        title="Adicionar item"
-                      >
-                        <Plus size={18} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ITENS TEMPORÁRIOS COM VALORES */}
-                {itensTemporarios.length > 0 && (
-                  <div className="p-3 bg-gray-950/50 rounded-md border border-gray-800 flex flex-wrap gap-2 items-center">
-                    {itensTemporarios.map((it, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-gray-900 border border-gray-800 px-3 py-1 rounded-md">
-                        <span className={`font-black text-xs ${novaTransacao.tipo === 'Entrada' ? 'text-emerald-400' : 'text-red-400'}`}>{it.qtd}x</span>
-                        <span className="text-gray-300 text-xs font-medium">{it.item}</span>
-                        {Boolean(it.precoUnitario && it.precoUnitario > 0) && (
-                          <span className={`text-[10px] font-bold bg-gray-950 px-1.5 py-0.5 rounded border border-gray-800 ${novaTransacao.tipo === 'Entrada' ? 'text-emerald-400' : 'text-red-400'}`}>
-                            R$ {(it.qtd * it.precoUnitario!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                        )}
-                        <button 
-                          type="button"
-                          onClick={() => handleRemoverItem(idx)} 
-                          className="text-gray-500 hover:text-red-400 border-none bg-transparent cursor-pointer p-0.5"
-                          title="Remover item"
-                        >
-                          <X size={12}/>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* RESUMO DE SUBTOTAL E DESCONTOS */}
-                {subtotalItens > 0 && (
-                  <div className="p-2.5 bg-gray-950/70 border border-gray-800 rounded-md flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-gray-400 font-bold">
-                        Subtotal dos Itens: <strong className="text-gray-200 font-black">R$ {subtotalItens.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
-                      </span>
-                      {Number(novaTransacao.desconto) > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                          <Tag size={11} />
-                          Desconto: R$ {Number(novaTransacao.desconto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          {' '}({((Number(novaTransacao.desconto) / subtotalItens) * 100).toFixed(1)}% OFF)
-                        </span>
-                      )}
-                    </div>
-                    {/* Atalhos de Desconto rápido */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-gray-500 font-bold uppercase mr-1">Desconto rápido:</span>
-                      {[5, 10, 15, 20].map(pct => (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() => aplicarDescontoPercentual(pct)}
-                          className="px-2 py-0.5 bg-gray-900 hover:bg-gray-800 border border-gray-700/70 rounded text-[10px] font-black text-amber-300 transition-colors"
-                          title={`Aplicar ${pct}% de desconto`}
-                        >
-                          {pct}%
-                        </button>
-                      ))}
-                      {Number(novaTransacao.desconto) > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDescontoChange('0.00')}
-                          className="px-2 py-0.5 bg-gray-900 hover:bg-red-950/40 border border-gray-800 hover:border-red-800 rounded text-[10px] font-black text-gray-400 hover:text-red-400 transition-colors"
-                          title="Remover desconto"
-                        >
-                          Zerar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* CONTROLADORES COMPACTOS */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
-                  
-                  <div className="lg:col-span-6 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {/* Toggle de Status */}
-                    <div className="bg-gray-950 p-1 rounded-md flex gap-1 border border-gray-800">
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, status: 'Pago' })} className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${novaTransacao.status === 'Pago' ? 'bg-emerald-600 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`}>Pago</button>
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, status: 'Pendente' })} className={`flex-1 py-2 rounded-md font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer ${novaTransacao.status === 'Pendente' ? 'bg-amber-500 text-white' : 'bg-transparent text-gray-500 hover:text-gray-400'}`}>Pendente</button>
-                    </div>
-
-                    {/* Toggle de Métodos */}
-                    <div className="bg-gray-950 p-1 rounded-md flex gap-1 border border-gray-800">
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, metodoPagamento: 'Pix' })} className={`flex-1 py-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${novaTransacao.metodoPagamento === 'Pix' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500'}`}><QrCode size={14} /></button>
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, metodoPagamento: 'Dinheiro' })} className={`flex-1 py-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${novaTransacao.metodoPagamento === 'Dinheiro' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500'}`}><Coins size={14} /></button>
-                      <button type="button" onClick={() => setNovaTransacao({ ...novaTransacao, metodoPagamento: 'Cartão' })} className={`flex-1 py-2 rounded-md transition-all border-none cursor-pointer flex items-center justify-center ${novaTransacao.metodoPagamento === 'Cartão' ? 'bg-gray-800 text-white border border-gray-700' : 'bg-transparent text-gray-500'}`}><CreditCard size={14} /></button>
-                    </div>
-                  </div>
-
-                  {/* Inputs de Dados */}
-                  <div className="lg:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      placeholder="Valor Final R$" 
-                      className={`w-full p-2.5 bg-gray-950 border rounded-md font-black outline-none text-sm text-center placeholder-gray-700 ${novaTransacao.tipo === 'Entrada' ? 'text-emerald-400 border-gray-800 focus:border-emerald-600' : 'text-red-400 border-gray-800 focus:border-red-600'}`} 
-                      value={novaTransacao.valor} 
-                      onChange={e => handleValorChange(e.target.value)} 
-                      title="Valor cobrado do cliente (já com desconto)"
-                    />
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      placeholder="Desconto R$" 
-                      className="w-full p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-amber-400 outline-none text-sm text-center focus:border-amber-600 placeholder-gray-700" 
-                      value={novaTransacao.desconto} 
-                      onChange={e => handleDescontoChange(e.target.value)} 
-                      title="Desconto concedido (calculado automaticamente ou manual)"
-                    />
-                    <input type="date" className="p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-300 outline-none text-sm text-center focus:border-emerald-600" value={novaTransacao.data} onChange={e => setNovaTransacao({...novaTransacao, data: e.target.value})} />
-                    
-                    {novaTransacao.tipo === 'Entrada' ? (
-                      <select className="p-2.5 bg-gray-950 border border-gray-800 rounded-md font-bold text-gray-400 outline-none text-xs focus:border-emerald-600 truncate" value={novaTransacao.clienteId} onChange={e => setNovaTransacao({...novaTransacao, clienteId: e.target.value})}>
-                        <option value="">Sem Cliente</option>
-                        {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                      </select>
-                    ) : (
-                      <select className="p-2.5 bg-gray-950 border border-gray-800 text-red-400 rounded-md font-bold outline-none text-xs focus:border-red-600 truncate" value={novaTransacao.fornecedorId} onChange={e => setNovaTransacao({...novaTransacao, fornecedorId: e.target.value})}>
-                        <option value="">Sem Fornecedor</option>
-                        {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                      </select>
-                    )}
-                  </div>
-
-                </div>
-
-                <button 
-                  onClick={handleAddTransacao} 
-                  className={`w-full py-3.5 rounded-md font-black uppercase tracking-wider text-xs border cursor-pointer flex items-center justify-center gap-2 transition-all ${novaTransacao.tipo === 'Entrada' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-700' : 'bg-red-600 hover:bg-red-500 text-white border-red-700'}`}
-                >
-                  {novaTransacao.tipo === 'Entrada' ? 'Salvar Receita' : 'Salvar Despesa'} <Target size={14} />
-                </button>
-
               </div>
             )}
           </div>
