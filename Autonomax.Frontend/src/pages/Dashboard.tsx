@@ -167,7 +167,11 @@ export function Dashboard() {
       ]);
 
       if (resTrans.status === 'fulfilled') {
-        setTransacoes(resTrans.value.data || []);
+        const dadosFormatados = (resTrans.value.data || []).map((t: Transacao) => ({
+          ...t,
+          metodoPagamento: t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento
+        }));
+        setTransacoes(dadosFormatados);
       }
       if (resCli.status === 'fulfilled') {
         setClientes(resCli.value.data || []);
@@ -237,7 +241,8 @@ export function Dashboard() {
     };
 
     vendasDoDia.forEach(v => {
-      const metodo = v.metodoPagamento || 'Outro';
+      let metodo = v.metodoPagamento || 'Outro';
+      if (metodo === 'A Vista') metodo = 'Dinheiro';
       if (!map[metodo]) {
         map[metodo] = { total: 0, qtd: 0 };
       }
@@ -548,24 +553,35 @@ export function Dashboard() {
   const handleAlternarStatus = async (t: Transacao) => {
     if (!negocioId) return;
     const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
+    // Atualização otimista imediata sem recarregar a tela
+    setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, status: nStatus } : item));
     try {
       await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
-      carregarDados();
     } catch (err) {
       console.error(err);
+      // Reverter se falhar
+      setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, status: t.status } : item));
+      alert("Erro ao alterar status.");
     }
   };
 
   const handleAlternarMetodo = async (t: Transacao) => {
     if (!negocioId) return;
     const metodos = ['Pix', 'Dinheiro', 'Cartão de Crédito', 'Cartão de Débito'];
-    const idx = metodos.indexOf(t.metodoPagamento);
+    const metodoAtual = t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento;
+    const idx = metodos.indexOf(metodoAtual);
     const next = (idx + 1) % metodos.length;
+    const novoMetodo = metodos[next >= 0 ? next : 0];
+
+    // Atualização otimista imediata sem recarregar a tela
+    setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, metodoPagamento: novoMetodo } : item));
     try {
-      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: metodos[next >= 0 ? next : 0], negocioId: Number(negocioId) });
-      carregarDados();
+      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: novoMetodo, negocioId: Number(negocioId) });
     } catch (err) {
       console.error(err);
+      // Reverter se falhar
+      setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, metodoPagamento: t.metodoPagamento } : item));
+      alert("Erro ao alterar método de pagamento.");
     }
   };
 

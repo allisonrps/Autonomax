@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
@@ -41,6 +41,24 @@ export function FluxoCaixa() {
   const [mesAtivo, setMesAtivo] = useState(Number(mes) || new Date().getMonth() + 1);
   const [anoAtivo, setAnoAtivo] = useState(Number(ano) || new Date().getFullYear());
   
+  const monthInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAbrirCalendario = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = monthInputRef.current;
+    if (el) {
+      try {
+        if ('showPicker' in el) {
+          (el as any).showPicker();
+        } else {
+          (el as HTMLInputElement).click();
+        }
+      } catch (err) {
+        (el as HTMLInputElement).click();
+      }
+    }
+  };
+  
   const [resumoAberto, setResumoAberto] = useState(false); 
   const [graficoDiarioAberto, setGraficoDiarioAberto] = useState(false);
   const [itemAberto, setItemAberto] = useState<number | null>(null);
@@ -54,6 +72,17 @@ export function FluxoCaixa() {
   const [novoItemEdicao, setNovoItemEdicao] = useState<{ nome: string; qtd: number | string }>({ nome: '', qtd: 1 });
 
   const mesesNome = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const anosDisponiveis = useMemo(() => {
+    const anoAtual = new Date().getFullYear();
+    const lista = [];
+    const minAno = Math.min(2023, anoAtivo);
+    const maxAno = Math.max(anoAtual + 2, anoAtivo + 1);
+    for (let y = minAno; y <= maxAno; y++) {
+      lista.push(y);
+    }
+    return lista;
+  }, [anoAtivo]);
 
   const formatarDataLocal = (dataISO: string) => {
     const data = new Date(dataISO);
@@ -75,7 +104,10 @@ export function FluxoCaixa() {
     setCarregando(true);
     try {
       const resTrans = await api.get(`/Transacoes/por-periodo/${negocioId}?mes=${mesAtivo}&ano=${anoAtivo}`);
-      const transData = resTrans.data || [];
+      const transData = (resTrans.data || []).map((t: Transacao) => ({
+        ...t,
+        metodoPagamento: t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento
+      }));
       const ordenadas = transData.sort((a: Transacao, b: Transacao) => 
         new Date(b.data).getTime() - new Date(a.data).getTime()
       );
@@ -193,19 +225,35 @@ export function FluxoCaixa() {
 
   async function handleAlternarStatus(t: Transacao) {
     const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
+    // Atualização otimista imediata sem recarregar a tela
+    setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, status: nStatus } : item));
     try {
       await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
-      carregarDados();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      // Reverter se falhar
+      setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, status: t.status } : item));
+      alert("Erro ao alterar status.");
+    }
   }
 
   async function handleAlternarMetodo(t: Transacao) {
     const metodos = ['Pix', 'Dinheiro', 'Cartão'];
-    const next = (metodos.indexOf(t.metodoPagamento) + 1) % metodos.length;
+    const metodoAtual = t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento;
+    const idx = metodos.indexOf(metodoAtual);
+    const next = (idx + 1) % metodos.length;
+    const novoMetodo = metodos[next >= 0 ? next : 0];
+
+    // Atualização otimista imediata sem recarregar a tela
+    setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, metodoPagamento: novoMetodo } : item));
     try {
-      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: metodos[next], negocioId: Number(negocioId) });
-      carregarDados();
-    } catch (err) { console.error(err); }
+      await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: novoMetodo, negocioId: Number(negocioId) });
+    } catch (err) {
+      console.error(err);
+      // Reverter se falhar
+      setTransacoes(prev => prev.map(item => item.id === t.id ? { ...item, metodoPagamento: t.metodoPagamento } : item));
+      alert("Erro ao alterar método de pagamento.");
+    }
   }
 
   async function handleDelete(id: number) {
@@ -346,19 +394,54 @@ export function FluxoCaixa() {
           {/* NAVEGAÇÃO / CONTROLE DE PERÍODO PADRÃO CLIENTES */}
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4 w-full lg:w-auto">
-              <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex">
-                <CalendarDays size={22} />
+              <div 
+                onClick={handleAbrirCalendario}
+                className="relative p-3 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-400 hover:text-emerald-300 rounded-lg border border-emerald-900/50 hover:border-emerald-500/60 transition-all flex items-center justify-center cursor-pointer group shadow-sm active:scale-95 select-none"
+                title="Clique para escolher o mês"
+              >
+                <CalendarDays size={22} className="group-hover:scale-110 transition-transform pointer-events-none" />
+                <input
+                  ref={monthInputRef}
+                  type="month"
+                  value={`${anoAtivo}-${String(mesAtivo).padStart(2, '0')}`}
+                  onChange={e => {
+                    if (!e.target.value) return;
+                    const [anoStr, mesStr] = e.target.value.split('-');
+                    if (anoStr && mesStr) {
+                      setAnoAtivo(Number(anoStr));
+                      setMesAtivo(Number(mesStr));
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-30"
+                />
               </div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap">
-                  {mesesNome[mesAtivo - 1]} <span className="text-emerald-400">{anoAtivo}</span>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 
+                  onClick={handleAbrirCalendario}
+                  className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap cursor-pointer hover:text-emerald-300 transition-colors select-none"
+                  title="Clique para escolher o mês no calendário"
+                >
+                  {mesesNome[mesAtivo - 1]}
                 </h2>
+                {/* Seletor de Ano Rápido */}
+                <select
+                  value={anoAtivo}
+                  onChange={e => setAnoAtivo(Number(e.target.value))}
+                  className="bg-gray-950/80 border border-gray-800 hover:border-emerald-500/60 text-emerald-400 font-black text-sm sm:text-base rounded-lg px-2.5 py-1 outline-none cursor-pointer transition-all hover:bg-gray-900 shadow-sm"
+                  title="Selecionar ano"
+                >
+                  {anosDisponiveis.map(y => (
+                    <option key={y} value={y} className="bg-gray-950 text-gray-100 font-bold">
+                      {y}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             
             <div className="flex items-center gap-1.5 w-full lg:w-auto justify-end">
-              <button onClick={() => navegarPeriodo(-1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-950 cursor-pointer"><ChevronLeft size={18} /></button>
-              <button onClick={() => navegarPeriodo(1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-950 cursor-pointer"><ChevronRight size={18} /></button>
+              <button onClick={() => navegarPeriodo(-1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-950 cursor-pointer" title="Mês anterior"><ChevronLeft size={18} /></button>
+              <button onClick={() => navegarPeriodo(1)} className="p-2 hover:bg-gray-800 rounded-md transition-all text-gray-300 border border-gray-800 bg-gray-950 cursor-pointer" title="Próximo mês"><ChevronRight size={18} /></button>
             </div>
           </div>
 

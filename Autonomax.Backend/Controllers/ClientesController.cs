@@ -31,6 +31,7 @@ public class ClientesController : ControllerBase
         try
         {
             var clientesComTransacoes = await _context.Clientes
+                .AsNoTracking()
                 .Include(c => c.Transacoes) 
                 .Where(c => c.NegocioId == negocioId)
                 .ToListAsync();

@@ -34,6 +34,7 @@ public class ProdutosServicosController : ControllerBase
             await SincronizarItensDoHistoricoInternoAsync(_context, negocioId);
 
             var itens = await _context.ProdutosServicos
+                .AsNoTracking()
                 .Where(p => p.NegocioId == negocioId)
                 .OrderBy(p => p.Nome)
                 .ToListAsync();

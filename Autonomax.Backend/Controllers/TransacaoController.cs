@@ -31,6 +31,7 @@ public class TransacoesController : ControllerBase
         }
 
         var transacoes = await _context.Transacoes
+            .AsNoTracking()
             .Include(t => t.Cliente) 
             .Include(t => t.Itens)
             .Where(t => t.NegocioId == negocioId)
@@ -267,6 +268,7 @@ public class TransacoesController : ControllerBase
         }
 
         var transacoes = await _context.Transacoes
+            .AsNoTracking()
             .Include(t => t.Cliente)
             .Include(t => t.Fornecedor)
             .Include(t => t.Itens)

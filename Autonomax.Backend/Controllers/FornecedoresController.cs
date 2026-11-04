@@ -28,6 +28,7 @@ public class FornecedoresController : ControllerBase
         try
         {
             var fornecedoresComTransacoes = await _context.Fornecedores
+                .AsNoTracking()
                 .Include(f => f.Transacoes)
                 .Where(f => f.NegocioId == negocioId)
                 .ToListAsync();

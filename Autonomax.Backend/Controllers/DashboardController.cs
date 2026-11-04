@@ -31,6 +31,7 @@ public class DashboardController : ControllerBase
 
         // 1. Busca todas as transações do negócio específico
         var transacoes = await _context.Transacoes
+            .AsNoTracking()
             .Where(t => t.NegocioId == negocioId)
             .ToListAsync();
 

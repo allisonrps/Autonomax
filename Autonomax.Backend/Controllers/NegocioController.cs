@@ -26,6 +26,7 @@ public class NegociosController : ControllerBase
         if (!usuarioId.HasValue) return Unauthorized();
 
         return await _context.Negocios
+            .AsNoTracking()
             .Where(n => n.UsuarioId == usuarioId.Value)
             .ToListAsync();
     }

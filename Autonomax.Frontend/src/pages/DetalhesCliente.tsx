@@ -75,9 +75,13 @@ export function DetalhesCliente() {
       const response = await api.get(`/Transacoes/por-cliente/${id}`, {
         params: { negocioId: Number(negocioId) }
       });
+      const transacoesFormatadas = (response.data?.transacoes || []).map((t: Transacao) => ({
+        ...t,
+        metodoPagamento: t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento
+      }));
       const ordenadas = {
         ...response.data,
-        transacoes: response.data.transacoes.sort((a: Transacao, b: Transacao) => 
+        transacoes: transacoesFormatadas.sort((a: Transacao, b: Transacao) => 
           new Date(b.data).getTime() - new Date(a.data).getTime()
         )
       };
@@ -163,20 +167,56 @@ export function DetalhesCliente() {
 
   async function handleAlternarStatus(t: Transacao) {
     const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
+    // Atualização otimista imediata
+    setDados((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        transacoes: (prev.transacoes || []).map((item: Transacao) => item.id === t.id ? { ...item, status: nStatus } : item)
+      };
+    });
     try {
       await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
-      carregarDados();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      // Reverter se falhar
+      setDados((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          transacoes: (prev.transacoes || []).map((item: Transacao) => item.id === t.id ? { ...item, status: t.status } : item)
+        };
+      });
+      alert("Erro ao alterar status.");
+    }
   }
 
   async function handleAlternarMetodo(t: Transacao) {
     const metodos = ['Pix', 'Dinheiro', 'Cartão'];
     const proximoIndex = (metodos.indexOf(t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento) + 1) % metodos.length;
     const novoMetodo = metodos[proximoIndex];
+    // Atualização otimista imediata
+    setDados((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        transacoes: (prev.transacoes || []).map((item: Transacao) => item.id === t.id ? { ...item, metodoPagamento: novoMetodo } : item)
+      };
+    });
     try {
       await api.put(`/Transacoes/${t.id}`, { ...t, metodoPagamento: novoMetodo, negocioId: Number(negocioId) });
-      carregarDados();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      // Reverter se falhar
+      setDados((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          transacoes: (prev.transacoes || []).map((item: Transacao) => item.id === t.id ? { ...item, metodoPagamento: t.metodoPagamento } : item)
+        };
+      });
+      alert("Erro ao alterar método de pagamento.");
+    }
   }
 
   async function handleDelete(id: number) {

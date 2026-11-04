@@ -65,7 +65,11 @@ export function Relatorios() {
           api.get(`/Transacoes/por-negocio/${negocioId}`),
           api.get(`/ProdutosServicos/por-negocio/${negocioId}`).catch(() => ({ data: [] }))
         ]);
-        setTransacoes(resTrans.data);
+        const transFormatadas = (resTrans.data || []).map((t: Transacao) => ({
+          ...t,
+          metodoPagamento: t.metodoPagamento === 'A Vista' ? 'Dinheiro' : t.metodoPagamento
+        }));
+        setTransacoes(transFormatadas);
         setProdutosCatalogo(resCat.data || []);
       } catch (err) { 
         console.error(err); 
@@ -145,7 +149,8 @@ export function Relatorios() {
   const dadosPizzaPagamento = useMemo(() => {
     const mapPagamentos: Record<string, number> = {};
     transacoesEntrada.forEach(t => {
-      const m = t.metodoPagamento?.trim() || 'Não Informado';
+      let m = t.metodoPagamento?.trim() || 'Não Informado';
+      if (m === 'A Vista') m = 'Dinheiro';
       mapPagamentos[m] = (mapPagamentos[m] || 0) + t.valor;
     });
 

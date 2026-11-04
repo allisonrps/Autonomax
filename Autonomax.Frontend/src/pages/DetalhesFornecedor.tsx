@@ -152,11 +152,26 @@ export function DetalhesFornecedor() {
 
   async function handleAlternarStatus(t: Transacao) {
     const nStatus = t.status === 'Pago' ? 'Pendente' : 'Pago';
+    // Atualização otimista imediata
+    setDados((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        transacoes: (prev.transacoes || []).map((item: Transacao) => item.id === t.id ? { ...item, status: nStatus } : item)
+      };
+    });
     try {
       await api.put(`/Transacoes/${t.id}`, { ...t, status: nStatus, negocioId: Number(negocioId) });
-      carregarDados();
     } catch (err) { 
-      console.error("Erro ao alterar status:", err); 
+      console.error("Erro ao alterar status:", err);
+      setDados((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          transacoes: (prev.transacoes || []).map((item: Transacao) => item.id === t.id ? { ...item, status: t.status } : item)
+        };
+      });
+      alert("Erro ao alterar status.");
     }
   }
 
