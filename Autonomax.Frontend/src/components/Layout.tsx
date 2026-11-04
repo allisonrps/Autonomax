@@ -76,12 +76,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navLinks = [
-    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Fluxo de Caixa', path: '/fluxo-caixa', icon: ArrowLeftRight },
+    { name: 'Diário', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Mensal', path: '/fluxo-caixa', icon: ArrowLeftRight },
+    { name: 'Anual', path: '/relatorios', icon: BarChart3 },
     { name: 'Catálogo', path: '/catalogo', icon: Package },
     { name: 'Clientes', path: '/clientes', icon: Users },
     { name: 'Parceiros', path: '/fornecedores', icon: Truck },
-    { name: 'Análise', path: '/relatorios', icon: BarChart3 },
     { name: 'Perfil', path: '/perfil', icon: User },
   ];
 

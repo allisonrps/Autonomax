@@ -5,7 +5,7 @@ import {
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, FileDown,
   ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight, ShoppingBag,
+  BarChart3, User, DollarSign, HandCoins, Plus, PackagePlus, Target, Wallet, ArrowUpRight, ArrowDownRight,
   Filter, Coins, QrCode, CreditCard, LineChart as LineChartIcon
 } from 'lucide-react';
 import { 
@@ -128,6 +128,15 @@ export function FluxoCaixa() {
     const data = new Date(dataISO);
     data.setMinutes(data.getMinutes() + data.getTimezoneOffset());
     return data;
+  };
+
+  const formatarHora = (dataISO: string) => {
+    try {
+      const data = new Date(dataISO);
+      return `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
+    } catch {
+      return '';
+    }
   };
 
   const carregarDados = useCallback(async () => {
@@ -461,10 +470,15 @@ export function FluxoCaixa() {
       gruposMap.get(chaveDia)!.push(t);
     });
 
-    return Array.from(gruposMap.entries()).map(([chaveDia, itens]) => {
+    // Ordena do dia mais recente para o mais antigo
+    const gruposOrdenados = Array.from(gruposMap.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+
+    return gruposOrdenados.map(([chaveDia, itens]) => {
       const dataObj = new Date(chaveDia + 'T12:00:00');
       const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
       const diaSemana = diasSemana[dataObj.getDay()];
+      const diasCurto = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+      const diaSemanaCurto = diasCurto[dataObj.getDay()];
       const dd = String(dataObj.getDate()).padStart(2, '0');
       const mm = String(dataObj.getMonth() + 1).padStart(2, '0');
       const aa = String(dataObj.getFullYear()).slice(-2);
@@ -475,6 +489,10 @@ export function FluxoCaixa() {
 
       return {
         chaveDia,
+        diaNum: dd,
+        diaSemanaCurto,
+        diaSemanaCompleto: diaSemana,
+        mesAno: `${mm}/${aa}`,
         rotuloData: `${diaSemana}, ${dd}/${mm}/${aa}`,
         itens,
         qtdVendas,
@@ -900,45 +918,89 @@ export function FluxoCaixa() {
                 </div>
               ) : (
                 transacoesAgrupadasPorDia.map(grupo => (
-                  <div key={grupo.chaveDia} className="space-y-2">
-                    {/* Separador do Dia com Pílulas Tags */}
-                    <div className="flex items-center justify-between gap-1.5 pt-2 pb-1 border-b border-gray-800/80 px-1">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
-                        <span className="text-[11px] sm:text-xs font-black uppercase tracking-tight text-gray-200 truncate">
-                          {grupo.rotuloData}
-                        </span>
+                  <div key={grupo.chaveDia} className="relative md:grid md:grid-cols-[135px_1fr] gap-4 lg:gap-5 items-start pt-2">
+                    
+                    {/* RÉGUA GUIA VERTICAL (DESKTOP) */}
+                    <div className="hidden md:flex flex-col sticky top-20 select-none">
+                      <div className="relative bg-gray-900 border border-gray-800/90 rounded-2xl p-3 flex flex-col shadow-md hover:border-gray-700 transition-all overflow-hidden">
+                        {/* Linha guia de destaque suave */}
+                        <div className="absolute top-0 left-0 bottom-0 w-1 bg-gradient-to-b from-emerald-500 via-emerald-600 to-transparent" />
+                        
+                        {/* Topo do dia */}
+                        <div className="flex items-baseline justify-between pl-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                            {grupo.diaSemanaCurto}
+                          </span>
+                          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">
+                            {grupo.mesAno}
+                          </span>
+                        </div>
+
+                        {/* Número grande do dia */}
+                        <div className="flex items-center gap-1.5 my-0.5 pl-1">
+                          <span className="text-3xl font-black text-white tracking-tight">
+                            {grupo.diaNum}
+                          </span>
+                        </div>
+
+                        {/* Dados consolidados do dia na régua */}
+                        <div className="pt-2 border-t border-gray-800/80 flex flex-col gap-1.5 text-[10px] pl-1">
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Vendas</span>
+                            <span className="font-black text-emerald-400 text-xs truncate" title={`Receita do dia: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                              R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-gray-400 font-bold bg-gray-950/60 px-2 py-1 rounded border border-gray-800/50">
+                            <span className="text-[9px] text-gray-400">Pedidos</span>
+                            <span className="text-gray-200 font-black text-xs">{grupo.qtdVendas}</span>
+                          </div>
+
+                          {grupo.totalDespesaDia > 0 && (
+                            <div className="flex flex-col pt-1 border-t border-gray-800/50">
+                              <span className="text-[8px] font-bold uppercase tracking-wider text-red-400/80">Saídas</span>
+                              <span className="font-black text-red-400 text-xs truncate" title={`Despesas do dia: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                                -R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RÉGUA GUIA MOBILE (COMPACTA) */}
+                    <div className="md:hidden flex items-center justify-between gap-2 p-2.5 bg-gray-900 border border-gray-800 rounded-xl mb-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-950/70 border border-emerald-900/60 flex items-center justify-center font-black text-sm text-emerald-400 flex-shrink-0">
+                          {grupo.diaNum}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-black uppercase text-gray-200 truncate">
+                            {grupo.diaSemanaCompleto}
+                          </span>
+                          <span className="text-[9px] font-bold text-gray-400 uppercase">
+                            {grupo.diaNum}/{grupo.mesAno} • {grupo.qtdVendas} {grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Tags Pílulas do Dia (somente ícone + valor, sem R$, na mesma linha no mobile) */}
-                      <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-                        {/* Pílula 1: Nº de pedidos */}
-                        <span className="bg-emerald-950/70 border border-emerald-900/60 text-emerald-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title={`${grupo.qtdVendas} ${grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}`}>
-                          <ShoppingBag size={11} />
-                          <span>{grupo.qtdVendas}</span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 text-[11px] font-black px-2.5 py-1 rounded-lg">
+                          R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
-
-                        {/* Pílula 2: Total de receita do dia */}
-                        <span className="bg-emerald-900/40 border border-emerald-700/50 text-emerald-300 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title={`Receita do dia: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                          <DollarSign size={11} />
-                          <span>{grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </span>
-
-                        {/* Pílula 3 Opcional: Despesas do dia */}
                         {grupo.totalDespesaDia > 0 && (
-                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm" title={`Saídas do dia: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                            <ArrowDownRight size={11} />
-                            <span>{grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black px-2 py-1 rounded-lg">
+                            -R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Lançamentos do dia */}
-                    <div className="space-y-2">
+                    {/* LANÇAMENTOS DO DIA */}
+                    <div className="flex-1 min-w-0 space-y-2">
                       {grupo.itens.map(t => {
                         const isEntrada = t.tipo === 'Entrada';
-                        const dataObj = formatarDataLocal(t.data);
                         const itensExibicao = (t.itens && t.itens.length > 0)
                           ? t.itens.map(it => ({
                               nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
@@ -951,18 +1013,21 @@ export function FluxoCaixa() {
                           : t.descricao;
 
                         return (
-                          <div key={t.id} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
-                            <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-4 bg-transparent border-none cursor-pointer outline-none text-left">
+                          <div key={t.id} className="bg-gray-900 rounded-xl border border-gray-800/90 overflow-hidden hover:border-gray-700 transition-all shadow-sm">
+                            <button onClick={() => setItemAberto(itemAberto === t.id ? null : t.id)} className="w-full flex items-center justify-between p-3.5 bg-transparent border-none cursor-pointer outline-none text-left">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className={`w-8 h-8 rounded-md flex items-center justify-center border flex-shrink-0 ${isEntrada ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-red-950/40 border-red-900 text-red-400'}`}>
-                                  <span className="text-xs font-black">
-                                    {dataObj.getDate().toString().padStart(2, '0')}
-                                  </span>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border flex-shrink-0 ${isEntrada ? 'bg-emerald-950/40 border-emerald-900 text-emerald-400' : 'bg-red-950/40 border-red-900 text-red-400'}`} title={t.metodoPagamento}>
+                                  {t.metodoPagamento === 'Pix' ? <QrCode size={15} /> : t.metodoPagamento === 'Cartão' ? <CreditCard size={15} /> : <Coins size={15} />}
                                 </div>
                                 <div className="flex flex-col min-w-0 pr-2">
-                                  <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
-                                    {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
+                                      {isEntrada ? (t.cliente?.nome || "Venda Avulsa") : (t.fornecedor?.nome || "Gasto Geral")}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-gray-400">
+                                      • {formatarHora(t.data)}
+                                    </span>
+                                  </div>
                                   {textoResumoItens && (
                                     <span className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
                                       {textoResumoItens}

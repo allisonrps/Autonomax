@@ -251,8 +251,8 @@ export function Relatorios() {
                 <BarChart3 size={22} />
               </div>
               <div>
-                <h2 className="text-lg font-black uppercase tracking-tight">Performance Financeira</h2>
-                <p className="text-xs text-gray-500 font-medium">Análise e resultados do ano de {anoAtivo}</p>
+                <h2 className="text-lg font-black uppercase tracking-tight">Performance Anual</h2>
+                <p className="text-xs text-gray-500 font-medium">Resultados e balanço financeiro de {anoAtivo}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 p-1 rounded-md self-start sm:self-auto">
