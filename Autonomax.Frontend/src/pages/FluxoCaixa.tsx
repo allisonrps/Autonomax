@@ -266,6 +266,27 @@ export function FluxoCaixa() {
     return t.tipo === filtroAtivo;
   });
 
+  // Custom tick para o eixo X do gráfico (números com cor diferenciada em sábado e domingo)
+  const renderCustomXAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    const diaNum = Number(payload.value);
+    const dataObj = new Date(anoAtivo, mesAtivo - 1, diaNum);
+    const ehFimDeSemana = dataObj.getDay() === 0 || dataObj.getDay() === 6;
+
+    return (
+      <text
+        x={x}
+        y={y + 11}
+        textAnchor="middle"
+        fill={ehFimDeSemana ? '#fbbf24' : '#9ca3af'}
+        fontSize={10}
+        fontWeight={ehFimDeSemana ? 800 : 500}
+      >
+        {payload.value}
+      </text>
+    );
+  };
+
   // Agrupamento de transações filtradas por dia para o separador com pílulas
   const transacoesAgrupadasPorDia = useMemo(() => {
     const gruposMap = new Map<string, Transacao[]>();
@@ -348,48 +369,83 @@ export function FluxoCaixa() {
               {resumoAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
             </button>
             {resumoAberto && (
-              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 animate-in slide-in-from-top duration-200 bg-gray-900">
-                <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
-                  <div className="p-2.5 bg-emerald-950/50 text-emerald-400 rounded-md border border-emerald-900/50"><ArrowUpRight size={20} /></div>
-                  <div>
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Receitas</p>
-                    <p className="text-base font-black text-emerald-400">R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <div className="p-4 sm:p-5 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3 animate-in slide-in-from-top duration-200 bg-gray-900">
+                {/* 1. Receitas */}
+                <div className="p-3 sm:p-3.5 rounded-xl border border-gray-800 bg-gray-950/40 flex flex-col justify-between gap-1.5 hover:border-gray-700 transition-all shadow-sm min-w-0">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Receitas</span>
+                    <div className="p-1 bg-emerald-950/60 text-emerald-400 rounded-lg border border-emerald-900/60 flex-shrink-0">
+                      <ArrowUpRight size={13} />
+                    </div>
                   </div>
+                  <p className="text-sm sm:text-base font-black text-emerald-400 tracking-tight truncate" title={`Receitas: R$ ${totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                    R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
-                  <div className="p-2.5 bg-red-950/50 text-red-400 rounded-md border border-red-900/50"><ArrowDownRight size={20} /></div>
-                  <div>
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Despesas</p>
-                    <p className="text-base font-black text-red-400">R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+
+                {/* 2. Despesas */}
+                <div className="p-3 sm:p-3.5 rounded-xl border border-gray-800 bg-gray-950/40 flex flex-col justify-between gap-1.5 hover:border-gray-700 transition-all shadow-sm min-w-0">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">Despesas</span>
+                    <div className="p-1 bg-red-950/60 text-red-400 rounded-lg border border-red-900/60 flex-shrink-0">
+                      <ArrowDownRight size={13} />
+                    </div>
                   </div>
+                  <p className="text-sm sm:text-base font-black text-red-400 tracking-tight truncate" title={`Despesas: R$ ${totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                    R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <div className="p-4 rounded-md border border-purple-900/40 flex items-center gap-3.5 bg-purple-950/20">
-                  <div className="p-2.5 bg-purple-950/50 text-purple-400 rounded-md border border-purple-900/50"><Tag size={20} /></div>
-                  <div>
-                    <p className="text-[9px] font-bold text-purple-300 uppercase tracking-wider">Descontos</p>
-                    <p className="text-base font-black text-purple-400">R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+
+                {/* 3. Descontos */}
+                <div className="p-3 sm:p-3.5 rounded-xl border border-purple-900/40 bg-purple-950/20 flex flex-col justify-between gap-1.5 hover:border-purple-800/60 transition-all shadow-sm min-w-0">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-purple-300 uppercase tracking-wider truncate">Descontos</span>
+                    <div className="p-1 bg-purple-950/60 text-purple-400 rounded-lg border border-purple-900/60 flex-shrink-0">
+                      <Tag size={13} />
+                    </div>
                   </div>
+                  <p className="text-sm sm:text-base font-black text-purple-400 tracking-tight truncate" title={`Descontos: R$ ${totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                    R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <div className="p-4 rounded-md border border-blue-900/40 flex items-center gap-3.5 bg-blue-950/20">
-                  <div className="p-2.5 bg-blue-950/50 text-blue-400 rounded-md border border-blue-900/50"><TrendingUp size={20} /></div>
-                  <div>
-                    <p className="text-[9px] font-bold text-blue-300 uppercase tracking-wider">Média Diária</p>
-                    <p className="text-base font-black text-blue-400">R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+
+                {/* 4. Média Diária */}
+                <div className="p-3 sm:p-3.5 rounded-xl border border-blue-900/40 bg-blue-950/20 flex flex-col justify-between gap-1.5 hover:border-blue-800/60 transition-all shadow-sm min-w-0">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider truncate">Média Diária</span>
+                    <div className="p-1 bg-blue-950/60 text-blue-400 rounded-lg border border-blue-900/60 flex-shrink-0">
+                      <TrendingUp size={13} />
+                    </div>
                   </div>
+                  <p className="text-sm sm:text-base font-black text-blue-400 tracking-tight truncate" title={`Média Diária: R$ ${resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                    R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
-                  <div className="p-2.5 bg-amber-950/50 text-amber-400 rounded-md border border-amber-900/50"><Wallet size={20} /></div>
-                  <div>
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">A Receber</p>
-                    <p className="text-base font-black text-amber-400">R$ {totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+
+                {/* 5. A Receber */}
+                <div className="p-3 sm:p-3.5 rounded-xl border border-gray-800 bg-gray-950/40 flex flex-col justify-between gap-1.5 hover:border-gray-700 transition-all shadow-sm min-w-0">
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">A Receber</span>
+                    <div className="p-1 bg-amber-950/60 text-amber-400 rounded-lg border border-amber-900/60 flex-shrink-0">
+                      <Wallet size={13} />
+                    </div>
                   </div>
+                  <p className="text-sm sm:text-base font-black text-amber-400 tracking-tight truncate" title={`A Receber: R$ ${totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                    R$ {totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <div className={`p-4 rounded-md border flex items-center gap-3.5 text-white ${saldo >= 0 ? 'bg-emerald-950 border-emerald-900' : 'bg-red-950 border-red-900'}`}>
-                  <div className="p-2.5 bg-white/10 rounded-md text-white border border-white/10"><DollarSign size={20} /></div>
-                  <div>
-                    <p className="text-[9px] font-bold uppercase tracking-wider opacity-60">Caixa Líquido</p>
-                    <p className="text-base font-black">R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+
+                {/* 6. Caixa Líquido */}
+                <div className={`p-3 sm:p-3.5 rounded-xl border flex flex-col justify-between gap-1.5 transition-all shadow-sm min-w-0 ${saldo >= 0 ? 'bg-emerald-950/60 border-emerald-900' : 'bg-red-950/60 border-red-900'}`}>
+                  <div className="flex items-center justify-between gap-1 min-w-0">
+                    <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider truncate">Caixa Líquido</span>
+                    <div className="p-1 bg-white/10 rounded-lg text-white border border-white/15 flex-shrink-0">
+                      <DollarSign size={13} />
+                    </div>
                   </div>
+                  <p className="text-sm sm:text-base font-black text-white tracking-tight truncate" title={`Caixa Líquido: R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                    R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
               </div>
             )}
@@ -417,23 +473,13 @@ export function FluxoCaixa() {
             </button>
 
             {graficoDiarioAberto && (
-              <div className="p-5 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-900">
-                {/* Melhor Dia de Ganhos */}
-                <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40 max-w-sm">
-                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Melhor Dia de Ganhos</p>
-                  <p className="text-base font-black text-emerald-400">
-                    {resumoGanhosDiarios.melhorDia?.ganhos > 0 ? (
-                      <>Dia {resumoGanhosDiarios.melhorDia.dia} <span className="text-xs font-medium text-gray-300">(R$ {resumoGanhosDiarios.melhorDia.ganhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</span></>
-                    ) : 'Sem vendas no mês'}
-                  </p>
-                </div>
-
+              <div className="p-4 sm:p-5 animate-in slide-in-from-top duration-200 bg-gray-900">
                 {/* Gráfico Recharts de Ganhos Diários */}
-                <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 h-64 w-full">
+                <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dadosGanhosDiarios} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
-                      <XAxis dataKey="dia" stroke="#6b7280" fontSize={10} tickLine={false} />
+                      <XAxis dataKey="dia" stroke="#4b5563" tick={renderCustomXAxisTick} tickLine={false} interval={0} />
                       <YAxis stroke="#6b7280" fontSize={10} tickLine={false} tickFormatter={(v) => `R$${v >= 1000 ? (v/1000).toFixed(0) + 'k' : v}`} />
                       <Tooltip
                         content={({ active, payload }) => {
@@ -515,10 +561,8 @@ export function FluxoCaixa() {
                           {grupo.diaSemanaCompleto}
                         </span>
 
-                        {/* 03 (Cor diferenciada para sábado e domingo) */}
-                        <span className={`text-3xl font-black tracking-tight leading-none my-0.5 ${
-                          grupo.ehFimDeSemana ? 'text-amber-400' : 'text-white'
-                        }`}>
+                        {/* 03 */}
+                        <span className="text-3xl font-black text-white tracking-tight leading-none my-0.5">
                           {grupo.diaNum}
                         </span>
 
@@ -543,12 +587,8 @@ export function FluxoCaixa() {
                     {/* RÉGUA GUIA MOBILE (COMPACTA) */}
                     <div className="md:hidden flex items-center justify-between gap-2 p-2.5 bg-gray-900 border border-gray-800 rounded-xl mb-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        {/* Card com o dia destacado (cor diferenciada para sábado e domingo) */}
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-base flex-shrink-0 shadow-sm ${
-                          grupo.ehFimDeSemana 
-                            ? 'bg-amber-500/25 border border-amber-400/50 text-amber-300' 
-                            : 'bg-emerald-500/25 border border-emerald-400/50 text-emerald-200'
-                        }`}>
+                        {/* Card com o dia destacado em tom mais claro */}
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 flex items-center justify-center font-black text-base flex-shrink-0 shadow-sm">
                           {grupo.diaNum}
                         </div>
                         <span className="text-xs font-black uppercase text-gray-100 tracking-tight truncate">
