@@ -972,25 +972,30 @@ export function FluxoCaixa() {
                     {/* RÉGUA GUIA MOBILE (COMPACTA) */}
                     <div className="md:hidden flex items-center justify-between gap-2 p-2.5 bg-gray-900 border border-gray-800 rounded-xl mb-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-950/70 border border-emerald-900/60 flex items-center justify-center font-black text-sm text-emerald-400 flex-shrink-0">
+                        {/* Card com o dia destacado em tom mais claro */}
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 flex items-center justify-center font-black text-base flex-shrink-0 shadow-sm">
                           {grupo.diaNum}
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-black uppercase text-gray-200 truncate">
-                            {grupo.diaSemanaCompleto}
-                          </span>
-                          <span className="text-[9px] font-bold text-gray-400 uppercase">
-                            {grupo.diaNum}/{grupo.mesAno} • {grupo.qtdVendas} {grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}
-                          </span>
-                        </div>
+                        <span className="text-xs font-black uppercase text-gray-100 tracking-tight truncate">
+                          {grupo.diaSemanaCompleto}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 text-[11px] font-black px-2.5 py-1 rounded-lg">
+                        {/* Pílula com o número de pedidos antes dos valores */}
+                        <span className="bg-gray-800 border border-gray-700 text-gray-300 text-[10px] font-black px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm" title={`${grupo.qtdVendas} pedidos`}>
+                          <span>{grupo.qtdVendas}</span>
+                          <span className="text-[9px] text-gray-400 font-bold">{grupo.qtdVendas === 1 ? 'ped' : 'peds'}</span>
+                        </span>
+
+                        {/* Valor das vendas do dia */}
+                        <span className="bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 text-[11px] font-black px-2.5 py-1 rounded-lg shadow-sm">
                           R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
+
+                        {/* Saídas do dia se houver */}
                         {grupo.totalDespesaDia > 0 && (
-                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black px-2 py-1 rounded-lg">
+                          <span className="bg-red-950/60 border border-red-900/60 text-red-400 text-[10px] font-black px-2 py-1 rounded-lg shadow-sm">
                             -R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </span>
                         )}
