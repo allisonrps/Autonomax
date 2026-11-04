@@ -404,6 +404,7 @@ export function FluxoCaixa() {
   const totalEntradas = transacoes.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
   const totalSaidas = transacoes.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
   const totalPendentes = transacoes.filter(t => t.status === 'Pendente').reduce((acc, t) => acc + t.valor, 0);
+  const totalDescontos = transacoes.reduce((acc, t) => acc + (t.desconto || 0), 0);
   const saldo = totalEntradas - totalSaidas;
 
   // Gráfico de Ganhos Diários no Mês (Linha do tempo diária)
@@ -533,7 +534,7 @@ export function FluxoCaixa() {
               {resumoAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
             </button>
             {resumoAberto && (
-              <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 animate-in slide-in-from-top duration-200 bg-gray-900">
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 animate-in slide-in-from-top duration-200 bg-gray-900">
                 <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
                   <div className="p-2.5 bg-emerald-950/50 text-emerald-400 rounded-md border border-emerald-900/50"><ArrowUpRight size={20} /></div>
                   <div>
@@ -546,6 +547,13 @@ export function FluxoCaixa() {
                   <div>
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Despesas</p>
                     <p className="text-base font-black text-red-400">R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+                <div className="p-4 rounded-md border border-purple-900/40 flex items-center gap-3.5 bg-purple-950/20">
+                  <div className="p-2.5 bg-purple-950/50 text-purple-400 rounded-md border border-purple-900/50"><Tag size={20} /></div>
+                  <div>
+                    <p className="text-[9px] font-bold text-purple-300 uppercase tracking-wider">Descontos</p>
+                    <p className="text-base font-black text-purple-400">R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
                 <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
@@ -922,49 +930,34 @@ export function FluxoCaixa() {
                     
                     {/* RÉGUA GUIA VERTICAL (DESKTOP) */}
                     <div className="hidden md:flex flex-col sticky top-20 select-none">
-                      <div className="relative bg-gray-900 border border-gray-800/90 rounded-2xl p-3 flex flex-col shadow-md hover:border-gray-700 transition-all overflow-hidden">
+                      <div className="relative bg-gray-900 border border-gray-800/90 rounded-2xl p-3 flex flex-col items-center shadow-md hover:border-gray-700 transition-all overflow-hidden text-center gap-1.5">
                         {/* Linha guia de destaque suave */}
                         <div className="absolute top-0 left-0 bottom-0 w-1 bg-gradient-to-b from-emerald-500 via-emerald-600 to-transparent" />
                         
-                        {/* Topo do dia */}
-                        <div className="flex items-baseline justify-between pl-1">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                            {grupo.diaSemanaCurto}
-                          </span>
-                          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight">
-                            {grupo.mesAno}
-                          </span>
+                        {/* TERÇA */}
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400">
+                          {grupo.diaSemanaCompleto}
+                        </span>
+
+                        {/* 03 */}
+                        <span className="text-3xl font-black text-white tracking-tight leading-none my-0.5">
+                          {grupo.diaNum}
+                        </span>
+
+                        {/* PILULA TOTAL DE PEDIDOS */}
+                        <div className="w-full bg-gray-800/80 border border-gray-700/70 text-gray-200 text-[11px] font-black py-1 px-2 rounded-lg flex items-center justify-center gap-1 shadow-sm">
+                          <span>{grupo.qtdVendas}</span>
+                          <span className="text-[10px] text-gray-400 font-bold">{grupo.qtdVendas === 1 ? 'pedido' : 'pedidos'}</span>
                         </div>
 
-                        {/* Número grande do dia */}
-                        <div className="flex items-center gap-1.5 my-0.5 pl-1">
-                          <span className="text-3xl font-black text-white tracking-tight">
-                            {grupo.diaNum}
-                          </span>
+                        {/* PILULA DO TOTAL DE ENTRADA */}
+                        <div className="w-full bg-emerald-950/70 border border-emerald-900/80 text-emerald-400 text-[11px] font-black py-1.5 px-2 rounded-lg shadow-sm truncate" title={`Total de Entradas: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                          R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </div>
 
-                        {/* Dados consolidados do dia na régua */}
-                        <div className="pt-2 border-t border-gray-800/80 flex flex-col gap-1.5 text-[10px] pl-1">
-                          <div className="flex flex-col">
-                            <span className="text-[8px] font-bold uppercase tracking-wider text-gray-400">Vendas</span>
-                            <span className="font-black text-emerald-400 text-xs truncate" title={`Receita do dia: R$ ${grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                              R$ {grupo.totalReceitaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between text-gray-400 font-bold bg-gray-950/60 px-2 py-1 rounded border border-gray-800/50">
-                            <span className="text-[9px] text-gray-400">Pedidos</span>
-                            <span className="text-gray-200 font-black text-xs">{grupo.qtdVendas}</span>
-                          </div>
-
-                          {grupo.totalDespesaDia > 0 && (
-                            <div className="flex flex-col pt-1 border-t border-gray-800/50">
-                              <span className="text-[8px] font-bold uppercase tracking-wider text-red-400/80">Saídas</span>
-                              <span className="font-black text-red-400 text-xs truncate" title={`Despesas do dia: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                                -R$ {grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                          )}
+                        {/* PILULA DO TOTAL DE SAIDA */}
+                        <div className={`w-full text-[11px] font-black py-1.5 px-2 rounded-lg shadow-sm truncate ${grupo.totalDespesaDia > 0 ? 'bg-red-950/60 border border-red-900/60 text-red-400' : 'bg-gray-950/60 border border-gray-800/60 text-gray-500'}`} title={`Total de Saídas: R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
+                          {grupo.totalDespesaDia > 0 ? `-R$ ${grupo.totalDespesaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'R$ 0,00'}
                         </div>
                       </div>
                     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { 
-  Calendar, Plus, ChevronDown, ChevronUp, 
+  Calendar, Plus, ArrowDownRight, ChevronDown, ChevronUp, 
   TrendingUp, DollarSign, ShoppingBag, 
   CreditCard, QrCode, Banknote, FileText, CheckCircle2, 
   Trash2, X, User, Sparkles, RotateCcw, Edit3, Save, Tag, HandCoins, CalendarDays, Clock
@@ -25,7 +25,14 @@ interface Transacao {
   data: string;
   cliente?: { id: number; nome: string };
   clienteId?: number | null;
+  fornecedor?: { id: number; nome: string };
+  fornecedorId?: number | null;
   itens: Item[];
+}
+
+interface Fornecedor {
+  id: number;
+  nome: string;
 }
 
 interface Cliente {
@@ -64,8 +71,23 @@ export function Dashboard() {
   // Dados
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [produtosServicos, setProdutosServicos] = useState<ProdutoServico[]>([]);
   const [carregando, setCarregando] = useState(true);
+
+  // Modal de Lançar Despesa
+  const [modalDespesaAberto, setModalDespesaAberto] = useState(false);
+  const [salvandoDespesa, setSalvandoDespesa] = useState(false);
+  const [despesaDescricao, setDespesaDescricao] = useState('');
+  const [despesaValor, setDespesaValor] = useState('');
+  const [despesaFornecedorId, setDespesaFornecedorId] = useState('');
+  const [despesaMetodo, setDespesaMetodo] = useState('Pix');
+  const [despesaStatus, setDespesaStatus] = useState('Pago');
+  const [despesaData, setDespesaData] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const [despesaHora, setDespesaHora] = useState(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
 
   // Cards Expansíveis (FECHADOS POR PADRÃO conforme solicitado)
   const [resumoAberto, setResumoAberto] = useState(false);
@@ -131,10 +153,11 @@ export function Dashboard() {
     if (!negocioId) return;
     try {
       setCarregando(true);
-      const [resTrans, resCli, resProd] = await Promise.allSettled([
+      const [resTrans, resCli, resProd, resFor] = await Promise.allSettled([
         api.get(`/Transacoes/por-negocio/${negocioId}`),
         api.get(`/Clientes/por-negocio/${negocioId}`),
-        api.get(`/ProdutosServicos/por-negocio/${negocioId}`)
+        api.get(`/ProdutosServicos/por-negocio/${negocioId}`),
+        api.get(`/Fornecedores/por-negocio/${negocioId}`)
       ]);
 
       if (resTrans.status === 'fulfilled') {
@@ -145,6 +168,9 @@ export function Dashboard() {
       }
       if (resProd.status === 'fulfilled') {
         setProdutosServicos(resProd.value.data || []);
+      }
+      if (resFor.status === 'fulfilled') {
+        setFornecedores(resFor.value.data || []);
       }
     } catch (err) {
       console.error('Erro ao carregar dados do dashboard:', err);
@@ -177,15 +203,21 @@ export function Dashboard() {
     return dataISO.slice(0, 10);
   };
 
-  // Vendas do dia selecionado (apenas entradas/vendas)
-  const vendasDoDia = useMemo(() => {
+  // Transações do dia selecionado (entradas e saídas)
+  const transacoesDoDia = useMemo(() => {
     return transacoes
-      .filter(t => t.tipo === 'Entrada' && extrairChave(t.data) === dataSelecionada)
+      .filter(t => extrairChave(t.data) === dataSelecionada)
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
   }, [transacoes, dataSelecionada]);
 
+  // Vendas e Despesas do dia selecionado
+  const vendasDoDia = useMemo(() => transacoesDoDia.filter(t => t.tipo === 'Entrada'), [transacoesDoDia]);
+  const despesasDoDia = useMemo(() => transacoesDoDia.filter(t => t.tipo === 'Saida'), [transacoesDoDia]);
+
   // Totais do Dia Selecionado
   const totalVendasDoDia = useMemo(() => vendasDoDia.reduce((acc, t) => acc + t.valor, 0), [vendasDoDia]);
+  const totalDespesasDoDia = useMemo(() => despesasDoDia.reduce((acc, t) => acc + t.valor, 0), [despesasDoDia]);
+  const saldoDoDia = totalVendasDoDia - totalDespesasDoDia;
   const qtdVendasDoDia = vendasDoDia.length;
   const ticketMedioDoDia = qtdVendasDoDia > 0 ? totalVendasDoDia / qtdVendasDoDia : 0;
 
@@ -332,6 +364,54 @@ export function Dashboard() {
       alert('Erro ao registrar a venda. Tente novamente.');
     } finally {
       setSalvandoVenda(false);
+    }
+  };
+
+  // Abrir e Salvar Despesa
+  const abrirModalDespesa = () => {
+    setDespesaDescricao('');
+    setDespesaValor('');
+    setDespesaFornecedorId('');
+    setDespesaMetodo('Pix');
+    setDespesaStatus('Pago');
+    setDespesaData(dataSelecionada || new Date().toLocaleDateString('en-CA'));
+    setDespesaHora(`${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`);
+    setModalDespesaAberto(true);
+  };
+
+  const handleFinalizarDespesa = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!despesaDescricao.trim()) return alert('Informe a descrição da despesa.');
+    const valorNum = parseFloat(despesaValor.replace(',', '.'));
+    if (isNaN(valorNum) || valorNum <= 0) return alert('Informe um valor válido maior que zero.');
+    if (!negocioId) return;
+
+    try {
+      setSalvandoDespesa(true);
+      const horaFinal = despesaHora || `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
+      const dataFormatada = new Date(`${despesaData}T${horaFinal}:00`);
+
+      const payload = {
+        descricao: despesaDescricao.trim(),
+        valor: valorNum,
+        tipo: 'Saida',
+        status: despesaStatus,
+        metodoPagamento: despesaMetodo,
+        negocioId: Number(negocioId),
+        clienteId: null,
+        fornecedorId: despesaFornecedorId ? Number(despesaFornecedorId) : null,
+        data: dataFormatada.toISOString(),
+        itens: []
+      };
+
+      await api.post('/Transacoes', payload);
+      setModalDespesaAberto(false);
+      carregarDados();
+    } catch (err) {
+      console.error('Erro ao registrar despesa:', err);
+      alert('Erro ao registrar despesa. Tente novamente.');
+    } finally {
+      setSalvandoDespesa(false);
     }
   };
 
@@ -488,7 +568,166 @@ export function Dashboard() {
     return (
       <Layout>
         <LoadingProgress message="Iniciando painel operacional do dia..." />
-      </Layout>
+  
+      {/* ============================================================ */}
+      {/* MODAL DE LANÇAR DESPESA                                      */}
+      {/* ============================================================ */}
+      {modalDespesaAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            {/* Cabeçalho */}
+            <div className="p-4 sm:p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/60">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-950/60 border border-red-900/60 text-red-400 rounded-xl">
+                  <ArrowDownRight size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-white">Lançar Despesa</h3>
+                  <p className="text-[10px] text-gray-400 font-medium">Registre uma saída ou custo operacional do dia</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalDespesaAberto(false)}
+                className="text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-xl transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Formulário */}
+            <form onSubmit={handleFinalizarDespesa} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+              {/* Descrição */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                  Descrição da Despesa *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Compra de embalagens, Conta de luz, Frete..."
+                  value={despesaDescricao}
+                  onChange={e => setDespesaDescricao(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-3 text-xs font-bold text-white placeholder-gray-600 outline-none focus:border-red-500 transition-colors"
+                />
+              </div>
+
+              {/* Valor R$ */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                  Valor R$ *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-red-400">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    placeholder="0,00"
+                    value={despesaValor}
+                    onChange={e => setDespesaValor(e.target.value)}
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-10 pr-3.5 py-3 text-sm font-black text-red-400 outline-none focus:border-red-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Fornecedor / Parceiro Opcional */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                  Fornecedor / Parceiro (Opcional)
+                </label>
+                <select
+                  value={despesaFornecedorId}
+                  onChange={e => setDespesaFornecedorId(e.target.value)}
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs font-bold text-gray-200 outline-none focus:border-red-500 cursor-pointer"
+                >
+                  <option value="">Sem fornecedor vinculado</option>
+                  {fornecedores.map(f => (
+                    <option key={f.id} value={f.id}>{f.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Método de Pagamento e Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                    Forma de Pagamento
+                  </label>
+                  <select
+                    value={despesaMetodo}
+                    onChange={e => setDespesaMetodo(e.target.value)}
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-200 outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="Pix">Pix</option>
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                    <option value="Boleto">Boleto</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">
+                    Status
+                  </label>
+                  <select
+                    value={despesaStatus}
+                    onChange={e => setDespesaStatus(e.target.value)}
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-200 outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="Pago">✅ Pago</option>
+                    <option value="Pendente">⏳ Pendente</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Data e Hora */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-red-400" />
+                    <span>Data</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={despesaData}
+                    onChange={e => setDespesaData(e.target.value)}
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-red-500 [color-scheme:dark] cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1.5">
+                    <Clock size={13} className="text-red-400" />
+                    <span>Horário</span>
+                  </label>
+                  <input
+                    type="time"
+                    value={despesaHora}
+                    onChange={e => setDespesaHora(e.target.value)}
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-bold text-white outline-none focus:border-red-500 [color-scheme:dark] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Botão Salvar Despesa */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={salvandoDespesa}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 transition-all active:scale-95 cursor-pointer border-none disabled:opacity-50"
+                >
+                  {salvandoDespesa ? 'Registrando...' : 'Registrar Despesa'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </Layout>
     );
   }
 
@@ -556,12 +795,21 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Lado Direito: Botão Nova Venda */}
-            <div className="flex items-center justify-stretch md:justify-end">
+            {/* Lado Direito: Ações Operacionais */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 justify-stretch md:justify-end">
+              <button
+                type="button"
+                onClick={abrirModalDespesa}
+                className="flex items-center justify-center gap-2 px-4 sm:px-5 py-3.5 bg-red-950/40 hover:bg-red-950/80 text-red-300 border border-red-900/60 hover:border-red-600 font-black text-xs uppercase tracking-wider rounded-xl transition-all active:scale-95 cursor-pointer shadow-sm"
+              >
+                <ArrowDownRight size={17} strokeWidth={2.5} />
+                <span>Lançar Despesa</span>
+              </button>
+
               <button
                 type="button"
                 onClick={abrirModalVenda}
-                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
+                className="flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all active:scale-95 cursor-pointer border-none"
               >
                 <Plus size={18} strokeWidth={3} />
                 <span>Nova Venda</span>
@@ -599,49 +847,67 @@ export function Dashboard() {
             </button>
 
             {resumoAberto && (
-              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 
-                {/* 1. Faturamento - Direto com Ícone e Valor Lado a Lado */}
-                <div className="bg-gray-950 p-5 sm:p-6 rounded-2xl border border-gray-800 flex items-center gap-4 hover:border-gray-700 transition-all">
-                  <div className="p-3.5 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-2xl flex-shrink-0">
-                    <DollarSign size={28} />
+                {/* 1. Faturamento */}
+                <div className="bg-gray-950 p-4 sm:p-5 rounded-2xl border border-gray-800 flex items-center gap-3.5 hover:border-gray-700 transition-all">
+                  <div className="p-3 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-xl flex-shrink-0">
+                    <DollarSign size={24} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
-                      Faturamento {ehHoje ? 'Hoje' : 'do Dia'}
+                      Entradas {ehHoje ? 'Hoje' : 'do Dia'}
                     </p>
-                    <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight truncate">
+                    <p className="text-xl sm:text-2xl font-black text-emerald-400 tracking-tight truncate">
                       R$ {totalVendasDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
 
-                {/* 2. Vendas Concluídas - Direto com Ícone e Valor Lado a Lado */}
-                <div className="bg-gray-950 p-5 sm:p-6 rounded-2xl border border-gray-800 flex items-center gap-4 hover:border-gray-700 transition-all">
-                  <div className="p-3.5 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-2xl flex-shrink-0">
-                    <ShoppingBag size={28} />
+                {/* 2. Despesas / Saídas */}
+                <div className="bg-gray-950 p-4 sm:p-5 rounded-2xl border border-gray-800 flex items-center gap-3.5 hover:border-gray-700 transition-all">
+                  <div className="p-3 bg-red-950/70 border border-red-900/70 text-red-400 rounded-xl flex-shrink-0">
+                    <ArrowDownRight size={24} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
+                      Saídas {ehHoje ? 'Hoje' : 'do Dia'}
+                    </p>
+                    <p className="text-xl sm:text-2xl font-black text-red-400 tracking-tight truncate">
+                      R$ {totalDespesasDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Saldo Líquido do Dia */}
+                <div className={`bg-gray-950 p-4 sm:p-5 rounded-2xl border flex items-center gap-3.5 transition-all ${saldoDoDia >= 0 ? 'border-emerald-900/50 hover:border-emerald-700' : 'border-red-900/50 hover:border-red-700'}`}>
+                  <div className={`p-3 rounded-xl flex-shrink-0 ${saldoDoDia >= 0 ? 'bg-emerald-950/70 border border-emerald-900 text-emerald-400' : 'bg-red-950/70 border border-red-900 text-red-400'}`}>
+                    <TrendingUp size={24} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
+                      Saldo Líquido
+                    </p>
+                    <p className={`text-xl sm:text-2xl font-black tracking-tight truncate ${saldoDoDia >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      R$ {saldoDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4. Vendas Concluídas */}
+                <div className="bg-gray-950 p-4 sm:p-5 rounded-2xl border border-gray-800 flex items-center gap-3.5 hover:border-gray-700 transition-all">
+                  <div className="p-3 bg-gray-900 border border-gray-800 text-gray-300 rounded-xl flex-shrink-0">
+                    <ShoppingBag size={24} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
                       Vendas Concluídas
                     </p>
-                    <p className="text-2xl sm:text-3xl font-black text-white tracking-tight truncate">
-                      {qtdVendasDoDia} <span className="text-sm font-bold text-gray-400">{qtdVendasDoDia === 1 ? 'pedido' : 'pedidos'}</span>
+                    <p className="text-xl sm:text-2xl font-black text-white tracking-tight truncate">
+                      {qtdVendasDoDia} <span className="text-xs font-bold text-gray-400">{qtdVendasDoDia === 1 ? 'pedido' : 'pedidos'}</span>
                     </p>
-                  </div>
-                </div>
-
-                {/* 3. Ticket Médio - Direto com Ícone e Valor Lado a Lado */}
-                <div className="bg-gray-950 p-5 sm:p-6 rounded-2xl border border-gray-800 flex items-center gap-4 hover:border-gray-700 transition-all">
-                  <div className="p-3.5 bg-emerald-950/70 border border-emerald-900/70 text-emerald-400 rounded-2xl flex-shrink-0">
-                    <TrendingUp size={28} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider truncate">
-                      Ticket Médio
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight truncate">
-                      R$ {ticketMedioDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <p className="text-[10px] font-bold text-gray-500 truncate">
+                      Méd. R$ {ticketMedioDoDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -757,9 +1023,16 @@ export function Dashboard() {
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 bg-emerald-950/40 border border-emerald-900/60 rounded-md text-[10px] font-black text-emerald-400 uppercase">
-                  {vendasDoDia.length} {vendasDoDia.length === 1 ? 'Venda' : 'Vendas'}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2.5 py-1 bg-emerald-950/40 border border-emerald-900/60 rounded-md text-[10px] font-black text-emerald-400 uppercase">
+                    {vendasDoDia.length} {vendasDoDia.length === 1 ? 'Venda' : 'Vendas'}
+                  </span>
+                  {despesasDoDia.length > 0 && (
+                    <span className="px-2.5 py-1 bg-red-950/40 border border-red-900/60 rounded-md text-[10px] font-black text-red-400 uppercase">
+                      {despesasDoDia.length} {despesasDoDia.length === 1 ? 'Saída' : 'Saídas'}
+                    </span>
+                  )}
+                </div>
                 <div className="p-1.5 rounded-lg bg-gray-950 border border-gray-800 text-gray-400">
                   {feedAberto ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </div>
@@ -768,20 +1041,21 @@ export function Dashboard() {
 
             {feedAberto && (
               <div className="p-4 sm:p-5 border-t border-gray-800/80 bg-gray-900/50 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                {/* Lista de Vendas no Modelo do Fluxo Mensal */}
-                {vendasDoDia.length === 0 ? (
+                {/* Lista de Transações do Dia (Vendas e Despesas) */}
+                {transacoesDoDia.length === 0 ? (
                   <div className="bg-gray-950 p-8 sm:p-10 rounded-xl border border-dashed border-gray-800 text-center space-y-3">
                     <Sparkles size={32} className="mx-auto text-emerald-400 opacity-60" />
                     <p className="text-xs font-black uppercase tracking-wider text-gray-300">
-                      Nenhuma venda registrada para este dia.
+                      Nenhum lançamento registrado para este dia.
                     </p>
                     <p className="text-[11px] text-gray-500 max-w-sm mx-auto font-medium">
-                      Clique no botão <strong>Nova Venda</strong> para registrar um pedido e alimentar o feed em tempo real.
+                      Utilize os botões <strong>Nova Venda</strong> ou <strong>Lançar Despesa</strong> para movimentar o caixa em tempo real.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {vendasDoDia.map(t => {
+                    {transacoesDoDia.map(t => {
+                      const isEntrada = t.tipo === 'Entrada';
                       const itensExibicao = (t.itens && t.itens.length > 0)
                         ? t.itens.map(it => ({
                             nome: it.nome.replace(/^[\d\s*xX•\-_/]+/, '').trim() || it.nome,
@@ -793,6 +1067,10 @@ export function Dashboard() {
                         ? itensExibicao.map(it => `${it.quantidade}x ${it.nome}`).join(', ')
                         : t.descricao;
 
+                      const nomeEntidade = isEntrada 
+                        ? (t.cliente?.nome || "Consumidor Avulso") 
+                        : (t.fornecedor?.nome || "Despesa / Saída");
+
                       return (
                         <div key={t.id} className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden hover:border-gray-700 transition-all">
                           <button
@@ -801,13 +1079,15 @@ export function Dashboard() {
                             className="w-full flex items-center justify-between p-3.5 sm:p-4 bg-transparent border-none cursor-pointer outline-none text-left"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              {/* Badge de Horário mantido da tela Dashboard */}
-                              <div className="px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-900/60 text-emerald-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                              {/* Badge de Horário com cor condicional */}
+                              <div className={`px-2.5 py-1.5 rounded-lg border font-bold text-xs flex items-center justify-center flex-shrink-0 ${
+                                isEntrada ? 'bg-emerald-950/40 border-emerald-900/60 text-emerald-400' : 'bg-red-950/40 border-red-900/60 text-red-400'
+                              }`}>
                                 {formatarHora(t.data)}
                               </div>
                               <div className="flex flex-col min-w-0 pr-2">
                                 <span className="text-xs font-black text-gray-200 uppercase tracking-tight truncate">
-                                  {t.cliente?.nome || "Consumidor Avulso"}
+                                  {nomeEntidade}
                                 </span>
                                 {textoResumoItens && (
                                   <span className="text-[10px] font-bold text-gray-400 truncate mt-0.5">
@@ -818,8 +1098,10 @@ export function Dashboard() {
                             </div>
 
                             <div className="flex items-center gap-3 flex-shrink-0">
-                              <span className="text-xs sm:text-sm font-black tracking-tight text-emerald-400">
-                                R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              <span className={`text-xs sm:text-sm font-black tracking-tight ${
+                                isEntrada ? 'text-emerald-400' : 'text-red-400'
+                              }`}>
+                                {isEntrada ? '' : '-'}R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                               {itemAberto === t.id ? <ChevronUp size={16} className="text-gray-500"/> : <ChevronDown size={16} className="text-gray-500"/>}
                             </div>
