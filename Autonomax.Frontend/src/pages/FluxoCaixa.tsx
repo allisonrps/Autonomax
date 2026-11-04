@@ -5,7 +5,7 @@ import {
   Trash2, CalendarDays, X, Receipt, ChevronLeft, 
   ChevronRight, CheckCircle2, FileDown,
   ChevronDown, ChevronUp, Edit3, Save, Tag,
-  BarChart3, User, DollarSign, HandCoins, Plus, Wallet, ArrowUpRight, ArrowDownRight,
+  BarChart3, User, DollarSign, HandCoins, Plus, Wallet, ArrowUpRight, ArrowDownRight, TrendingUp,
   Filter, Coins, QrCode, CreditCard, LineChart as LineChartIcon
 } from 'lucide-react';
 import { 
@@ -299,12 +299,14 @@ export function FluxoCaixa() {
       const qtdVendas = itens.filter(t => t.tipo === 'Entrada').length;
       const totalReceitaDia = itens.filter(t => t.tipo === 'Entrada').reduce((acc, t) => acc + t.valor, 0);
       const totalDespesaDia = itens.filter(t => t.tipo === 'Saida').reduce((acc, t) => acc + t.valor, 0);
+      const ehFimDeSemana = dataObj.getDay() === 0 || dataObj.getDay() === 6;
 
       return {
         chaveDia,
         diaNum: dd,
         diaSemanaCurto,
         diaSemanaCompleto: diaSemana,
+        ehFimDeSemana,
         mesAno: `${mm}/${aa}`,
         rotuloData: `${diaSemana}, ${dd}/${mm}/${aa}`,
         itens,
@@ -346,7 +348,7 @@ export function FluxoCaixa() {
               {resumoAberto ? <ChevronUp size={18} className="text-gray-400"/> : <ChevronDown size={18} className="text-gray-400"/>}
             </button>
             {resumoAberto && (
-              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 animate-in slide-in-from-top duration-200 bg-gray-900">
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 animate-in slide-in-from-top duration-200 bg-gray-900">
                 <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
                   <div className="p-2.5 bg-emerald-950/50 text-emerald-400 rounded-md border border-emerald-900/50"><ArrowUpRight size={20} /></div>
                   <div>
@@ -366,6 +368,13 @@ export function FluxoCaixa() {
                   <div>
                     <p className="text-[9px] font-bold text-purple-300 uppercase tracking-wider">Descontos</p>
                     <p className="text-base font-black text-purple-400">R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+                <div className="p-4 rounded-md border border-blue-900/40 flex items-center gap-3.5 bg-blue-950/20">
+                  <div className="p-2.5 bg-blue-950/50 text-blue-400 rounded-md border border-blue-900/50"><TrendingUp size={20} /></div>
+                  <div>
+                    <p className="text-[9px] font-bold text-blue-300 uppercase tracking-wider">Média Diária</p>
+                    <p className="text-base font-black text-blue-400">R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
                 <div className="p-4 rounded-md border border-gray-800 flex items-center gap-3.5 bg-gray-950/30">
@@ -396,7 +405,7 @@ export function FluxoCaixa() {
               <div className="flex items-center gap-2">
                 <LineChartIcon size={18} className="text-emerald-400"/>
                 <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">
-                  Ganhos por Dia ({mesesNome[mesAtivo - 1]})
+                  Gráfico
                 </h3>
               </div>
               <div className="flex items-center gap-3">
@@ -409,30 +418,14 @@ export function FluxoCaixa() {
 
             {graficoDiarioAberto && (
               <div className="p-5 space-y-4 animate-in slide-in-from-top duration-200 bg-gray-900">
-                {/* KPIs resumo rápido no topo */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40">
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Melhor Dia de Ganhos</p>
-                    <p className="text-base font-black text-emerald-400">
-                      {resumoGanhosDiarios.melhorDia?.ganhos > 0 ? (
-                        <>Dia {resumoGanhosDiarios.melhorDia.dia} <span className="text-xs font-medium text-gray-300">(R$ {resumoGanhosDiarios.melhorDia.ganhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</span></>
-                      ) : 'Sem vendas no mês'}
-                    </p>
-                  </div>
-
-                  <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40">
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Média Diária de Ganhos</p>
-                    <p className="text-base font-black text-white">
-                      R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / dia
-                    </p>
-                  </div>
-
-                  <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40">
-                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Total de Receitas do Mês</p>
-                    <p className="text-base font-black text-emerald-400">
-                      R$ {resumoGanhosDiarios.totalGanhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
+                {/* Melhor Dia de Ganhos */}
+                <div className="p-3.5 rounded-md border border-gray-800 bg-gray-950/40 max-w-sm">
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Melhor Dia de Ganhos</p>
+                  <p className="text-base font-black text-emerald-400">
+                    {resumoGanhosDiarios.melhorDia?.ganhos > 0 ? (
+                      <>Dia {resumoGanhosDiarios.melhorDia.dia} <span className="text-xs font-medium text-gray-300">(R$ {resumoGanhosDiarios.melhorDia.ganhos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</span></>
+                    ) : 'Sem vendas no mês'}
+                  </p>
                 </div>
 
                 {/* Gráfico Recharts de Ganhos Diários */}
@@ -522,8 +515,10 @@ export function FluxoCaixa() {
                           {grupo.diaSemanaCompleto}
                         </span>
 
-                        {/* 03 */}
-                        <span className="text-3xl font-black text-white tracking-tight leading-none my-0.5">
+                        {/* 03 (Cor diferenciada para sábado e domingo) */}
+                        <span className={`text-3xl font-black tracking-tight leading-none my-0.5 ${
+                          grupo.ehFimDeSemana ? 'text-amber-400' : 'text-white'
+                        }`}>
                           {grupo.diaNum}
                         </span>
 
@@ -548,8 +543,12 @@ export function FluxoCaixa() {
                     {/* RÉGUA GUIA MOBILE (COMPACTA) */}
                     <div className="md:hidden flex items-center justify-between gap-2 p-2.5 bg-gray-900 border border-gray-800 rounded-xl mb-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        {/* Card com o dia destacado em tom mais claro */}
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 flex items-center justify-center font-black text-base flex-shrink-0 shadow-sm">
+                        {/* Card com o dia destacado (cor diferenciada para sábado e domingo) */}
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-base flex-shrink-0 shadow-sm ${
+                          grupo.ehFimDeSemana 
+                            ? 'bg-amber-500/25 border border-amber-400/50 text-amber-300' 
+                            : 'bg-emerald-500/25 border border-emerald-400/50 text-emerald-200'
+                        }`}>
                           {grupo.diaNum}
                         </div>
                         <span className="text-xs font-black uppercase text-gray-100 tracking-tight truncate">
