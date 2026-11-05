@@ -4,10 +4,10 @@ import { Layout } from '../components/Layout';
 import { 
   Trash2, Edit3, Save, X, Search, 
   ArrowDownWideNarrow, Plus, Package, 
-  Wrench, ChevronDown, ChevronUp,
+  Wrench, ChevronDown,
   Boxes, Sparkles, Flame, CheckSquare, Square, 
-  RefreshCw, CheckCircle2, ArrowRight, BarChart3,
-  Tag, ChevronLeft, ChevronRight
+  RefreshCw, CheckCircle2, BarChart3,
+  Tag, ChevronLeft, ChevronRight, Filter, RotateCcw
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -42,8 +42,7 @@ export interface ItemImportacao {
 
 export function Catalogo() {
   const [itens, setItens] = useState<ProdutoServico[]>([]);
-  const [formAberto, setFormAberto] = useState(false);
-  const [mostrarKpis, setMostrarKpis] = useState(false);
+  const [modalNovoAberto, setModalNovoAberto] = useState(false);
   const [carregando, setCarregando] = useState(false);
   
   const [novoItem, setNovoItem] = useState({
@@ -58,8 +57,10 @@ export function Catalogo() {
   const [itemEdicao, setItemEdicao] = useState<ProdutoServico | null>(null);
 
   const [filtroTexto, setFiltroTexto] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState<'todos' | 'produtos' | 'servicos'>('todos');
-  const [filtroCategoria, setFiltroCategoria] = useState<string>('todas');
+  // Filtros Multi-Tag em tempo real
+  const [filtroProdutos, setFiltroProdutos] = useState(true);
+  const [filtroServicos, setFiltroServicos] = useState(true);
+  const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([]);
   const [ordenacao, setOrdenacao] = useState('nome-asc');
 
   // Paginação
@@ -84,7 +85,7 @@ export function Catalogo() {
   // Resetar página para 1 quando houver alteração nos filtros
   useEffect(() => {
     setPaginaAtual(1);
-  }, [filtroTexto, filtroTipo, filtroCategoria, ordenacao]);
+  }, [filtroTexto, filtroProdutos, filtroServicos, tagsSelecionadas, ordenacao]);
 
   async function getNegocioIdAtivo(): Promise<string | null> {
     let id = currentNegocioId || localStorage.getItem('@Autonomax:selectedNegocioId');
@@ -137,6 +138,59 @@ export function Catalogo() {
     });
     return Array.from(cats).sort();
   }, [itens]);
+
+  // Contagem de itens por categoria
+  const contagemPorCategoria = useMemo(() => {
+    const map: Record<string, number> = {};
+    itens.forEach(i => {
+      const cat = i.categoria?.trim();
+      if (cat) {
+        map[cat] = (map[cat] || 0) + 1;
+      }
+    });
+    return map;
+  }, [itens]);
+
+  // Alternar filtro de produtos
+  const toggleFiltroProdutos = () => {
+    if (filtroProdutos && !filtroServicos) {
+      // Se era o único ativo, ao clicar reativa ambos
+      setFiltroProdutos(true);
+      setFiltroServicos(true);
+    } else {
+      setFiltroProdutos(prev => !prev);
+    }
+  };
+
+  // Alternar filtro de serviços
+  const toggleFiltroServicos = () => {
+    if (filtroServicos && !filtroProdutos) {
+      // Se era o único ativo, ao clicar reativa ambos
+      setFiltroProdutos(true);
+      setFiltroServicos(true);
+    } else {
+      setFiltroServicos(prev => !prev);
+    }
+  };
+
+  // Alternar seleção de tag de categoria em tempo real
+  const toggleTag = (tag: string) => {
+    setTagsSelecionadas(prev => {
+      const existe = prev.some(t => t.toLowerCase() === tag.toLowerCase());
+      if (existe) {
+        return prev.filter(t => t.toLowerCase() !== tag.toLowerCase());
+      } else {
+        return [...prev, tag];
+      }
+    });
+  };
+
+  // Limpar filtros de tags
+  const limparFiltrosTags = () => {
+    setFiltroProdutos(true);
+    setFiltroServicos(true);
+    setTagsSelecionadas([]);
+  };
 
   // Abre modal preparando os itens não cadastrados
   function handleAbrirModalHistorico() {
@@ -249,9 +303,14 @@ export function Catalogo() {
         negocioId: Number(idUsar)
       });
       setNovoItem({ nome: '', descricao: '', categoria: '', preco: '', ehServico: false });
-      setFormAberto(false);
+      setModalNovoAberto(false);
       carregarItens(idUsar);
       carregarSugestoes(idUsar);
+      setFeedbackMsg({
+        tipo: 'sucesso',
+        texto: `"${novoItem.nome.trim()}" cadastrado com sucesso no catálogo!`
+      });
+      setTimeout(() => setFeedbackMsg(null), 5000);
     } catch (err) {
       alert("Erro ao cadastrar item no catálogo.");
     }
@@ -305,15 +364,28 @@ export function Catalogo() {
     return { totalItens, totalProdutos, totalServicos };
   }, [itens]);
 
-  // Filtragem e Ordenação da lista principal
+  // Filtragem e Ordenação da lista principal com Tags e Tipos em tempo real
   const itensFiltrados = useMemo(() => {
     const termo = filtroTexto.trim().toLowerCase();
+
+    // Se ambos ativos (padrão) -> aceita ambos. Se só um ativo -> aceita apenas aquele.
+    const aceitaProdutos = filtroProdutos || (!filtroProdutos && !filtroServicos);
+    const aceitaServicos = filtroServicos || (!filtroProdutos && !filtroServicos);
+
     return itens
       .filter(item => {
-        if (filtroTipo === 'produtos' && item.ehServico) return false;
-        if (filtroTipo === 'servicos' && !item.ehServico) return false;
-        if (filtroCategoria !== 'todas' && (item.categoria || '').toLowerCase() !== filtroCategoria.toLowerCase()) return false;
+        // 1. Filtro Tipo Principal (Produtos / Serviços)
+        if (item.ehServico && !aceitaServicos) return false;
+        if (!item.ehServico && !aceitaProdutos) return false;
 
+        // 2. Filtro de Tags do Usuário (Multi-seleção)
+        if (tagsSelecionadas.length > 0) {
+          const itemCat = (item.categoria || '').trim().toLowerCase();
+          const match = tagsSelecionadas.some(t => t.trim().toLowerCase() === itemCat);
+          if (!match) return false;
+        }
+
+        // 3. Busca por texto
         if (!termo) return true;
         const nomeMatch = item.nome?.toLowerCase().includes(termo);
         const descMatch = item.descricao?.toLowerCase().includes(termo);
@@ -337,7 +409,7 @@ export function Catalogo() {
         if (valorA > valorB) return ordem === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [itens, filtroTexto, filtroTipo, filtroCategoria, ordenacao]);
+  }, [itens, filtroProdutos, filtroServicos, tagsSelecionadas, filtroTexto, ordenacao]);
 
   // Itens da Página Atual
   const totalPaginas = Math.ceil(itensFiltrados.length / ITENS_POR_PAGINA) || 1;
@@ -384,102 +456,9 @@ export function Catalogo() {
             </div>
           )}
           
-          {/* CARD DE KPIS DO CATÁLOGO (EXPANSÍVEL COM FLECHINHA, OCULTO POR PADRÃO) */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 shadow-sm overflow-hidden">
-            <button 
-              type="button"
-              onClick={() => setMostrarKpis(!mostrarKpis)}
-              className="w-full p-4 sm:p-5 flex items-center justify-between hover:bg-gray-800/60 transition-colors border-none outline-none cursor-pointer bg-transparent text-left"
-            >
-              <div className="flex items-center gap-2.5">
-                <BarChart3 size={18} className="text-emerald-400" />
-                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">
-                  Indicadores do Catálogo
-                </h3>
-              </div>
-              <div className="flex items-center gap-2 text-gray-400">
-                <span className="text-[10px] font-bold uppercase text-gray-500 hidden sm:inline">
-                  {mostrarKpis ? 'Ocultar Indicadores' : 'Ver Indicadores'}
-                </span>
-                {mostrarKpis ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </div>
-            </button>
-
-            {mostrarKpis && (
-              <div className="p-4 sm:p-6 border-t border-gray-800/80 animate-in slide-in-from-top duration-200">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {/* Total de Itens */}
-                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                    <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50">
-                      <Boxes size={22} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total no Catálogo</p>
-                      <p className="text-xl font-black text-white">{metricas.totalItens}</p>
-                    </div>
-                  </div>
-
-                  {/* Total Produtos */}
-                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                    <div className="p-3 bg-teal-950/50 text-teal-400 rounded-lg border border-teal-900/50">
-                      <Package size={22} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produtos Físicos</p>
-                      <p className="text-xl font-black text-teal-400">{metricas.totalProdutos}</p>
-                    </div>
-                  </div>
-
-                  {/* Total Serviços */}
-                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800 flex items-center gap-3.5 shadow-sm">
-                    <div className="p-3 bg-blue-950/50 text-blue-400 rounded-lg border border-blue-900/50">
-                      <Wrench size={22} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Serviços</p>
-                      <p className="text-xl font-black text-blue-400">{metricas.totalServicos}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* BANNER INTELIGENTE: ITENS DETECTADOS NO HISTÓRICO DE VENDAS */}
-          {itensNaoCadastradosNoHistorico.length > 0 && (
-            <div className="bg-gradient-to-r from-emerald-950/60 via-gray-900 to-gray-900 border border-emerald-800/60 rounded-xl p-4 md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg animate-in fade-in">
-              <div className="flex items-start md:items-center gap-3.5">
-                <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30 flex-shrink-0">
-                  <Sparkles size={22} className="animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                      Reconhecimento Automático de Vendas
-                    </span>
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[10px] font-black uppercase">
-                      {itensNaoCadastradosNoHistorico.length} {itensNaoCadastradosNoHistorico.length === 1 ? 'item novo' : 'itens novos'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-300 font-medium mt-1">
-                    Encontramos itens digitados nos seus lançamentos anteriores que ainda não estão no catálogo (Ex: <strong className="text-white">{itensNaoCadastradosNoHistorico.slice(0, 3).map(i => i.nome).join(', ')}</strong>{itensNaoCadastradosNoHistorico.length > 3 ? '...' : ''}).
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={handleAbrirModalHistorico}
-                className="w-full md:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs uppercase tracking-wider border border-emerald-500 cursor-pointer flex items-center justify-center gap-2 shadow-md transition-all flex-shrink-0"
-              >
-                <span>Importar</span>
-                <ArrowRight size={16} />
-              </button>
-            </div>
-          )}
-
-          {/* PAINEL DE CONTROLE (BUSCA, TIPO, TAG E ORDENAÇÃO) */}
+          {/* PAINEL DE CONTROLE (TÍTULO, AÇÕES, BUSCA E ORDENAÇÃO) */}
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 w-full lg:w-auto">
+            <div className="flex items-center gap-3 w-full lg:w-auto flex-wrap">
               <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex">
                 <Package size={22} />
               </div>
@@ -487,11 +466,23 @@ export function Catalogo() {
                 <h2 className="text-lg font-black tracking-tight uppercase text-gray-100 whitespace-nowrap">Catálogo</h2>
               </div>
 
-              {/* Botão de Importação */}
+              {/* Botão Novo Item (Abre Modal) */}
+              <button
+                type="button"
+                onClick={() => setModalNovoAberto(true)}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black uppercase tracking-wider border border-emerald-500 cursor-pointer flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 ml-auto md:ml-2"
+                title="Cadastrar novo produto ou serviço"
+              >
+                <Plus size={16} />
+                <span>Novo Item</span>
+              </button>
+
+              {/* Botão de Importação do Histórico de Vendas */}
               {sugestoesHistorico.length > 0 && (
                 <button
+                  type="button"
                   onClick={handleAbrirModalHistorico}
-                  className="px-3 py-2 bg-gray-950 hover:bg-gray-800 text-emerald-400 rounded-lg border border-gray-800 hover:border-emerald-800 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ml-auto md:ml-2"
+                  className="px-3 py-2 bg-gray-950 hover:bg-gray-800 text-emerald-400 rounded-lg border border-gray-800 hover:border-emerald-800 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
                   title="Abrir varredura de itens digitados no histórico de vendas"
                 >
                   <Sparkles size={14} />
@@ -503,68 +494,20 @@ export function Catalogo() {
               )}
             </div>
 
-            <div className="flex flex-col md:flex-row items-center gap-3 w-full lg:w-auto flex-1 justify-end">
-              {/* Filtro por Tipo (Pills) */}
-              <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-md border border-gray-800 w-full md:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setFiltroTipo('todos')}
-                  className={`px-3 py-2 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex-1 md:flex-initial ${
-                    filtroTipo === 'todos' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  Todos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltroTipo('produtos')}
-                  className={`px-3 py-2 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1 flex-1 md:flex-initial ${
-                    filtroTipo === 'produtos' ? 'bg-teal-600 text-white' : 'text-teal-500 hover:text-teal-400'
-                  }`}
-                >
-                  <Package size={12} /> Produtos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFiltroTipo('servicos')}
-                  className={`px-3 py-2 rounded text-[10px] font-black uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1 flex-1 md:flex-initial ${
-                    filtroTipo === 'servicos' ? 'bg-blue-600 text-white' : 'text-blue-500 hover:text-blue-400'
-                  }`}
-                >
-                  <Wrench size={12} /> Serviços
-                </button>
-              </div>
-
-              {/* Filtro por Categoria / Tag (Se houver tags cadastradas) */}
-              {categoriasDisponiveis.length > 0 && (
-                <div className="relative w-full md:w-auto flex items-center bg-gray-950 border border-gray-800 rounded-md px-3 py-2.5 focus-within:border-emerald-600 transition-all">
-                  <Tag size={14} className="text-purple-400 mr-2 flex-shrink-0" />
-                  <select
-                    className="bg-transparent border-none outline-none text-gray-300 text-xs font-bold uppercase tracking-wider cursor-pointer appearance-none pr-5"
-                    value={filtroCategoria}
-                    onChange={e => setFiltroCategoria(e.target.value)}
-                  >
-                    <option value="todas" className="bg-gray-900 text-gray-300">Todas as Tags</option>
-                    {categoriasDisponiveis.map(cat => (
-                      <option key={cat} value={cat} className="bg-gray-900 text-gray-300">{cat}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="text-gray-500 absolute right-2.5 pointer-events-none" />
-                </div>
-              )}
-
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto flex-1 justify-end">
               {/* Campo de Busca */}
-              <div className="relative w-full md:max-w-xs">
+              <div className="relative w-full sm:max-w-xs">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                 <input 
                   type="text"
                   placeholder="Localizar item ou tag..."
-                  className="w-full pl-11 pr-9 py-3 bg-gray-950 border border-gray-800 rounded-md text-sm outline-none focus:border-emerald-600 text-white placeholder-gray-600 transition-all font-medium"
+                  className="w-full pl-11 pr-9 py-2.5 bg-gray-950 border border-gray-800 rounded-lg text-sm outline-none focus:border-emerald-600 text-white placeholder-gray-600 transition-all font-medium"
                   value={filtroTexto}
                   onChange={e => setFiltroTexto(e.target.value)}
                 />
                 {filtroTexto && (
                   <button 
+                    type="button"
                     onClick={() => setFiltroTexto('')}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 bg-transparent border-none cursor-pointer p-1"
                   >
@@ -574,10 +517,10 @@ export function Catalogo() {
               </div>
 
               {/* Seletor de Ordenação */}
-              <div className="relative w-full md:w-auto flex items-center bg-gray-950 border border-gray-800 rounded-md px-3 py-3 focus-within:border-emerald-600 transition-all">
+              <div className="relative w-full sm:w-auto flex items-center bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 focus-within:border-emerald-600 transition-all">
                 <ArrowDownWideNarrow size={16} className="text-gray-500 mr-2 flex-shrink-0" />
                 <select 
-                  className="bg-transparent border-none outline-none text-gray-300 text-sm font-medium w-full cursor-pointer appearance-none"
+                  className="bg-transparent border-none outline-none text-gray-300 text-xs font-bold w-full cursor-pointer appearance-none pr-5 uppercase tracking-wider"
                   value={ordenacao}
                   onChange={e => setOrdenacao(e.target.value)}
                 >
@@ -590,121 +533,112 @@ export function Catalogo() {
                     <option value="preco-asc">Menor Preço</option>
                   </optgroup>
                 </select>
-                <ChevronDown size={14} className="text-gray-500 ml-2 flex-shrink-0 pointer-events-none" />
+                <ChevronDown size={14} className="text-gray-500 absolute right-2.5 pointer-events-none" />
               </div>
             </div>
           </div>
 
-          {/* CARD NOVO PRODUTO OU SERVIÇO (RETRÁTIL) */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <button 
-              onClick={() => setFormAberto(!formAberto)} 
-              className="w-full bg-gray-900/50 px-6 py-4 flex items-center justify-between hover:bg-gray-800/80 transition-colors border-none outline-none cursor-pointer border-b border-gray-800"
-            >
+          {/* BARRA DE FILTROS: TAGS PRINCIPAIS (PRODUTOS / SERVIÇOS) COM KPIS E TAGS DO USUÁRIO */}
+          <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
-                <Sparkles size={18} className="text-emerald-400" />
-                <h3 className="text-xs font-black text-gray-200 uppercase tracking-wider">Novo Produto ou Serviço</h3>
+                <Filter size={15} className="text-emerald-400" />
+                <span className="text-xs font-black uppercase tracking-wider text-gray-200">
+                  Filtros por Tags
+                </span>
               </div>
-              <div className="flex items-center text-gray-400">
-                {formAberto ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-bold text-gray-400">
+                  Exibindo <strong className="text-white">{itensFiltrados.length}</strong> de {itens.length} {itens.length === 1 ? 'item' : 'itens'}
+                </span>
+                {(!filtroProdutos || !filtroServicos || tagsSelecionadas.length > 0) && (
+                  <button
+                    type="button"
+                    onClick={limparFiltrosTags}
+                    className="text-[10px] font-black uppercase tracking-wider text-emerald-400 hover:text-emerald-300 flex items-center gap-1 border-none bg-transparent cursor-pointer transition-colors"
+                    title="Restaurar visualização de todos os tipos e tags"
+                  >
+                    <RotateCcw size={11} />
+                    <span>Mostrar Todos</span>
+                  </button>
+                )}
               </div>
-            </button>
-            
-            {formAberto && (
-              <div className="p-5 md:p-6 space-y-4 bg-gray-900 animate-in slide-in-from-top duration-200">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                  {/* Nome */}
-                  <div className="md:col-span-4">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                      Nome do Item *
-                    </label>
-                    <input 
-                      className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm transition-all" 
-                      value={novoItem.nome} 
-                      onChange={e => setNovoItem({...novoItem, nome: e.target.value})} 
-                      placeholder="Nome do produto ou serviço" 
-                    />
-                  </div>
+            </div>
 
-                  {/* Preço Unitário */}
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                      Preço (R$)
-                    </label>
-                    <input 
-                      type="number"
-                      step="0.01"
-                      className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-emerald-400 font-black text-sm transition-all placeholder-gray-600" 
-                      value={novoItem.preco} 
-                      onChange={e => setNovoItem({...novoItem, preco: e.target.value})} 
-                      placeholder="0,00" 
-                    />
-                  </div>
+            {/* Pílulas de Filtro em Tempo Real */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* 1. Tag Principal: PRODUTOS (com KPI integrado) */}
+              <button
+                type="button"
+                onClick={toggleFiltroProdutos}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all border cursor-pointer flex items-center gap-2 select-none active:scale-95 ${
+                  filtroProdutos
+                    ? 'bg-teal-950/70 border-teal-600 text-teal-300 shadow-sm'
+                    : 'bg-gray-950/60 border-gray-800 text-gray-500 hover:text-gray-400 hover:border-gray-700'
+                }`}
+                title={filtroProdutos ? "Produtos ativos (clique para alternar)" : "Produtos inativos (clique para ativar)"}
+              >
+                <Package size={14} className={filtroProdutos ? 'text-teal-400' : 'text-gray-500'} />
+                <span>Produtos</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  filtroProdutos ? 'bg-teal-500/20 text-teal-200 border border-teal-500/30' : 'bg-gray-800 text-gray-400'
+                }`}>
+                  {metricas.totalProdutos}
+                </span>
+              </button>
 
-                  {/* Tag / Categoria */}
-                  <div className="md:col-span-3">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                      Tag / Categoria
-                    </label>
-                    <input 
-                      type="text"
-                      className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-purple-600 text-purple-300 font-medium text-sm transition-all placeholder-gray-600" 
-                      value={novoItem.categoria} 
-                      onChange={e => setNovoItem({...novoItem, categoria: e.target.value})} 
-                      placeholder="Tag de classificação" 
-                    />
-                  </div>
+              {/* 2. Tag Principal: SERVIÇOS (com KPI integrado) */}
+              <button
+                type="button"
+                onClick={toggleFiltroServicos}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all border cursor-pointer flex items-center gap-2 select-none active:scale-95 ${
+                  filtroServicos
+                    ? 'bg-blue-950/70 border-blue-600 text-blue-300 shadow-sm'
+                    : 'bg-gray-950/60 border-gray-800 text-gray-500 hover:text-gray-400 hover:border-gray-700'
+                }`}
+                title={filtroServicos ? "Serviços ativos (clique para alternar)" : "Serviços inativos (clique para ativar)"}
+              >
+                <Wrench size={14} className={filtroServicos ? 'text-blue-400' : 'text-gray-500'} />
+                <span>Serviços</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                  filtroServicos ? 'bg-blue-500/20 text-blue-200 border border-blue-500/30' : 'bg-gray-800 text-gray-400'
+                }`}>
+                  {metricas.totalServicos}
+                </span>
+              </button>
 
-                  {/* Tipo (Produto / Serviço) */}
-                  <div className="md:col-span-3">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                      Tipo do Item
-                    </label>
-                    <div className="flex bg-gray-950 p-1 rounded-md border border-gray-800 h-[48px] items-center">
-                      <button
-                        type="button"
-                        onClick={() => setNovoItem({...novoItem, ehServico: false})}
-                        className={`flex-1 py-2.5 rounded font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1 ${
-                          !novoItem.ehServico ? 'bg-teal-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-                        }`}
-                      >
-                        <Package size={12} /> Produto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNovoItem({...novoItem, ehServico: true})}
-                        className={`flex-1 py-2.5 rounded font-black text-[10px] uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-1 ${
-                          novoItem.ehServico ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'
-                        }`}
-                      >
-                        <Wrench size={12} /> Serviço
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Descrição */}
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                    Descrição ou Detalhes
-                  </label>
-                  <textarea 
-                    rows={2} 
-                    className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-md outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm resize-none transition-all" 
-                    value={novoItem.descricao} 
-                    onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} 
-                    placeholder="Descrição ou observações" 
-                  />
-                </div>
+              {/* Separador visual para as tags do usuário */}
+              {categoriasDisponiveis.length > 0 && (
+                <div className="h-6 w-[1px] bg-gray-800 hidden sm:block mx-1" />
+              )}
 
-                <button 
-                  onClick={handleAddItem} 
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-md font-black uppercase tracking-wider text-xs border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all"
-                >
-                  <Plus size={16} /> Salvar no Catálogo
-                </button>
-              </div>
-            )}
+              {/* 3. Tags de Categoria do Usuário (Multi-seleção em tempo real) */}
+              {categoriasDisponiveis.map(cat => {
+                const isSelected = tagsSelecionadas.some(t => t.toLowerCase() === cat.toLowerCase());
+                const qtd = contagemPorCategoria[cat] || 0;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleTag(cat)}
+                    className={`px-3 py-2 rounded-lg text-xs transition-all border cursor-pointer flex items-center gap-1.5 select-none active:scale-95 ${
+                      isSelected
+                        ? 'bg-purple-950/70 border-purple-500 text-purple-200 shadow-sm font-black'
+                        : 'bg-gray-950/60 border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700 font-bold'
+                    }`}
+                    title={`Filtrar pela tag "${cat}"`}
+                  >
+                    <Tag size={12} className={isSelected ? 'text-purple-300' : 'text-purple-400/60'} />
+                    <span>{cat}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      isSelected ? 'bg-purple-500/30 text-purple-100 font-bold' : 'bg-gray-800/80 text-gray-400'
+                    }`}>
+                      {qtd}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* LISTA DE ITENS DO CATÁLOGO COM PAGINAÇÃO */}
@@ -716,18 +650,28 @@ export function Catalogo() {
                 <Boxes size={36} className="mx-auto text-gray-600 mb-3" />
                 <p className="text-gray-400 font-bold text-sm uppercase tracking-wider mb-1">Nenhum item encontrado</p>
                 <p className="text-gray-600 text-xs font-medium max-w-md mx-auto">
-                  {filtroTexto || filtroTipo !== 'todos' || filtroCategoria !== 'todas'
-                    ? "Tente ajustar os filtros ou os termos da busca." 
+                  {filtroTexto || !filtroProdutos || !filtroServicos || tagsSelecionadas.length > 0
+                    ? "Tente ajustar os filtros selecionados ou os termos da busca." 
                     : "Cadastre seus produtos ou use o botão de importação para preencher automaticamente!"}
                 </p>
-                {itensNaoCadastradosNoHistorico.length > 0 && (
+                <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
                   <button
-                    onClick={handleAbrirModalHistorico}
-                    className="mt-4 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md font-bold text-xs uppercase tracking-wider border border-emerald-700 cursor-pointer inline-flex items-center gap-2"
+                    type="button"
+                    onClick={() => setModalNovoAberto(true)}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md font-bold text-xs uppercase tracking-wider border border-emerald-700 cursor-pointer inline-flex items-center gap-2"
                   >
-                    <Sparkles size={16} /> Importar {itensNaoCadastradosNoHistorico.length} itens encontrados nas vendas
+                    <Plus size={16} /> Adicionar Novo Item
                   </button>
-                )}
+                  {itensNaoCadastradosNoHistorico.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAbrirModalHistorico}
+                      className="px-4 py-2.5 bg-gray-950 hover:bg-gray-800 text-emerald-400 rounded-md font-bold text-xs uppercase tracking-wider border border-gray-800 cursor-pointer inline-flex items-center gap-2"
+                    >
+                      <Sparkles size={16} /> Importar {itensNaoCadastradosNoHistorico.length} itens encontrados nas vendas
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <>
@@ -1171,6 +1115,160 @@ export function Catalogo() {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 mt-2 rounded-md font-black uppercase text-xs tracking-wider border border-emerald-700 cursor-pointer flex items-center justify-center gap-2 transition-all"
               >
                 Salvar Alterações <Save size={16}/>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL NOVO PRODUTO OU SERVIÇO */}
+      {modalNovoAberto && (
+        <div className="fixed inset-0 bg-gray-950/75 backdrop-blur-sm z-[100] flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-gray-900 w-full md:max-w-xl max-h-[92vh] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-800 animate-in slide-in-from-bottom md:zoom-in duration-200">
+            {/* Cabeçalho do Modal */}
+            <div className="bg-gray-950 px-6 py-5 flex justify-between items-center border-b border-gray-800 flex-shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-950/60 text-emerald-400 rounded-lg border border-emerald-900/60">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-gray-100 uppercase tracking-wider">Novo Produto ou Serviço</h3>
+                  <p className="text-[10px] text-gray-400 font-medium">Cadastre um item padrão para seu catálogo e vendas</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setModalNovoAberto(false)} 
+                className="text-gray-500 hover:text-white bg-transparent border-none cursor-pointer p-1.5 transition-colors rounded-lg hover:bg-gray-800"
+              >
+                <X size={20}/>
+              </button>
+            </div>
+            
+            {/* Conteúdo do Formulário */}
+            <div className="p-6 md:p-7 space-y-4 overflow-y-auto flex-1">
+              {/* Tipo: Produto ou Serviço */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  Tipo do Item *
+                </label>
+                <div className="grid grid-cols-2 gap-2 bg-gray-950 p-1.5 rounded-xl border border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setNovoItem({...novoItem, ehServico: false})}
+                    className={`py-3 rounded-lg font-black text-xs uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-2 ${
+                      !novoItem.ehServico 
+                        ? 'bg-teal-600 text-white shadow-md' 
+                        : 'text-gray-400 hover:text-gray-200 bg-transparent'
+                    }`}
+                  >
+                    <Package size={15} /> Produto Físico
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNovoItem({...novoItem, ehServico: true})}
+                    className={`py-3 rounded-lg font-black text-xs uppercase tracking-wider transition-all border-none cursor-pointer flex items-center justify-center gap-2 ${
+                      novoItem.ehServico 
+                        ? 'bg-blue-600 text-white shadow-md' 
+                        : 'text-gray-400 hover:text-gray-200 bg-transparent'
+                    }`}
+                  >
+                    <Wrench size={15} /> Serviço
+                  </button>
+                </div>
+              </div>
+
+              {/* Nome do Item */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  Nome do Item *
+                </label>
+                <input 
+                  autoFocus
+                  className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-xl outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm transition-all" 
+                  value={novoItem.nome} 
+                  onChange={e => setNovoItem({...novoItem, nome: e.target.value})} 
+                  placeholder={novoItem.ehServico ? "Ex: Mão de obra, Instalação..." : "Ex: Cartaz GG, Papel A4..."} 
+                />
+              </div>
+
+              {/* Preço e Tag / Categoria em 2 colunas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                    Preço de Venda (R$)
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-xs font-bold text-gray-500 pointer-events-none">R$</span>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      className="w-full pl-9 pr-3.5 py-3.5 bg-gray-950 border border-gray-800 rounded-xl outline-none focus:border-emerald-600 text-emerald-400 font-black text-sm transition-all placeholder-gray-600" 
+                      value={novoItem.preco} 
+                      onChange={e => setNovoItem({...novoItem, preco: e.target.value})} 
+                      placeholder="0,00" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                    Tag / Categoria
+                  </label>
+                  <input 
+                    type="text"
+                    className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-xl outline-none focus:border-purple-600 text-purple-300 font-medium text-sm transition-all placeholder-gray-600" 
+                    value={novoItem.categoria} 
+                    onChange={e => setNovoItem({...novoItem, categoria: e.target.value})} 
+                    placeholder="Ex: Geral, Cartazes..." 
+                  />
+                  {/* Sugestões rápidas de tags existentes */}
+                  {categoriasDisponiveis.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {categoriasDisponiveis.slice(0, 5).map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setNovoItem({...novoItem, categoria: cat})}
+                          className="px-2 py-0.5 bg-gray-950 hover:bg-gray-800 text-[10px] font-bold text-purple-400 rounded border border-gray-800 cursor-pointer transition-all"
+                        >
+                          + {cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Descrição */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+                  Descrição ou Observações (Opcional)
+                </label>
+                <textarea 
+                  rows={2} 
+                  className="w-full p-3.5 bg-gray-950 border border-gray-800 rounded-xl outline-none focus:border-emerald-600 text-white placeholder-gray-600 font-medium text-sm resize-none transition-all" 
+                  value={novoItem.descricao} 
+                  onChange={e => setNovoItem({...novoItem, descricao: e.target.value})} 
+                  placeholder="Informações adicionais, medidas, detalhes técnicos..." 
+                />
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="bg-gray-950 px-6 py-4 border-t border-gray-800 flex items-center justify-end gap-2.5 flex-shrink-0">
+              <button 
+                type="button"
+                onClick={() => setModalNovoAberto(false)}
+                className="px-4 py-3 bg-gray-900 hover:bg-gray-800 text-gray-300 rounded-xl text-xs font-black uppercase tracking-wider border border-gray-800 cursor-pointer transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button"
+                onClick={handleAddItem} 
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black uppercase tracking-wider text-xs border border-emerald-500 cursor-pointer flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95"
+              >
+                <Plus size={16} /> Salvar no Catálogo
               </button>
             </div>
           </div>
