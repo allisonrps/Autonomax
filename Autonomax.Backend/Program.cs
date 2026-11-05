@@ -251,6 +251,7 @@ using (var scope = app.Services.CreateScope())
             ALTER TABLE ""Transacoes"" ADD COLUMN IF NOT EXISTS ""FornecedorId"" integer NULL;
             ALTER TABLE ""Transacoes"" ADD COLUMN IF NOT EXISTS ""Desconto"" numeric(18,2) NOT NULL DEFAULT 0.0;
             ALTER TABLE ""Negocios"" ADD COLUMN IF NOT EXISTS ""LogoUrl"" text NULL;
+            ALTER TABLE ""Clientes"" ADD COLUMN IF NOT EXISTS ""Tags"" text NULL;
 
             UPDATE ""Transacoes"" SET ""MetodoPagamento"" = 'Dinheiro' WHERE ""MetodoPagamento"" = 'A Vista';
 

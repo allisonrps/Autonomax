@@ -44,6 +44,7 @@ public class ClientesController : ControllerBase
                 c.Cidade,
                 c.Estado,
                 c.Observacoes,
+                c.Tags,
                 c.NegocioId,
                 
                 TotalComprado = c.Transacoes
@@ -127,6 +128,7 @@ public class ClientesController : ControllerBase
         clienteExistente.Cidade = cliente.Cidade;
         clienteExistente.Estado = cliente.Estado;
         clienteExistente.Observacoes = cliente.Observacoes;
+        clienteExistente.Tags = cliente.Tags;
 
         try {
             await _context.SaveChangesAsync();

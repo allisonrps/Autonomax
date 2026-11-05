@@ -9,6 +9,7 @@ public class Cliente
     public string? Cidade { get; set; }
     public string? Estado { get; set; }
     public string? Observacoes { get; set; } // Nullable pois é opcional
+    public string? Tags { get; set; }
     public int NegocioId { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
