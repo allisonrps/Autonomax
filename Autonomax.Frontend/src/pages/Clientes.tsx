@@ -40,6 +40,7 @@ export function Clientes() {
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([]);
   const [cidadesSelecionadas, setCidadesSelecionadas] = useState<string[]>([]);
   const [ordenacao, setOrdenacao] = useState('nome-asc');
+  const [mostrarFiltrosTags, setMostrarFiltrosTags] = useState(false);
 
   const currentNegocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
 
@@ -289,11 +290,31 @@ export function Clientes() {
                 </select>
                 <ChevronDown size={14} className="text-gray-500 absolute right-2.5 pointer-events-none" />
               </div>
+
+              {/* Botão Ícone para alternar Tags e Cidades */}
+              <button
+                type="button"
+                onClick={() => setMostrarFiltrosTags(prev => !prev)}
+                className={`w-full sm:w-auto px-3 py-2.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all select-none active:scale-95 ${
+                  mostrarFiltrosTags || tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0
+                    ? 'bg-purple-950/80 border-purple-500 text-purple-200 shadow-sm'
+                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                }`}
+                title={mostrarFiltrosTags ? "Ocultar filtros de tags e cidades" : "Mostrar filtros de tags e cidades"}
+              >
+                <Tag size={15} className={mostrarFiltrosTags || tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0 ? "text-purple-400" : "text-gray-400"} />
+                <span>Tags & Cidades</span>
+                {(tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0) && (
+                  <span className="w-4 h-4 rounded-full bg-purple-600 text-white text-[9px] font-black flex items-center justify-center font-mono">
+                    {tagsSelecionadas.length + cidadesSelecionadas.length}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
-          {/* BARRA DE FILTROS POR TAGS E CIDADES EM TEMPO REAL */}
-          {(tagsDisponiveis.length > 0 || cidadesDisponiveis.length > 0) && (
+          {/* BARRA DE FILTROS POR TAGS E CIDADES EM TEMPO REAL (Oculto por padrão, aberto ao clicar no ícone) */}
+          {mostrarFiltrosTags && (tagsDisponiveis.length > 0 || cidadesDisponiveis.length > 0) && (
             <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 shadow-sm space-y-3">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">

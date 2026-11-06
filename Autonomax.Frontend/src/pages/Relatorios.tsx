@@ -7,12 +7,14 @@ import {
   TrendingUp, ChevronDown, ChevronUp, 
   LineChart as LineChartIcon, 
   PieChart as PieChartIcon,
-  Trophy, ArrowUpRight, ShoppingBag, User, CalendarDays
+  Trophy, ArrowUpRight, ShoppingBag, User, CalendarDays,
+  MapPin, Tag
 } from 'lucide-react';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell,
+  BarChart, Bar
 } from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -25,12 +27,21 @@ interface Item {
   valorTotal?: number;
 }
 
+interface ClienteRelatorio {
+  id: number;
+  nome: string;
+  cidade?: string;
+  estado?: string;
+  tags?: string;
+}
+
 interface Transacao {
   id: number; 
   valor: number; 
   tipo: string; 
   data: string;
-  cliente?: { id?: number; nome: string }; 
+  clienteId?: number;
+  cliente?: { id?: number; nome: string; cidade?: string; estado?: string; tags?: string }; 
   itens: Item[];
   metodoPagamento?: string;
   status?: string;
@@ -49,21 +60,25 @@ export function Relatorios() {
   const negocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [produtosCatalogo, setProdutosCatalogo] = useState<ProdutoServico[]>([]);
+  const [clientes, setClientes] = useState<ClienteRelatorio[]>([]);
   const [loading, setLoading] = useState(true);
   const [anoAtivo, setAnoAtivo] = useState(new Date().getFullYear());
 
   const [resumoAberto, setResumoAberto] = useState(false);
   const [modoComparativo, setModoComparativo] = useState<'Bruto' | 'Despesa' | 'Líquido'>('Líquido');
   const [modoItemRanking, setModoItemRanking] = useState<'unidades' | 'valor'>('unidades');
+  const [modoCidades, setModoCidades] = useState<'valor' | 'porcentagem'>('valor');
+  const [modoTags, setModoTags] = useState<'valor' | 'porcentagem'>('valor');
 
   useEffect(() => {
     async function carregarDados() {
       if (!negocioId) return;
       try {
         setLoading(true);
-        const [resTrans, resCat] = await Promise.all([
+        const [resTrans, resCat, resCli] = await Promise.all([
           api.get(`/Transacoes/por-negocio/${negocioId}`),
-          api.get(`/ProdutosServicos/por-negocio/${negocioId}`).catch(() => ({ data: [] }))
+          api.get(`/ProdutosServicos/por-negocio/${negocioId}`).catch(() => ({ data: [] })),
+          api.get(`/Clientes/por-negocio/${negocioId}`).catch(() => ({ data: [] }))
         ]);
         const transFormatadas = (resTrans.data || []).map((t: Transacao) => ({
           ...t,
@@ -71,6 +86,7 @@ export function Relatorios() {
         }));
         setTransacoes(transFormatadas);
         setProdutosCatalogo(resCat.data || []);
+        setClientes(resCli.data || []);
       } catch (err) { 
         console.error(err); 
       } finally { 
@@ -206,13 +222,21 @@ export function Relatorios() {
       .slice(0, 10);
   }, [transacoesEntrada]);
 
+  const clientesMap = useMemo(() => {
+    const map = new Map<number, ClienteRelatorio>();
+    clientes.forEach(c => map.set(c.id, c));
+    return map;
+  }, [clientes]);
+
   const rankingClientes = useMemo(() => {
     const mapClientes: Record<string, { id?: number; nome: string; valor: number }> = {};
     transacoesEntrada.forEach(t => {
-      if (!t.cliente || !t.cliente.nome) return;
-      const nome = t.cliente.nome;
+      const cId = t.cliente?.id || t.clienteId;
+      const cObj = (cId ? clientesMap.get(cId) : null) || t.cliente;
+      if (!cObj || !cObj.nome) return;
+      const nome = cObj.nome;
       if (!mapClientes[nome]) {
-        mapClientes[nome] = { id: t.cliente.id, nome, valor: 0 };
+        mapClientes[nome] = { id: cObj.id, nome, valor: 0 };
       }
       mapClientes[nome].valor += t.valor;
     });
@@ -220,7 +244,56 @@ export function Relatorios() {
     return Object.values(mapClientes)
       .sort((a, b) => b.valor - a.valor)
       .slice(0, 10);
-  }, [transacoesEntrada]);
+  }, [transacoesEntrada, clientesMap]);
+
+  const dadosCidades = useMemo(() => {
+    const mapCidades: Record<string, number> = {};
+    transacoesEntrada.forEach(t => {
+      const cId = t.cliente?.id || t.clienteId;
+      const cObj = (cId ? clientesMap.get(cId) : null) || t.cliente;
+      const cid = cObj?.cidade?.trim() || 'Não Informada';
+      mapCidades[cid] = (mapCidades[cid] || 0) + (t.valor || 0);
+    });
+
+    return Object.entries(mapCidades)
+      .map(([nome, valor]) => ({
+        nome,
+        valor,
+        porcentagem: totalEntradas > 0 ? Number(((valor / totalEntradas) * 100).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.valor - a.valor);
+  }, [transacoesEntrada, clientesMap, totalEntradas]);
+
+  const dadosTags = useMemo(() => {
+    const mapTags: Record<string, number> = {};
+    transacoesEntrada.forEach(t => {
+      const cId = t.cliente?.id || t.clienteId;
+      const cObj = (cId ? clientesMap.get(cId) : null) || t.cliente;
+      const tagsStr = cObj?.tags?.trim();
+
+      if (!tagsStr) {
+        mapTags['Sem Tag'] = (mapTags['Sem Tag'] || 0) + (t.valor || 0);
+      } else {
+        const tags = tagsStr.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+        if (tags.length === 0) {
+          mapTags['Sem Tag'] = (mapTags['Sem Tag'] || 0) + (t.valor || 0);
+        } else {
+          tags.forEach(tg => {
+            const tagNorm = tg.charAt(0).toUpperCase() + tg.slice(1);
+            mapTags[tagNorm] = (mapTags[tagNorm] || 0) + (t.valor || 0);
+          });
+        }
+      }
+    });
+
+    return Object.entries(mapTags)
+      .map(([nome, valor]) => ({
+        nome,
+        valor,
+        porcentagem: totalEntradas > 0 ? Number(((valor / totalEntradas) * 100).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.valor - a.valor);
+  }, [transacoesEntrada, clientesMap, totalEntradas]);
 
   const encontrarIdProduto = (nomeItem: string): number | null => {
     if (!produtosCatalogo.length) return null;
@@ -434,6 +507,245 @@ export function Relatorios() {
                     Nenhuma transação com forma de pagamento registrada
                   </div>
                 )}
+            </div>
+
+          </div>
+
+          {/* Faturamento por Tags & Faturamento por Cidades */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* Card: Faturamento por Tags */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Tag size={16} className="text-purple-400" />
+                  <h3 className="text-xs font-black uppercase text-gray-200">
+                    Faturamento por Tags
+                  </h3>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider font-mono bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
+                    {dadosTags.length} {dadosTags.length === 1 ? 'tag' : 'tags'}
+                  </span>
+                </div>
+
+                {/* Botões no topo para alternar Valor (R$) e Porcentagem (%) */}
+                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setModoTags('valor')}
+                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                      modoTags === 'valor'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Valor (R$)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoTags('porcentagem')}
+                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                      modoTags === 'porcentagem'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Porcentagem (%)
+                  </button>
+                </div>
+              </div>
+
+              {dadosTags.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Gráfico de Barras de Tags */}
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart 
+                        data={dadosTags.slice(0, 8)} 
+                        margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis 
+                          dataKey="nome" 
+                          stroke="#9ca3af" 
+                          fontSize={10} 
+                          tickLine={false}
+                          interval={0}
+                          tickFormatter={(v: string) => v.length > 10 ? `${v.substring(0, 9)}…` : v}
+                        />
+                        <YAxis 
+                          stroke="#9ca3af" 
+                          fontSize={10} 
+                          tickLine={false}
+                          width={45}
+                          tickFormatter={(val: number) => modoTags === 'valor' ? (val >= 1000 ? `R$ ${(val/1000).toFixed(0)}k` : `R$ ${val}`) : `${val}%`}
+                        />
+                        <Tooltip 
+                          formatter={(val: any) => [
+                            modoTags === 'valor' ? formatarMoeda(Number(val || 0)) : `${Number(val || 0).toFixed(1)}%`,
+                            modoTags === 'valor' ? 'Faturamento' : 'Participação'
+                          ]}
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
+                          cursor={{ fill: 'rgba(168, 85, 247, 0.08)' }}
+                        />
+                        <Bar 
+                          dataKey={modoTags === 'valor' ? 'valor' : 'porcentagem'} 
+                          fill="#a855f7" 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Lista com valores e % */}
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {dadosTags.map((item, idx) => (
+                      <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
+                            <span className="w-5 inline-block text-[10px] text-gray-500 font-mono flex-shrink-0">{idx + 1}.</span>
+                            <span className="truncate">{item.nome}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
+                              {item.porcentagem.toFixed(1)}%
+                            </span>
+                            <span className="font-black text-white text-xs">
+                              {formatarMoeda(item.valor)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-300 bg-purple-500"
+                            style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-56 flex items-center justify-center text-xs text-gray-500 italic">
+                  Nenhuma transação com clientes e tags registrada em {anoAtivo}
+                </div>
+              )}
+            </div>
+
+            {/* Card: Faturamento por Cidades */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <MapPin size={16} className="text-blue-400" />
+                  <h3 className="text-xs font-black uppercase text-gray-200">
+                    Faturamento por Cidades
+                  </h3>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider font-mono bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
+                    {dadosCidades.length} {dadosCidades.length === 1 ? 'cidade' : 'cidades'}
+                  </span>
+                </div>
+
+                {/* Botões no topo para alternar Valor (R$) e Porcentagem (%) */}
+                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setModoCidades('valor')}
+                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                      modoCidades === 'valor'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Valor (R$)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModoCidades('porcentagem')}
+                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
+                      modoCidades === 'porcentagem'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    Porcentagem (%)
+                  </button>
+                </div>
+              </div>
+
+              {dadosCidades.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Gráfico de Barras de Cidades */}
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart 
+                        data={dadosCidades.slice(0, 8)} 
+                        margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <XAxis 
+                          dataKey="nome" 
+                          stroke="#9ca3af" 
+                          fontSize={10} 
+                          tickLine={false}
+                          interval={0}
+                          tickFormatter={(v: string) => v.length > 10 ? `${v.substring(0, 9)}…` : v}
+                        />
+                        <YAxis 
+                          stroke="#9ca3af" 
+                          fontSize={10} 
+                          tickLine={false}
+                          width={45}
+                          tickFormatter={(val: number) => modoCidades === 'valor' ? (val >= 1000 ? `R$ ${(val/1000).toFixed(0)}k` : `R$ ${val}`) : `${val}%`}
+                        />
+                        <Tooltip 
+                          formatter={(val: any) => [
+                            modoCidades === 'valor' ? formatarMoeda(Number(val || 0)) : `${Number(val || 0).toFixed(1)}%`,
+                            modoCidades === 'valor' ? 'Faturamento' : 'Participação'
+                          ]}
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
+                          cursor={{ fill: 'rgba(59, 130, 246, 0.08)' }}
+                        />
+                        <Bar 
+                          dataKey={modoCidades === 'valor' ? 'valor' : 'porcentagem'} 
+                          fill="#3b82f6" 
+                          radius={[4, 4, 0, 0]} 
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Lista com valores e % */}
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {dadosCidades.map((item, idx) => (
+                      <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
+                            <span className="w-5 inline-block text-[10px] text-gray-500 font-mono flex-shrink-0">{idx + 1}.</span>
+                            <span className="truncate">{item.nome}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-black text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded">
+                              {item.porcentagem.toFixed(1)}%
+                            </span>
+                            <span className="font-black text-white text-xs">
+                              {formatarMoeda(item.valor)}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-300 bg-blue-500"
+                            style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-56 flex items-center justify-center text-xs text-gray-500 italic">
+                  Nenhuma transação com cidades registrada em {anoAtivo}
+                </div>
+              )}
             </div>
 
           </div>
