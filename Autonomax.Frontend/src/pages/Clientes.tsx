@@ -5,7 +5,7 @@ import {
   Trash2, Edit3, Save, X, Users, 
   Phone, Search, Contact2, Eye, 
   ChevronDown, ArrowDownWideNarrow,
-  Plus, Tag, MapPin, Filter, RotateCcw
+  Plus, Tag, MapPin, RotateCcw
 } from 'lucide-react';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -40,7 +40,8 @@ export function Clientes() {
   const [tagsSelecionadas, setTagsSelecionadas] = useState<string[]>([]);
   const [cidadesSelecionadas, setCidadesSelecionadas] = useState<string[]>([]);
   const [ordenacao, setOrdenacao] = useState('nome-asc');
-  const [mostrarFiltrosTags, setMostrarFiltrosTags] = useState(false);
+  const [mostrarTags, setMostrarTags] = useState(false);
+  const [mostrarCidades, setMostrarCidades] = useState(false);
 
   const currentNegocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
 
@@ -213,9 +214,9 @@ export function Clientes() {
       <div className="min-h-screen bg-gray-950 pt-8 pb-16 px-4 font-sans text-gray-100">
         <div className="max-w-6xl mx-auto space-y-5">
           
-          {/* PAINEL DE CONTROLE (TÍTULO, CONTADOR, NOVO CLIENTE, BUSCA E ORDENAÇÃO) */}
-          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex flex-col lg:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3 w-full lg:w-auto flex-wrap">
+          {/* 1. CABEÇALHO PRINCIPAL (TÍTULO, CONTADOR E BOTÃO NOVO CLIENTE) */}
+          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
               <div className="p-3 bg-emerald-950/50 text-emerald-400 rounded-lg border border-emerald-900/50 hidden md:flex">
                 <Users size={22} />
               </div>
@@ -228,22 +229,25 @@ export function Clientes() {
                   </span>
                 </div>
               </div>
-
-              {/* Botão Novo Cliente (Abre Modal) */}
-              <button
-                type="button"
-                onClick={() => setModalNovoAberto(true)}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black uppercase tracking-wider border border-emerald-500 cursor-pointer flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 ml-auto md:ml-3"
-                title="Cadastrar novo cliente"
-              >
-                <Plus size={16} />
-                <span>Novo Cliente</span>
-              </button>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto flex-1 justify-end">
-              {/* Pesquisa */}
-              <div className="relative w-full sm:max-w-xs">
+            {/* Botão Novo Cliente (Abre Modal) */}
+            <button
+              type="button"
+              onClick={() => setModalNovoAberto(true)}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black uppercase tracking-wider border border-emerald-500 cursor-pointer flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+              title="Cadastrar novo cliente"
+            >
+              <Plus size={16} />
+              <span>Novo Cliente</span>
+            </button>
+          </div>
+
+          {/* 2. CARD DE FILTRO DEDICADO (FORM DE BUSCA, MÉTODO DE ORDENAÇÃO, ÍCONES DE TAGS E CIDADES) */}
+          <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+              {/* Form de Busca */}
+              <div className="relative w-full md:max-w-md">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                 <input 
                   type="text"
@@ -263,147 +267,194 @@ export function Clientes() {
                 )}
               </div>
 
-              {/* Ordenação */}
-              <div className="relative w-full sm:w-auto flex items-center bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 focus-within:border-emerald-600 transition-all">
-                <ArrowDownWideNarrow size={16} className="text-gray-500 mr-2 flex-shrink-0" />
-                <select 
-                  className="bg-transparent border-none outline-none text-gray-300 text-xs font-bold w-full cursor-pointer appearance-none pr-5 uppercase tracking-wider"
-                  value={ordenacao}
-                  onChange={e => setOrdenacao(e.target.value)}
-                >
-                  <optgroup label="Ordem Alfabética" className="bg-gray-900 text-gray-300">
-                    <option value="nome-asc">Nome (A - Z)</option>
-                    <option value="nome-desc">Nome (Z - A)</option>
-                  </optgroup>
-                  <optgroup label="Faturamento" className="bg-gray-900 text-gray-300">
-                    <option value="faturamento-desc">Maior Faturamento</option>
-                    <option value="faturamento-asc">Menor Faturamento</option>
-                  </optgroup>
-                  <optgroup label="Volume de Compras" className="bg-gray-900 text-gray-300">
-                    <option value="pedidos-desc">Mais Pedidos</option>
-                    <option value="pedidos-asc">Menos Pedidos</option>
-                  </optgroup>
-                  <optgroup label="Atividade" className="bg-gray-900 text-gray-300">
-                    <option value="atividade-desc">Atividade Mais Recente</option>
-                    <option value="atividade-asc">Atividade Mais Antiga</option>
-                  </optgroup>
-                </select>
-                <ChevronDown size={14} className="text-gray-500 absolute right-2.5 pointer-events-none" />
-              </div>
-
-              {/* Botão Ícone para alternar Tags e Cidades */}
-              <button
-                type="button"
-                onClick={() => setMostrarFiltrosTags(prev => !prev)}
-                className={`w-full sm:w-auto px-3 py-2.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all select-none active:scale-95 ${
-                  mostrarFiltrosTags || tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0
-                    ? 'bg-purple-950/80 border-purple-500 text-purple-200 shadow-sm'
-                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
-                }`}
-                title={mostrarFiltrosTags ? "Ocultar filtros de tags e cidades" : "Mostrar filtros de tags e cidades"}
-              >
-                <Tag size={15} className={mostrarFiltrosTags || tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0 ? "text-purple-400" : "text-gray-400"} />
-                <span>Tags & Cidades</span>
-                {(tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0) && (
-                  <span className="w-4 h-4 rounded-full bg-purple-600 text-white text-[9px] font-black flex items-center justify-center font-mono">
-                    {tagsSelecionadas.length + cidadesSelecionadas.length}
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* BARRA DE FILTROS POR TAGS E CIDADES EM TEMPO REAL (Oculto por padrão, aberto ao clicar no ícone) */}
-          {mostrarFiltrosTags && (tagsDisponiveis.length > 0 || cidadesDisponiveis.length > 0) && (
-            <div className="bg-gray-900 p-4 sm:p-5 rounded-xl border border-gray-800 shadow-sm space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Filter size={15} className="text-emerald-400" />
-                  <span className="text-xs font-black uppercase tracking-wider text-gray-200">
-                    Filtros por Tags e Cidades
-                  </span>
+              <div className="flex items-center gap-2.5 w-full md:w-auto flex-wrap sm:flex-nowrap justify-end">
+                {/* Método de Ordenação */}
+                <div className="relative w-full sm:w-auto flex items-center bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 focus-within:border-emerald-600 transition-all">
+                  <ArrowDownWideNarrow size={16} className="text-gray-500 mr-2 flex-shrink-0" />
+                  <select 
+                    className="bg-transparent border-none outline-none text-gray-300 text-xs font-bold w-full cursor-pointer appearance-none pr-5 uppercase tracking-wider"
+                    value={ordenacao}
+                    onChange={e => setOrdenacao(e.target.value)}
+                  >
+                    <optgroup label="Ordem Alfabética" className="bg-gray-900 text-gray-300">
+                      <option value="nome-asc">Nome (A - Z)</option>
+                      <option value="nome-desc">Nome (Z - A)</option>
+                    </optgroup>
+                    <optgroup label="Faturamento" className="bg-gray-900 text-gray-300">
+                      <option value="faturamento-desc">Maior Faturamento</option>
+                      <option value="faturamento-asc">Menor Faturamento</option>
+                    </optgroup>
+                    <optgroup label="Volume de Compras" className="bg-gray-900 text-gray-300">
+                      <option value="pedidos-desc">Mais Pedidos</option>
+                      <option value="pedidos-asc">Menos Pedidos</option>
+                    </optgroup>
+                    <optgroup label="Atividade" className="bg-gray-900 text-gray-300">
+                      <option value="atividade-desc">Atividade Mais Recente</option>
+                      <option value="atividade-asc">Atividade Mais Antiga</option>
+                    </optgroup>
+                  </select>
+                  <ChevronDown size={14} className="text-gray-500 absolute right-2.5 pointer-events-none" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[11px] font-bold text-gray-400">
-                    Exibindo <strong className="text-white">{clientesFiltrados.length}</strong> de {clientes.length} {clientes.length === 1 ? 'cliente' : 'clientes'}
+
+                {/* Botão Ícone para Tags */}
+                <button
+                  type="button"
+                  onClick={() => setMostrarTags(prev => !prev)}
+                  className={`px-3 py-2.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all select-none active:scale-95 flex-1 sm:flex-initial ${
+                    mostrarTags || tagsSelecionadas.length > 0
+                      ? 'bg-purple-950/80 border-purple-500 text-purple-200 shadow-sm'
+                      : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                  }`}
+                  title={mostrarTags ? "Ocultar filtros de tags" : "Exibir filtros de tags"}
+                >
+                  <Tag size={15} className={mostrarTags || tagsSelecionadas.length > 0 ? "text-purple-400" : "text-gray-400"} />
+                  <span>Tags</span>
+                  {tagsSelecionadas.length > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-purple-600 text-white text-[9px] font-black flex items-center justify-center font-mono">
+                      {tagsSelecionadas.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Botão Ícone para Cidades */}
+                <button
+                  type="button"
+                  onClick={() => setMostrarCidades(prev => !prev)}
+                  className={`px-3 py-2.5 rounded-lg border text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all select-none active:scale-95 flex-1 sm:flex-initial ${
+                    mostrarCidades || cidadesSelecionadas.length > 0
+                      ? 'bg-blue-950/80 border-blue-500 text-blue-200 shadow-sm'
+                      : 'bg-gray-950 border-gray-800 text-gray-400 hover:text-white hover:border-gray-700'
+                  }`}
+                  title={mostrarCidades ? "Ocultar filtros de cidades" : "Exibir filtros de cidades"}
+                >
+                  <MapPin size={15} className={mostrarCidades || cidadesSelecionadas.length > 0 ? "text-blue-400" : "text-gray-400"} />
+                  <span>Cidades</span>
+                  {cidadesSelecionadas.length > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] font-black flex items-center justify-center font-mono">
+                      {cidadesSelecionadas.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* SEÇÃO EXPANSÍVEL: TAGS */}
+            {mostrarTags && (
+              <div className="pt-3 border-t border-gray-800/80 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-gray-400">
+                  <span className="flex items-center gap-1.5 text-purple-300 uppercase tracking-wider text-[11px]">
+                    <Tag size={13} className="text-purple-400" /> Filtrar por Tags de Clientes:
                   </span>
-                  {(tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0) && (
+                  {tagsSelecionadas.length > 0 && (
                     <button
                       type="button"
-                      onClick={limparFiltros}
-                      className="text-[10px] font-black uppercase tracking-wider text-emerald-400 hover:text-emerald-300 flex items-center gap-1 border-none bg-transparent cursor-pointer transition-colors"
-                      title="Limpar filtros de tags e cidades"
+                      onClick={() => setTagsSelecionadas([])}
+                      className="text-[10px] uppercase font-black text-purple-400 hover:text-purple-300 border-none bg-transparent cursor-pointer"
                     >
-                      <RotateCcw size={11} />
-                      <span>Mostrar Todos</span>
+                      Limpar Tags
                     </button>
                   )}
                 </div>
-              </div>
-
-              {/* Pílulas de Filtro */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* 1. Tags de Classificação do Cliente (Roxas) */}
-                {tagsDisponiveis.map(tag => {
-                  const isSelected = tagsSelecionadas.includes(tag);
-                  const qtd = contagemTags[tag] || 0;
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleTag(tag)}
-                      className={`px-3 py-1.5 rounded-lg text-xs transition-all border cursor-pointer flex items-center gap-1.5 select-none active:scale-95 ${
-                        isSelected
-                          ? 'bg-purple-950/80 border-purple-500 text-purple-200 shadow-sm font-black'
-                          : 'bg-gray-950/70 border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700 font-bold'
-                      }`}
-                      title={`Filtrar clientes com a tag "${tag}"`}
-                    >
-                      <Tag size={12} className={isSelected ? 'text-purple-300' : 'text-purple-400/60'} />
-                      <span>{tag}</span>
-                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                        isSelected ? 'bg-purple-500/30 text-purple-100 font-bold' : 'bg-gray-800/80 text-gray-400'
-                      }`}>
-                        {qtd}
-                      </span>
-                    </button>
-                  );
-                })}
-
-                {/* Separador se houver tags e cidades */}
-                {tagsDisponiveis.length > 0 && cidadesDisponiveis.length > 0 && (
-                  <div className="h-5 w-[1px] bg-gray-800 hidden sm:block mx-1" />
+                {tagsDisponiveis.length > 0 ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {tagsDisponiveis.map(tag => {
+                      const isSelected = tagsSelecionadas.includes(tag);
+                      const qtd = contagemTags[tag] || 0;
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleTag(tag)}
+                          className={`px-3 py-1.5 rounded-lg text-xs transition-all border cursor-pointer flex items-center gap-1.5 select-none active:scale-95 ${
+                            isSelected
+                              ? 'bg-purple-950/80 border-purple-500 text-purple-200 shadow-sm font-black'
+                              : 'bg-gray-950/70 border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700 font-bold'
+                          }`}
+                        >
+                          <Tag size={12} className={isSelected ? 'text-purple-300' : 'text-purple-400/60'} />
+                          <span>{tag}</span>
+                          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                            isSelected ? 'bg-purple-500/30 text-purple-100 font-bold' : 'bg-gray-800/80 text-gray-400'
+                          }`}>
+                            {qtd}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">Nenhuma tag cadastrada ainda nos clientes.</p>
                 )}
-
-                {/* 2. Tags de Cidades (Azuis) */}
-                {cidadesDisponiveis.map(cid => {
-                  const isSelected = cidadesSelecionadas.includes(cid);
-                  const qtd = contagemCidades[cid] || 0;
-                  return (
-                    <button
-                      key={cid}
-                      type="button"
-                      onClick={() => toggleCidade(cid)}
-                      className={`px-3 py-1.5 rounded-lg text-xs transition-all border cursor-pointer flex items-center gap-1.5 select-none active:scale-95 ${
-                        isSelected
-                          ? 'bg-blue-950/80 border-blue-500 text-blue-200 shadow-sm font-black'
-                          : 'bg-gray-950/70 border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700 font-bold'
-                      }`}
-                      title={`Filtrar clientes da cidade "${cid}"`}
-                    >
-                      <MapPin size={12} className={isSelected ? 'text-blue-300' : 'text-blue-400/60'} />
-                      <span>{cid}</span>
-                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                        isSelected ? 'bg-blue-500/30 text-blue-100 font-bold' : 'bg-gray-800/80 text-gray-400'
-                      }`}>
-                        {qtd}
-                      </span>
-                    </button>
-                  );
-                })}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* SEÇÃO EXPANSÍVEL: CIDADES */}
+            {mostrarCidades && (
+              <div className="pt-3 border-t border-gray-800/80 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-gray-400">
+                  <span className="flex items-center gap-1.5 text-blue-300 uppercase tracking-wider text-[11px]">
+                    <MapPin size={13} className="text-blue-400" /> Filtrar por Cidades:
+                  </span>
+                  {cidadesSelecionadas.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCidadesSelecionadas([])}
+                      className="text-[10px] uppercase font-black text-blue-400 hover:text-blue-300 border-none bg-transparent cursor-pointer"
+                    >
+                      Limpar Cidades
+                    </button>
+                  )}
+                </div>
+                {cidadesDisponiveis.length > 0 ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {cidadesDisponiveis.map(cid => {
+                      const isSelected = cidadesSelecionadas.includes(cid);
+                      const qtd = contagemCidades[cid] || 0;
+                      return (
+                        <button
+                          key={cid}
+                          type="button"
+                          onClick={() => toggleCidade(cid)}
+                          className={`px-3 py-1.5 rounded-lg text-xs transition-all border cursor-pointer flex items-center gap-1.5 select-none active:scale-95 ${
+                            isSelected
+                              ? 'bg-blue-950/80 border-blue-500 text-blue-200 shadow-sm font-black'
+                              : 'bg-gray-950/70 border-gray-800 text-gray-400 hover:text-gray-200 hover:border-gray-700 font-bold'
+                          }`}
+                        >
+                          <MapPin size={12} className={isSelected ? 'text-blue-300' : 'text-blue-400/60'} />
+                          <span>{cid}</span>
+                          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                            isSelected ? 'bg-blue-500/30 text-blue-100 font-bold' : 'bg-gray-800/80 text-gray-400'
+                          }`}>
+                            {qtd}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">Nenhuma cidade cadastrada ainda nos clientes.</p>
+                )}
+              </div>
+            )}
+
+            {/* BARRA DE STATUS DOS FILTROS (SE HOUVER QUALQUER FILTRO ATIVO) */}
+            {(tagsSelecionadas.length > 0 || cidadesSelecionadas.length > 0 || filtro) && (
+              <div className="pt-2 border-t border-gray-800/50 flex items-center justify-between text-xs text-gray-400 flex-wrap gap-2">
+                <span>
+                  Exibindo <strong className="text-white">{clientesFiltrados.length}</strong> de {clientes.length} {clientes.length === 1 ? 'cliente' : 'clientes'}
+                </span>
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="text-[10px] font-black uppercase tracking-wider text-emerald-400 hover:text-emerald-300 flex items-center gap-1 border-none bg-transparent cursor-pointer"
+                >
+                  <RotateCcw size={11} />
+                  <span>Limpar Todos os Filtros</span>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* LEGENDA DE IDENTIFICAÇÃO RÁPIDA */}
           <div className="flex flex-wrap items-center gap-6 px-5 py-3 bg-gray-900/40 rounded-lg border border-dashed border-gray-800">

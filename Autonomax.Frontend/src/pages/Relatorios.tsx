@@ -183,12 +183,32 @@ export function Relatorios() {
         cx={cx}
         cy={cy}
         innerRadius={innerRadius}
-        outerRadius={outerRadius + 3}
+        outerRadius={outerRadius + 2}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={sliceColor}
-        style={{ filter: 'brightness(1.15)', transition: 'all 0.2s ease' }}
+        stroke="#ffffff"
+        strokeWidth={2}
       />
+    );
+  };
+
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    const data = payload[0];
+    const item = data.payload || {};
+    const nome = item.name || item.nome || '';
+    const valor = item.value !== undefined ? item.value : (item.valor !== undefined ? item.valor : 0);
+    const pct = item.porcentagem !== undefined ? `${item.porcentagem}%` : '';
+    const cor = item.fill || data.color || '#10b981';
+
+    return (
+      <div className="bg-gray-900/95 backdrop-blur-md border border-gray-700/80 px-2.5 py-1.5 rounded-lg shadow-xl text-[11px] pointer-events-none flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+        <span className="font-semibold text-gray-300 truncate max-w-[150px]">{nome}:</span>
+        <span className="font-black text-white">{formatarMoeda(valor)}</span>
+        {pct && <span className="text-[10px] font-bold text-gray-400">({pct})</span>}
+      </div>
     );
   };
 
@@ -205,9 +225,10 @@ export function Relatorios() {
     return ordenado.map(([name, value], idx) => ({
       name,
       value,
+      porcentagem: totalEntradas > 0 ? Number(((value / totalEntradas) * 100).toFixed(1)) : 0,
       fill: COLORS_PAGAMENTO[idx % COLORS_PAGAMENTO.length]
     }));
-  }, [transacoesEntrada]);
+  }, [transacoesEntrada, totalEntradas]);
 
   // Rankings
   const rankingItensUnidades = useMemo(() => {
@@ -557,16 +578,14 @@ export function Relatorios() {
                             paddingAngle={4}
                             dataKey="value"
                             nameKey="name"
+                            stroke="none"
                             activeShape={renderActiveShape}
                           >
                             {dadosPizzaPagamento.map((item, index) => (
-                              <Cell key={`cell-${index}`} fill={item.fill || COLORS_PAGAMENTO[index % COLORS_PAGAMENTO.length]} />
+                              <Cell key={`cell-${index}`} fill={item.fill || COLORS_PAGAMENTO[index % COLORS_PAGAMENTO.length]} stroke="none" />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            formatter={(val: any) => [formatarMoeda(Number(val || 0)), 'Receita']} 
-                            contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}
-                          />
+                          <Tooltip content={<CustomPieTooltip />} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -640,19 +659,14 @@ export function Relatorios() {
                           paddingAngle={3}
                           dataKey="valor"
                           nameKey="nome"
+                          stroke="none"
                           activeShape={renderActiveShape}
                         >
                           {dadosTags.map((item, index) => (
-                            <Cell key={`cell-tag-${index}`} fill={item.fill || COLORS_TAGS[index % COLORS_TAGS.length]} />
+                            <Cell key={`cell-tag-${index}`} fill={item.fill || COLORS_TAGS[index % COLORS_TAGS.length]} stroke="none" />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          formatter={(val: any, _name: any, entry: any) => [
-                            `${formatarMoeda(Number(val || 0))} (${entry?.payload?.porcentagem || 0}%)`,
-                            'Faturamento'
-                          ]}
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }}
-                        />
+                        <Tooltip content={<CustomPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -720,19 +734,14 @@ export function Relatorios() {
                           paddingAngle={3}
                           dataKey="valor"
                           nameKey="nome"
+                          stroke="none"
                           activeShape={renderActiveShape}
                         >
                           {dadosCidades.map((item, index) => (
-                            <Cell key={`cell-cid-${index}`} fill={item.fill || COLORS_CIDADES[index % COLORS_CIDADES.length]} />
+                            <Cell key={`cell-cid-${index}`} fill={item.fill || COLORS_CIDADES[index % COLORS_CIDADES.length]} stroke="none" />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          formatter={(val: any, _name: any, entry: any) => [
-                            `${formatarMoeda(Number(val || 0))} (${entry?.payload?.porcentagem || 0}%)`,
-                            'Faturamento'
-                          ]}
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }}
-                        />
+                        <Tooltip content={<CustomPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -834,19 +843,14 @@ export function Relatorios() {
                           paddingAngle={3}
                           dataKey="valor"
                           nameKey="nome"
+                          stroke="none"
                           activeShape={renderActiveShape}
                         >
                           {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).map((item, index) => (
-                            <Cell key={`cell-desp-${index}`} fill={item.fill || COLORS_DESPESAS[index % COLORS_DESPESAS.length]} />
+                            <Cell key={`cell-desp-${index}`} fill={item.fill || COLORS_DESPESAS[index % COLORS_DESPESAS.length]} stroke="none" />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          formatter={(val: any, _name: any, entry: any) => [
-                            `${formatarMoeda(Number(val || 0))} (${entry?.payload?.porcentagem || 0}%)`,
-                            'Despesa'
-                          ]}
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }}
-                        />
+                        <Tooltip content={<CustomPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
