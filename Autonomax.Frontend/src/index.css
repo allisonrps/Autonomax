@@ -56,3 +56,28 @@
   --color-emerald-900: #854d0e;
   --color-emerald-950: #422006;
 }
+
+/* Scrollbar personalizada e sutil para listas */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(17, 24, 39, 0.5);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.5);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
+/* Ajuste fino para gráficos Recharts Pie */
+.recharts-pie-sector:hover,
+.recharts-sector:hover {
+  outline: none !important;
+}
+.recharts-pie-sector path:hover {
+  outline: none !important;
+}
