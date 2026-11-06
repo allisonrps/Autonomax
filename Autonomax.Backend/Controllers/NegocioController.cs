@@ -97,6 +97,42 @@ public class NegociosController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("{id}/limpar-dados")]
+    public async Task<IActionResult> LimparDados(int id)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
+
+        var negocio = await _context.Negocios
+            .FirstOrDefaultAsync(n => n.Id == id && n.UsuarioId == usuarioId.Value);
+
+        if (negocio == null) return NotFound("Negócio não encontrado ou sem permissão.");
+
+        await ExecutarLimpezaDadosNegocio(id);
+
+        return Ok(new { mensagem = $"Todos os dados da unidade '{negocio.Nome}' foram apagados com sucesso! A unidade está 100% limpa." });
+    }
+
+    private async Task ExecutarLimpezaDadosNegocio(int negocioId)
+    {
+        var transacoesAntigas = await _context.Transacoes.Where(t => t.NegocioId == negocioId).ToListAsync();
+        var transacaoIds = transacoesAntigas.Select(t => t.Id).ToList();
+        var itensAntigos = await _context.ItensTransacao.Where(i => transacaoIds.Contains(i.TransacaoId)).ToListAsync();
+        _context.ItensTransacao.RemoveRange(itensAntigos);
+        _context.Transacoes.RemoveRange(transacoesAntigas);
+
+        var produtosAntigos = await _context.ProdutosServicos.Where(p => p.NegocioId == negocioId).ToListAsync();
+        _context.ProdutosServicos.RemoveRange(produtosAntigos);
+
+        var fornecedoresAntigos = await _context.Fornecedores.Where(f => f.NegocioId == negocioId).ToListAsync();
+        _context.Fornecedores.RemoveRange(fornecedoresAntigos);
+
+        var clientesAntigos = await _context.Clientes.Where(c => c.NegocioId == negocioId).ToListAsync();
+        _context.Clientes.RemoveRange(clientesAntigos);
+
+        await _context.SaveChangesAsync();
+    }
+
     [HttpPost("{id}/popular-demonstracao")]
     public async Task<IActionResult> PopularDemonstracao(int id, [FromQuery] string? novoNome = null)
     {
@@ -113,23 +149,8 @@ public class NegociosController : ControllerBase
             negocio.Nome = novoNome.Trim();
         }
 
-        // 1. Limpa registros pré-existentes desta unidade para criar um ambiente limpo e perfeito
-        var transacoesAntigas = await _context.Transacoes.Where(t => t.NegocioId == id).ToListAsync();
-        var transacaoIds = transacoesAntigas.Select(t => t.Id).ToList();
-        var itensAntigos = await _context.ItensTransacao.Where(i => transacaoIds.Contains(i.TransacaoId)).ToListAsync();
-        _context.ItensTransacao.RemoveRange(itensAntigos);
-        _context.Transacoes.RemoveRange(transacoesAntigas);
-
-        var produtosAntigos = await _context.ProdutosServicos.Where(p => p.NegocioId == id).ToListAsync();
-        _context.ProdutosServicos.RemoveRange(produtosAntigos);
-
-        var fornecedoresAntigos = await _context.Fornecedores.Where(f => f.NegocioId == id).ToListAsync();
-        _context.Fornecedores.RemoveRange(fornecedoresAntigos);
-
-        var clientesAntigos = await _context.Clientes.Where(c => c.NegocioId == id).ToListAsync();
-        _context.Clientes.RemoveRange(clientesAntigos);
-
-        await _context.SaveChangesAsync();
+        // 1. Limpa registros anteriores para NUNCA duplicar dados
+        await ExecutarLimpezaDadosNegocio(id);
 
         // 2. Insere Catálogo de Produtos e Serviços
         var produtos = new List<ProdutoServico>
@@ -201,56 +222,56 @@ public class NegociosController : ControllerBase
 
         for (int mes = 1; mes <= mesAtual; mes++)
         {
-            // --- A) DESPESAS MENSAIS DO NEGÓCIO ---
-            // 1. Aluguel Comercial (dia 5)
+            // --- A) DESPESAS MENSAIS DO NEGÓCIO (~R$ 3.000/mês) ---
+            // 1. Aluguel Salão Comercial (dia 5)
             transacoes.Add(new Transacao
             {
-                Descricao = "Aluguel Ponto Comercial",
-                Valor = 2200.00m,
+                Descricao = "Aluguel Salão Comercial",
+                Valor = 1500.00m,
                 Tipo = "Saida",
                 Data = new DateTime(anoAtual, mes, 5, 10, 0, 0),
                 NegocioId = id,
                 FornecedorId = fornecedores[2].Id,
-                Status = "Concluido",
-                MetodoPagamento = "Boleto"
+                Status = "Pago",
+                MetodoPagamento = "Pix"
             });
 
             // 2. CPFL Energia Elétrica (dia 10)
             transacoes.Add(new Transacao
             {
                 Descricao = "Conta de Energia Elétrica",
-                Valor = Math.Round((decimal)(380 + random.Next(30, 80)), 2),
+                Valor = Math.Round((decimal)(240 + random.Next(20, 60)), 2),
                 Tipo = "Saida",
                 Data = new DateTime(anoAtual, mes, 10, 11, 30, 0),
                 NegocioId = id,
                 FornecedorId = fornecedores[3].Id,
-                Status = "Concluido",
+                Status = "Pago",
                 MetodoPagamento = "Pix"
             });
 
-            // 3. Internet Fibra & Software (dia 12)
+            // 3. Internet Fibra Óptica (dia 12)
             transacoes.Add(new Transacao
             {
-                Descricao = "Internet Fibra Óptica & Automação",
-                Valor = 179.90m,
+                Descricao = "Internet Fibra Óptica Comercial",
+                Valor = 129.90m,
                 Tipo = "Saida",
                 Data = new DateTime(anoAtual, mes, 12, 9, 15, 0),
                 NegocioId = id,
                 FornecedorId = fornecedores[5].Id,
-                Status = "Concluido",
+                Status = "Pago",
                 MetodoPagamento = "Cartão de Crédito"
             });
 
             // 4. Marketing & Tráfego Pago (dia 15)
             transacoes.Add(new Transacao
             {
-                Descricao = "Campanhas de Tráfego Pago (Meta/Google)",
-                Valor = Math.Round((decimal)(450 + random.Next(0, 150)), 2),
+                Descricao = "Campanhas Meta Ads & Google",
+                Valor = Math.Round((decimal)(280 + random.Next(0, 80)), 2),
                 Tipo = "Saida",
                 Data = new DateTime(anoAtual, mes, 15, 14, 0, 0),
                 NegocioId = id,
                 FornecedorId = fornecedores[4].Id,
-                Status = "Concluido",
+                Status = "Pago",
                 MetodoPagamento = "Cartão de Crédito"
             });
 
@@ -258,31 +279,31 @@ public class NegociosController : ControllerBase
             transacoes.Add(new Transacao
             {
                 Descricao = "Reposição de Pomadas, Óleos e Lâminas",
-                Valor = Math.Round((decimal)(950 + random.Next(50, 350)), 2),
+                Valor = Math.Round((decimal)(580 + random.Next(40, 140)), 2),
                 Tipo = "Saida",
                 Data = new DateTime(anoAtual, mes, 18, 16, 20, 0),
                 NegocioId = id,
                 FornecedorId = fornecedores[0].Id,
-                Status = "Concluido",
+                Status = "Pago",
                 MetodoPagamento = "Pix"
             });
 
-            // 6. Bebidas & Cervejas Artesanais (dia 22)
+            // 6. Bebidas & Frigobar (dia 22)
             transacoes.Add(new Transacao
             {
                 Descricao = "Reposição Cervejas Artesanais e Bebidas",
-                Valor = Math.Round((decimal)(320 + random.Next(20, 180)), 2),
+                Valor = Math.Round((decimal)(220 + random.Next(20, 80)), 2),
                 Tipo = "Saida",
                 Data = new DateTime(anoAtual, mes, 22, 15, 0, 0),
                 NegocioId = id,
                 FornecedorId = fornecedores[1].Id,
-                Status = "Concluido",
+                Status = "Pago",
                 MetodoPagamento = "Pix"
             });
 
-            // --- B) ENTRADAS / ATENDIMENTOS DE CLIENTES ---
+            // --- B) ENTRADAS / ATENDIMENTOS DE CLIENTES (SUPERIOR ÀS DESPESAS: ~R$ 9.000 a R$ 13.000/MÊS) ---
             int maxDias = mes == mesAtual ? diaHoje : 28;
-            int totalVendasMes = mes == mesAtual ? Math.Max(6, (diaHoje * 2)) : random.Next(16, 22);
+            int totalVendasMes = mes == mesAtual ? Math.Max(25, (diaHoje * 4)) : random.Next(75, 95);
 
             for (int v = 0; v < totalVendasMes; v++)
             {
@@ -291,7 +312,7 @@ public class NegociosController : ControllerBase
 
                 // Escolhe de 1 a 2 itens do catálogo
                 var prod1 = produtos[random.Next(produtos.Count)];
-                var temSegundoItem = random.NextDouble() > 0.6;
+                var temSegundoItem = random.NextDouble() > 0.45;
                 var prod2 = temSegundoItem ? produtos[random.Next(produtos.Count)] : null;
 
                 decimal valorTotal = prod1.Preco + (prod2?.Preco ?? 0m);
@@ -299,20 +320,23 @@ public class NegociosController : ControllerBase
                 // Método de pagamento ponderado
                 double rP = random.NextDouble();
                 string metodo = "Pix";
-                if (rP > 0.80) metodo = "Cartão de Crédito";
+                if (rP > 0.82) metodo = "Cartão de Crédito";
                 else if (rP > 0.65) metodo = "Cartão de Débito";
-                else if (rP > 0.58) metodo = "Dinheiro";
+                else if (rP > 0.55) metodo = "Dinheiro";
+
+                // Status: 96% Pago, 4% Pendente
+                string statusPagamento = random.NextDouble() > 0.04 ? "Pago" : "Pendente";
 
                 var transacaoEntrada = new Transacao
                 {
                     Descricao = $"Atendimento: {prod1.Nome}" + (prod2 != null ? $" + {prod2.Nome}" : ""),
                     Valor = valorTotal,
-                    Desconto = (random.NextDouble() > 0.85) ? 10.00m : 0.0m,
+                    Desconto = (random.NextDouble() > 0.90) ? 10.00m : 0.0m,
                     Tipo = "Entrada",
                     Data = new DateTime(anoAtual, mes, diaVenda, random.Next(9, 20), random.Next(0, 59), 0),
                     NegocioId = id,
                     ClienteId = cliente.Id,
-                    Status = "Concluido",
+                    Status = statusPagamento,
                     MetodoPagamento = metodo,
                     Itens = new List<ItemTransacao>
                     {
@@ -327,6 +351,38 @@ public class NegociosController : ControllerBase
 
                 transacoes.Add(transacaoEntrada);
             }
+
+            // Se for o mês atual, garante pelo menos 4 vendas no dia de HOJE para o Dashboard abrir positivo
+            if (mes == mesAtual)
+            {
+                var vendasHoje = new[]
+                {
+                    new { Prod = produtos[0], Hora = 9, Min = 30, Metodo = "Pix" },
+                    new { Prod = produtos[1], Hora = 11, Min = 15, Metodo = "Cartão de Crédito" },
+                    new { Prod = produtos[2], Hora = 14, Min = 40, Metodo = "Cartão de Débito" },
+                    new { Prod = produtos[3], Hora = 17, Min = 20, Metodo = "Pix" }
+                };
+
+                foreach (var vh in vendasHoje)
+                {
+                    var clienteHoje = clientes[random.Next(clientes.Count)];
+                    transacoes.Add(new Transacao
+                    {
+                        Descricao = $"Atendimento: {vh.Prod.Nome}",
+                        Valor = vh.Prod.Preco,
+                        Tipo = "Entrada",
+                        Data = new DateTime(anoAtual, mesAtual, diaHoje, vh.Hora, vh.Min, 0),
+                        NegocioId = id,
+                        ClienteId = clienteHoje.Id,
+                        Status = "Pago",
+                        MetodoPagamento = vh.Metodo,
+                        Itens = new List<ItemTransacao>
+                        {
+                            new() { Nome = vh.Prod.Nome, Quantidade = 1 }
+                        }
+                    });
+                }
+            }
         }
 
         _context.Transacoes.AddRange(transacoes);
@@ -334,7 +390,7 @@ public class NegociosController : ControllerBase
 
         return Ok(new
         {
-            mensagem = $"Unidade '{negocio.Nome}' populada com sucesso!",
+            mensagem = $"Unidade '{negocio.Nome}' populada com sucesso! Histórico gerado com saldo positivo saudável.",
             negocioId = id,
             nomeNegocio = negocio.Nome,
             produtosCriados = produtos.Count,
