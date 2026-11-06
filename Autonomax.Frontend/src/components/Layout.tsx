@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Menu, X, ChevronDown, LayoutDashboard, Users, 
   BarChart3, Briefcase, Building2, User, Truck, Package,
-  ChevronLeft, ChevronRight, LogOut, ArrowLeftRight
+  ChevronLeft, ChevronRight, LogOut, ArrowLeftRight, Target
 } from 'lucide-react';
 import api from '../services/api';
 import logoImg from '../assets/logo-horizontal-white.png';
@@ -81,6 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Anual', path: '/relatorios', icon: BarChart3 },
     { name: 'Catálogo', path: '/catalogo', icon: Package },
     { name: 'Clientes', path: '/clientes', icon: Users },
+    { name: 'Radar de Clientes', path: '/radar', icon: Target },
     { name: 'Parceiros', path: '/fornecedores', icon: Truck },
     { name: 'Perfil', path: '/perfil', icon: User },
   ];

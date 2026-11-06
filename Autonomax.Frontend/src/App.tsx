@@ -18,6 +18,7 @@ const Fornecedores = lazy(() => import('./pages/Fornecedores').then(m => ({ defa
 const DetalhesFornecedor = lazy(() => import('./pages/DetalhesFornecedor').then(m => ({ default: m.DetalhesFornecedor })));
 const Catalogo = lazy(() => import('./pages/Catalogo').then(m => ({ default: m.Catalogo })));
 const DetalhesProduto = lazy(() => import('./pages/DetalhesProduto').then(m => ({ default: m.DetalhesProduto })));
+const RadarClientes = lazy(() => import('./pages/RadarClientes').then(m => ({ default: m.RadarClientes })));
 const EsqueceuSenha = lazy(() => import('./pages/EsqueceuSenha').then(m => ({ default: m.EsqueceuSenha })));
 
 interface ProtectedRouteProps {
@@ -85,6 +86,7 @@ function App() {
           <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
           <Route path="/clientes" element={<ProtectedRoute><Clientes /></ProtectedRoute>} />
           <Route path="/clientes/:id" element={<ProtectedRoute><DetalhesCliente /></ProtectedRoute>} />
+          <Route path="/radar" element={<ProtectedRoute><RadarClientes /></ProtectedRoute>} />
           <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
           <Route path="/catalogo" element={<ProtectedRoute><Catalogo /></ProtectedRoute>} />
           <Route path="/catalogo/:id" element={<ProtectedRoute><DetalhesProduto /></ProtectedRoute>} />
