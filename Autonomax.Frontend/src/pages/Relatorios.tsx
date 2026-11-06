@@ -597,33 +597,24 @@ export function Relatorios() {
                       </ResponsiveContainer>
                     </div>
 
-                    {/* Lista Estilizada de Estatísticas por Método (Valor e %) */}
-                    <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
+                    {/* Lista Estilizada de Estatísticas por Método (Estilo Tabela / Ranking Compacto) */}
+                    <div className="sm:col-span-7 max-h-60 overflow-y-auto pr-1 custom-scrollbar bg-gray-950/70 rounded-xl border border-gray-800/80 divide-y divide-gray-800/50">
                       {dadosPizzaPagamento.map((item, idx) => {
                         const pct = totalEntradas > 0 ? (item.value / totalEntradas) * 100 : 0;
                         const cor = COLORS_PAGAMENTO[idx % COLORS_PAGAMENTO.length];
                         return (
-                          <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
-                                <span className="truncate">{item.name}</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
-                                  {pct.toFixed(1)}%
-                                </span>
-                                <span className="font-black text-white text-xs">
-                                  {formatarMoeda(item.value)}
-                                </span>
-                              </div>
+                          <div key={idx} className="flex items-center justify-between py-2 px-3 hover:bg-gray-800/50 transition-colors">
+                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2 text-xs">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                              <span className="truncate">{item.name}</span>
                             </div>
-                            {/* Barra de Progresso em % */}
-                            <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full rounded-full transition-all duration-300"
-                                style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: cor }}
-                              />
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
+                                {pct.toFixed(1)}%
+                              </span>
+                              <span className="font-black text-white text-xs">
+                                {formatarMoeda(item.value)}
+                              </span>
                             </div>
                           </div>
                         );
@@ -707,32 +698,23 @@ export function Relatorios() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Lista do lado do gráfico com Valor e % */}
-                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
+                  {/* Lista do lado do gráfico com Valor e % (Estilo Tabela / Ranking Compacto) */}
+                  <div className="sm:col-span-7 max-h-60 overflow-y-auto pr-1 custom-scrollbar bg-gray-950/70 rounded-xl border border-gray-800/80 divide-y divide-gray-800/50">
                     {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).map((item, idx) => {
                       const cor = item.fill || COLORS_DESPESAS[idx % COLORS_DESPESAS.length];
                       return (
-                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
-                              <span className="truncate text-sm">{item.nome}</span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-[10px] font-black text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded">
-                                {item.porcentagem.toFixed(1)}%
-                              </span>
-                              <span className="font-black text-white text-xs">
-                                {formatarMoeda(item.valor)}
-                              </span>
-                            </div>
+                        <div key={idx} className="flex items-center justify-between py-2 px-3 hover:bg-gray-800/50 transition-colors">
+                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2 text-xs">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                            <span className="truncate">{item.nome}</span>
                           </div>
-                          {/* Barra de Progresso */}
-                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
-                            />
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-black text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded">
+                              {item.porcentagem.toFixed(1)}%
+                            </span>
+                            <span className="font-black text-white text-xs">
+                              {formatarMoeda(item.valor)}
+                            </span>
                           </div>
                         </div>
                       );
@@ -787,32 +769,23 @@ export function Relatorios() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Lista do lado do gráfico com Valor e % */}
-                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
+                  {/* Lista do lado do gráfico com Valor e % (Estilo Tabela / Ranking Compacto) */}
+                  <div className="sm:col-span-7 max-h-60 overflow-y-auto pr-1 custom-scrollbar bg-gray-950/70 rounded-xl border border-gray-800/80 divide-y divide-gray-800/50">
                     {dadosTags.map((item, idx) => {
                       const cor = item.fill || COLORS_TAGS[idx % COLORS_TAGS.length];
                       return (
-                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
-                              <span className="truncate">{item.nome}</span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
-                                {item.porcentagem.toFixed(1)}%
-                              </span>
-                              <span className="font-black text-white text-xs">
-                                {formatarMoeda(item.valor)}
-                              </span>
-                            </div>
+                        <div key={idx} className="flex items-center justify-between py-2 px-3 hover:bg-gray-800/50 transition-colors">
+                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2 text-xs">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                            <span className="truncate">{item.nome}</span>
                           </div>
-                          {/* Barra de Progresso */}
-                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
-                            />
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
+                              {item.porcentagem.toFixed(1)}%
+                            </span>
+                            <span className="font-black text-white text-xs">
+                              {formatarMoeda(item.valor)}
+                            </span>
                           </div>
                         </div>
                       );
@@ -862,32 +835,23 @@ export function Relatorios() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Lista do lado do gráfico com Valor e % */}
-                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
+                  {/* Lista do lado do gráfico com Valor e % (Estilo Tabela / Ranking Compacto) */}
+                  <div className="sm:col-span-7 max-h-60 overflow-y-auto pr-1 custom-scrollbar bg-gray-950/70 rounded-xl border border-gray-800/80 divide-y divide-gray-800/50">
                     {dadosCidades.map((item, idx) => {
                       const cor = item.fill || COLORS_CIDADES[idx % COLORS_CIDADES.length];
                       return (
-                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
-                              <span className="truncate">{item.nome}</span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-[10px] font-black text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded">
-                                {item.porcentagem.toFixed(1)}%
-                              </span>
-                              <span className="font-black text-white text-xs">
-                                {formatarMoeda(item.valor)}
-                              </span>
-                            </div>
+                        <div key={idx} className="flex items-center justify-between py-2 px-3 hover:bg-gray-800/50 transition-colors">
+                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2 text-xs">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                            <span className="truncate">{item.nome}</span>
                           </div>
-                          {/* Barra de Progresso */}
-                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
-                            />
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-[10px] font-black text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded">
+                              {item.porcentagem.toFixed(1)}%
+                            </span>
+                            <span className="font-black text-white text-xs">
+                              {formatarMoeda(item.valor)}
+                            </span>
                           </div>
                         </div>
                       );
