@@ -531,29 +531,36 @@ export function Relatorios() {
              )}
           </div>
 
-          {/* Gráficos Principais: Mês a Mês (Evolução) & Formas de Pagamento Avançado */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Gráfico Mês a Mês */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
-                <h3 className="text-xs font-black uppercase mb-6 flex items-center gap-2">
+          {/* Gráfico Mês a Mês (Topo - Ocupando toda a área de 2 cards) */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+                <h3 className="text-xs font-black uppercase flex items-center gap-2">
                   <LineChartIcon size={16} className="text-blue-400"/> Gráfico Mês a Mês
                 </h3>
-                <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={dadosGrafico} margin={{top: 5, right: 10, left: 10, bottom: 5}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false}/>
-                          <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tickMargin={10}/>
-                          <YAxis stroke="#6b7280" fontSize={10} tickFormatter={(val) => `R$ ${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} width={45}/>
-                          <Tooltip formatter={formatarTooltip} contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}/>
-                          <Line type="monotone" name="Receitas" dataKey="entradas" stroke="#10b981" strokeWidth={3} dot={{r: 2}} activeDot={{r: 5}}/>
-                          <Line type="monotone" name="Despesas" dataKey="saidas" stroke="#f43f5e" strokeWidth={3} dot={{r: 2}} activeDot={{r: 5}}/>
-                          <Line type="monotone" name="Saldo Líquido" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={false}/>
-                        </LineChart>
-                    </ResponsiveContainer>
+                <div className="flex items-center gap-4 text-[10px] font-bold text-gray-400">
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"/> Receitas</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"/> Despesas</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"/> Saldo Líquido</span>
                 </div>
-            </div>
+              </div>
+              <div className="h-64 sm:h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dadosGrafico} margin={{top: 5, right: 10, left: 10, bottom: 5}}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false}/>
+                        <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tickMargin={10}/>
+                        <YAxis stroke="#6b7280" fontSize={10} tickFormatter={(val) => `R$ ${val >= 1000 ? (val/1000).toFixed(0)+'k' : val}`} width={45}/>
+                        <Tooltip formatter={formatarTooltip} contentStyle={{backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px'}}/>
+                        <Line type="monotone" name="Receitas" dataKey="entradas" stroke="#10b981" strokeWidth={3} dot={{r: 2.5}} activeDot={{r: 5}}/>
+                        <Line type="monotone" name="Despesas" dataKey="saidas" stroke="#f43f5e" strokeWidth={3} dot={{r: 2.5}} activeDot={{r: 5}}/>
+                        <Line type="monotone" name="Saldo Líquido" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} strokeDasharray="5 5" dot={false}/>
+                      </LineChart>
+                  </ResponsiveContainer>
+              </div>
+          </div>
 
+          {/* Métodos de Pagamento & Despesas (Dividindo o espaço lado a lado) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
             {/* Card Completo de Formas de Pagamento (Gráfico Donut + Estatísticas Detalhadas com Valores e %) */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
                 <div className="flex items-center justify-between mb-4">
@@ -628,6 +635,115 @@ export function Relatorios() {
                     Nenhuma transação com forma de pagamento registrada
                   </div>
                 )}
+            </div>
+
+            {/* Card: Despesas por Tags e Parceiros */}
+            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <TrendingDown size={16} className="text-red-400"/>
+                  <h3 className="text-xs font-black uppercase text-gray-200">
+                    Despesas por {abaDespesas === 'tags' ? 'Tags' : 'Parceiros'}
+                  </h3>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider font-mono bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
+                    {abaDespesas === 'tags' 
+                      ? `${dadosDespesasTags.length} ${dadosDespesasTags.length === 1 ? 'tag' : 'tags'}`
+                      : `${dadosDespesasParceiros.length} ${dadosDespesasParceiros.length === 1 ? 'parceiro' : 'parceiros'}`
+                    }
+                  </span>
+                </div>
+
+                {/* Abas: Tags e Parceiros */}
+                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setAbaDespesas('tags')}
+                    className={`px-3 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none flex items-center gap-1.5 ${
+                      abaDespesas === 'tags'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    <Tag size={12} />
+                    <span>Tags</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAbaDespesas('parceiros')}
+                    className={`px-3 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none flex items-center gap-1.5 ${
+                      abaDespesas === 'parceiros'
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-white bg-transparent'
+                    }`}
+                  >
+                    <Building2 size={12} />
+                    <span>Parceiros</span>
+                  </button>
+                </div>
+              </div>
+
+              {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center flex-1">
+                  {/* Gráfico Donut / Pizza */}
+                  <div className="sm:col-span-5 h-56 flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros}
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={3}
+                          dataKey="valor"
+                          nameKey="nome"
+                          stroke="none"
+                          activeShape={renderActiveShape}
+                        >
+                          {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).map((item, index) => (
+                            <Cell key={`cell-desp-${index}`} fill={item.fill || COLORS_DESPESAS[index % COLORS_DESPESAS.length]} stroke="none" />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomPieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Lista do lado do gráfico com Valor e % */}
+                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
+                    {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).map((item, idx) => {
+                      const cor = item.fill || COLORS_DESPESAS[idx % COLORS_DESPESAS.length];
+                      return (
+                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
+                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                              <span className="truncate text-sm">{item.nome}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] font-black text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded">
+                                {item.porcentagem.toFixed(1)}%
+                              </span>
+                              <span className="font-black text-white text-xs">
+                                {formatarMoeda(item.valor)}
+                              </span>
+                            </div>
+                          </div>
+                          {/* Barra de Progresso */}
+                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-56 flex items-center justify-center text-xs text-gray-500 italic">
+                  Nenhuma despesa registrada para {abaDespesas === 'tags' ? 'tags' : 'parceiros'} em {anoAtivo}
+                </div>
+              )}
             </div>
 
           </div>
@@ -785,115 +901,6 @@ export function Relatorios() {
               )}
             </div>
 
-            {/* Card: Despesas por Tags e Parceiros */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between lg:col-span-2">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <TrendingDown size={16} className="text-red-400"/>
-                  <h3 className="text-xs font-black uppercase text-gray-200">
-                    Despesas por {abaDespesas === 'tags' ? 'Tags' : 'Parceiros'}
-                  </h3>
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider font-mono bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
-                    {abaDespesas === 'tags' 
-                      ? `${dadosDespesasTags.length} ${dadosDespesasTags.length === 1 ? 'tag' : 'tags'}`
-                      : `${dadosDespesasParceiros.length} ${dadosDespesasParceiros.length === 1 ? 'parceiro' : 'parceiros'}`
-                    }
-                  </span>
-                </div>
-
-                {/* Abas: Tags e Parceiros */}
-                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setAbaDespesas('tags')}
-                    className={`px-3 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none flex items-center gap-1.5 ${
-                      abaDespesas === 'tags'
-                        ? 'bg-red-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    <Tag size={12} />
-                    <span>Tags</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAbaDespesas('parceiros')}
-                    className={`px-3 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none flex items-center gap-1.5 ${
-                      abaDespesas === 'parceiros'
-                        ? 'bg-red-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    <Building2 size={12} />
-                    <span>Parceiros</span>
-                  </button>
-                </div>
-              </div>
-
-              {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center flex-1">
-                  {/* Gráfico Donut / Pizza */}
-                  <div className="sm:col-span-5 h-56 flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros}
-                          innerRadius={45}
-                          outerRadius={70}
-                          paddingAngle={3}
-                          dataKey="valor"
-                          nameKey="nome"
-                          stroke="none"
-                          activeShape={renderActiveShape}
-                        >
-                          {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).map((item, index) => (
-                            <Cell key={`cell-desp-${index}`} fill={item.fill || COLORS_DESPESAS[index % COLORS_DESPESAS.length]} stroke="none" />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomPieTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Lista do lado do gráfico com Valor e % */}
-                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1.5 custom-scrollbar">
-                    {(abaDespesas === 'tags' ? dadosDespesasTags : dadosDespesasParceiros).map((item, idx) => {
-                      const cor = item.fill || COLORS_DESPESAS[idx % COLORS_DESPESAS.length];
-                      return (
-                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
-                              <span className="truncate text-sm">{item.nome}</span>
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className="text-[10px] font-black text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded">
-                                {item.porcentagem.toFixed(1)}%
-                              </span>
-                              <span className="font-black text-white text-xs">
-                                {formatarMoeda(item.valor)}
-                              </span>
-                            </div>
-                          </div>
-                          {/* Barra de Progresso */}
-                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-56 flex items-center justify-center text-xs text-gray-500 italic">
-                  Nenhuma despesa registrada para {abaDespesas === 'tags' ? 'tags' : 'parceiros'} em {anoAtivo}
-                </div>
-              )}
-            </div>
-
           </div>
 
           {/* Seção de Rankings (3 Cards Expandidos no Desktop) */}
@@ -947,7 +954,7 @@ export function Relatorios() {
                     <Link 
                       key={idx}
                       to={`/fluxo-caixa/${idx + 1}/${anoAtivo}`}
-                      className="group flex items-center justify-between py-3 px-4 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                      className="group flex items-center justify-between py-1.5 px-3 sm:px-4 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
                       title={`Ver fluxo de caixa de ${item.name}`}
                     >
                       <div className="flex items-center text-sm font-bold text-gray-200 group-hover:text-blue-400 transition-colors truncate pr-2">
@@ -955,7 +962,7 @@ export function Relatorios() {
                         <span className="truncate">{item.name}</span>
                         <ArrowUpRight size={13} className="ml-1 opacity-0 group-hover:opacity-100 text-blue-400 transition-opacity flex-shrink-0" />
                       </div>
-                      <span className={`text-xs font-black px-2.5 py-1 rounded whitespace-nowrap ${corBadge}`}>
+                      <span className={`text-xs font-black px-2 py-0.5 rounded whitespace-nowrap ${corBadge}`}>
                         {formatarMoeda(valor)}
                       </span>
                     </Link>
@@ -1009,7 +1016,7 @@ export function Relatorios() {
                       <Link
                         key={idx}
                         to={linkPath}
-                        className="group flex items-center justify-between py-3 px-4 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                        className="group flex items-center justify-between py-1.5 px-3 sm:px-4 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
                         title={`Ver detalhes do produto/serviço ${item.nome}`}
                       >
                         <div className="flex items-center text-sm font-bold text-gray-200 group-hover:text-emerald-400 transition-colors truncate pr-2">
@@ -1017,7 +1024,7 @@ export function Relatorios() {
                           <span className="truncate">{item.nome}</span>
                           <ArrowUpRight size={13} className="ml-1 opacity-0 group-hover:opacity-100 text-emerald-400 transition-opacity flex-shrink-0" />
                         </div>
-                        <span className="text-xs font-black text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded whitespace-nowrap">
+                        <span className="text-xs font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
                           {modoItemRanking === 'valor' ? formatarMoeda(item.val) : `${item.val} UN`}
                         </span>
                       </Link>
@@ -1043,7 +1050,7 @@ export function Relatorios() {
                       <Link
                         key={idx}
                         to={linkPath}
-                        className="group flex items-center justify-between py-3 px-4 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
+                        className="group flex items-center justify-between py-1.5 px-3 sm:px-4 hover:bg-gray-800/80 transition-colors no-underline cursor-pointer"
                         title={`Ver perfil do cliente ${c.nome}`}
                       >
                         <div className="flex items-center text-sm font-bold text-gray-200 group-hover:text-amber-400 transition-colors truncate pr-2">
@@ -1051,7 +1058,7 @@ export function Relatorios() {
                           <span className="truncate">{c.nome}</span>
                           <ArrowUpRight size={13} className="ml-1 opacity-0 group-hover:opacity-100 text-amber-400 transition-opacity flex-shrink-0" />
                         </div>
-                        <span className="text-xs font-black text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded whitespace-nowrap">
+                        <span className="text-xs font-black text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded whitespace-nowrap">
                           {formatarMoeda(c.valor)}
                         </span>
                       </Link>
