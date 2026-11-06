@@ -13,8 +13,7 @@ import {
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-  BarChart, Bar
+  PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
 import { LoadingProgress } from '../components/LoadingProgress';
@@ -55,6 +54,8 @@ interface ProdutoServico {
 }
 
 const COLORS_PAGAMENTO = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
+const COLORS_TAGS = ['#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#6366f1', '#3b82f6', '#14b8a6', '#f59e0b', '#10b981', '#64748b'];
+const COLORS_CIDADES = ['#3b82f6', '#0ea5e9', '#06b6d4', '#14b8a6', '#10b981', '#6366f1', '#8b5cf6', '#f59e0b', '#ec4899', '#64748b'];
 
 export function Relatorios() {
   const negocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
@@ -67,8 +68,6 @@ export function Relatorios() {
   const [resumoAberto, setResumoAberto] = useState(false);
   const [modoComparativo, setModoComparativo] = useState<'Bruto' | 'Despesa' | 'Líquido'>('Líquido');
   const [modoItemRanking, setModoItemRanking] = useState<'unidades' | 'valor'>('unidades');
-  const [modoCidades, setModoCidades] = useState<'valor' | 'porcentagem'>('valor');
-  const [modoTags, setModoTags] = useState<'valor' | 'porcentagem'>('valor');
 
   useEffect(() => {
     async function carregarDados() {
@@ -516,229 +515,153 @@ export function Relatorios() {
             
             {/* Card: Faturamento por Tags */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <Tag size={16} className="text-purple-400" />
-                  <h3 className="text-xs font-black uppercase text-gray-200">
-                    Faturamento por Tags
-                  </h3>
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider font-mono bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
-                    {dadosTags.length} {dadosTags.length === 1 ? 'tag' : 'tags'}
-                  </span>
-                </div>
-
-                {/* Botões no topo para alternar Valor (R$) e Porcentagem (%) */}
-                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setModoTags('valor')}
-                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
-                      modoTags === 'valor'
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Valor (R$)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModoTags('porcentagem')}
-                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
-                      modoTags === 'porcentagem'
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Porcentagem (%)
-                  </button>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-black uppercase flex items-center gap-2">
+                  <Tag size={16} className="text-purple-400"/> Faturamento por Tags
+                </h3>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                  {dadosTags.length} {dadosTags.length === 1 ? 'tag' : 'tags'}
+                </span>
               </div>
 
               {dadosTags.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Gráfico de Barras de Tags */}
-                  <div className="h-56">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center flex-1">
+                  {/* Gráfico Donut / Pizza */}
+                  <div className="sm:col-span-5 h-56 flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart 
-                        data={dadosTags.slice(0, 8)} 
-                        margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                        <XAxis 
-                          dataKey="nome" 
-                          stroke="#9ca3af" 
-                          fontSize={10} 
-                          tickLine={false}
-                          interval={0}
-                          tickFormatter={(v: string) => v.length > 10 ? `${v.substring(0, 9)}…` : v}
-                        />
-                        <YAxis 
-                          stroke="#9ca3af" 
-                          fontSize={10} 
-                          tickLine={false}
-                          width={45}
-                          tickFormatter={(val: number) => modoTags === 'valor' ? (val >= 1000 ? `R$ ${(val/1000).toFixed(0)}k` : `R$ ${val}`) : `${val}%`}
-                        />
+                      <PieChart>
+                        <Pie
+                          data={dadosTags}
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={3}
+                          dataKey="valor"
+                          nameKey="nome"
+                        >
+                          {dadosTags.map((_, index) => (
+                            <Cell key={`cell-tag-${index}`} fill={COLORS_TAGS[index % COLORS_TAGS.length]} />
+                          ))}
+                        </Pie>
                         <Tooltip 
-                          formatter={(val: any) => [
-                            modoTags === 'valor' ? formatarMoeda(Number(val || 0)) : `${Number(val || 0).toFixed(1)}%`,
-                            modoTags === 'valor' ? 'Faturamento' : 'Participação'
+                          formatter={(val: any, _name: any, entry: any) => [
+                            `${formatarMoeda(Number(val || 0))} (${entry?.payload?.porcentagem || 0}%)`,
+                            'Faturamento'
                           ]}
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
-                          cursor={{ fill: 'rgba(168, 85, 247, 0.08)' }}
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }}
                         />
-                        <Bar 
-                          dataKey={modoTags === 'valor' ? 'valor' : 'porcentagem'} 
-                          fill="#a855f7" 
-                          radius={[4, 4, 0, 0]} 
-                        />
-                      </BarChart>
+                      </PieChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Lista com valores e % */}
-                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                    {dadosTags.map((item, idx) => (
-                      <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                            <span className="w-5 inline-block text-[10px] text-gray-500 font-mono flex-shrink-0">{idx + 1}.</span>
-                            <span className="truncate">{item.nome}</span>
+                  {/* Lista do lado do gráfico com Valor e % */}
+                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {dadosTags.map((item, idx) => {
+                      const cor = COLORS_TAGS[idx % COLORS_TAGS.length];
+                      return (
+                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
+                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                              <span className="truncate">{item.nome}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
+                                {item.porcentagem.toFixed(1)}%
+                              </span>
+                              <span className="font-black text-white text-xs">
+                                {formatarMoeda(item.valor)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-[10px] font-black text-purple-400 bg-purple-950/40 px-1.5 py-0.5 rounded">
-                              {item.porcentagem.toFixed(1)}%
-                            </span>
-                            <span className="font-black text-white text-xs">
-                              {formatarMoeda(item.valor)}
-                            </span>
+                          {/* Barra de Progresso */}
+                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
+                            />
                           </div>
                         </div>
-                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full rounded-full transition-all duration-300 bg-purple-500"
-                            style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
                 <div className="h-56 flex items-center justify-center text-xs text-gray-500 italic">
-                  Nenhuma transação com clientes e tags registrada em {anoAtivo}
+                  Nenhuma transação com tags de clientes registrada em {anoAtivo}
                 </div>
               )}
             </div>
 
             {/* Card: Faturamento por Cidades */}
             <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} className="text-blue-400" />
-                  <h3 className="text-xs font-black uppercase text-gray-200">
-                    Faturamento por Cidades
-                  </h3>
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider font-mono bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
-                    {dadosCidades.length} {dadosCidades.length === 1 ? 'cidade' : 'cidades'}
-                  </span>
-                </div>
-
-                {/* Botões no topo para alternar Valor (R$) e Porcentagem (%) */}
-                <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-lg border border-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setModoCidades('valor')}
-                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
-                      modoCidades === 'valor'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Valor (R$)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModoCidades('porcentagem')}
-                    className={`px-2.5 py-1 text-[10px] font-black uppercase rounded transition-all cursor-pointer border-none ${
-                      modoCidades === 'porcentagem'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-white bg-transparent'
-                    }`}
-                  >
-                    Porcentagem (%)
-                  </button>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-black uppercase flex items-center gap-2">
+                  <MapPin size={16} className="text-blue-400"/> Faturamento por Cidades
+                </h3>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider">
+                  {dadosCidades.length} {dadosCidades.length === 1 ? 'cidade' : 'cidades'}
+                </span>
               </div>
 
               {dadosCidades.length > 0 ? (
-                <div className="space-y-4">
-                  {/* Gráfico de Barras de Cidades */}
-                  <div className="h-56">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center flex-1">
+                  {/* Gráfico Donut / Pizza */}
+                  <div className="sm:col-span-5 h-56 flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart 
-                        data={dadosCidades.slice(0, 8)} 
-                        margin={{ top: 10, right: 10, left: -10, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                        <XAxis 
-                          dataKey="nome" 
-                          stroke="#9ca3af" 
-                          fontSize={10} 
-                          tickLine={false}
-                          interval={0}
-                          tickFormatter={(v: string) => v.length > 10 ? `${v.substring(0, 9)}…` : v}
-                        />
-                        <YAxis 
-                          stroke="#9ca3af" 
-                          fontSize={10} 
-                          tickLine={false}
-                          width={45}
-                          tickFormatter={(val: number) => modoCidades === 'valor' ? (val >= 1000 ? `R$ ${(val/1000).toFixed(0)}k` : `R$ ${val}`) : `${val}%`}
-                        />
+                      <PieChart>
+                        <Pie
+                          data={dadosCidades}
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={3}
+                          dataKey="valor"
+                          nameKey="nome"
+                        >
+                          {dadosCidades.map((_, index) => (
+                            <Cell key={`cell-cid-${index}`} fill={COLORS_CIDADES[index % COLORS_CIDADES.length]} />
+                          ))}
+                        </Pie>
                         <Tooltip 
-                          formatter={(val: any) => [
-                            modoCidades === 'valor' ? formatarMoeda(Number(val || 0)) : `${Number(val || 0).toFixed(1)}%`,
-                            modoCidades === 'valor' ? 'Faturamento' : 'Participação'
+                          formatter={(val: any, _name: any, entry: any) => [
+                            `${formatarMoeda(Number(val || 0))} (${entry?.payload?.porcentagem || 0}%)`,
+                            'Faturamento'
                           ]}
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
-                          cursor={{ fill: 'rgba(59, 130, 246, 0.08)' }}
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px' }}
                         />
-                        <Bar 
-                          dataKey={modoCidades === 'valor' ? 'valor' : 'porcentagem'} 
-                          fill="#3b82f6" 
-                          radius={[4, 4, 0, 0]} 
-                        />
-                      </BarChart>
+                      </PieChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Lista com valores e % */}
-                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                    {dadosCidades.map((item, idx) => (
-                      <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
-                            <span className="w-5 inline-block text-[10px] text-gray-500 font-mono flex-shrink-0">{idx + 1}.</span>
-                            <span className="truncate">{item.nome}</span>
+                  {/* Lista do lado do gráfico com Valor e % */}
+                  <div className="sm:col-span-7 space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {dadosCidades.map((item, idx) => {
+                      const cor = COLORS_CIDADES[idx % COLORS_CIDADES.length];
+                      return (
+                        <div key={idx} className="bg-gray-950 p-2.5 rounded-xl border border-gray-800/80 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2 font-bold text-gray-200 truncate pr-2">
+                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: cor }} />
+                              <span className="truncate">{item.nome}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] font-black text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded">
+                                {item.porcentagem.toFixed(1)}%
+                              </span>
+                              <span className="font-black text-white text-xs">
+                                {formatarMoeda(item.valor)}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="text-[10px] font-black text-blue-400 bg-blue-950/40 px-1.5 py-0.5 rounded">
-                              {item.porcentagem.toFixed(1)}%
-                            </span>
-                            <span className="font-black text-white text-xs">
-                              {formatarMoeda(item.valor)}
-                            </span>
+                          {/* Barra de Progresso */}
+                          <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%`, backgroundColor: cor }}
+                            />
                           </div>
                         </div>
-                        <div className="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full rounded-full transition-all duration-300 bg-blue-500"
-                            style={{ width: `${Math.min(100, Math.max(0, item.porcentagem))}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ) : (
