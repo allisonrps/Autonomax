@@ -17,7 +17,7 @@ public class ProspeccaoController : ControllerBase
     private readonly AppDbContext _context;
     private static readonly HttpClient _httpClient = new()
     {
-        Timeout = TimeSpan.FromSeconds(15)
+        Timeout = TimeSpan.FromSeconds(20)
     };
 
     public ProspeccaoController(AppDbContext context)
@@ -25,13 +25,16 @@ public class ProspeccaoController : ControllerBase
         _context = context;
         if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
         {
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AutonomaxRadar/1.0 (contato@autonomax.com.br)");
             _httpClient.DefaultRequestHeaders.Add("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8");
         }
     }
 
     [HttpGet("buscar")]
-    public async Task<IActionResult> BuscarLeads([FromQuery] string cidade, [FromQuery] string termo)
+    public async Task<IActionResult> BuscarLeads(
+        [FromQuery] string cidade, 
+        [FromQuery] string termo, 
+        [FromHeader(Name = "X-Google-Key")] string? googleKey = null)
     {
         if (string.IsNullOrWhiteSpace(cidade) || string.IsNullOrWhiteSpace(termo))
         {
@@ -41,16 +44,33 @@ public class ProspeccaoController : ControllerBase
         var cidadeLimpa = cidade.Trim();
         var termoLimpo = termo.Trim();
 
+        // 1. Se o usuário enviou uma chave da Google Places API, consulta oficial no Google
+        if (!string.IsNullOrWhiteSpace(googleKey))
+        {
+            try
+            {
+                var leadsGoogle = await BuscarViaGooglePlacesAsync(cidadeLimpa, termoLimpo, googleKey.Trim());
+                if (leadsGoogle.Count > 0)
+                {
+                    return Ok(leadsGoogle);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Erro ao consultar Google Places: {ex.Message}");
+            }
+        }
+
+        // 2. Base pública oficial e aberta: OpenStreetMap (Nominatim)
         try
         {
-            var leads = await ExecutarBuscaComerciosAsync(cidadeLimpa, termoLimpo);
-            return Ok(leads);
+            var leadsOsm = await BuscarViaNominatimAsync(cidadeLimpa, termoLimpo);
+            return Ok(leadsOsm);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Fallback resiliente garantindo que a aplicação nunca quebre se houver timeout externo
-            var leadsFallback = GerarLeadsFallback(cidadeLimpa, termoLimpo);
-            return Ok(leadsFallback);
+            Console.WriteLine($"Erro ao consultar OpenStreetMap: {ex.Message}");
+            return Ok(new List<LeadComercioDto>());
         }
     }
 
@@ -71,7 +91,6 @@ public class ProspeccaoController : ControllerBase
         int importados = 0;
         int ignoradosExistentes = 0;
 
-        // Clientes existentes no negócio para evitar duplicações
         var clientesExistentes = await _context.Clientes
             .Where(c => c.NegocioId == dto.NegocioId)
             .Select(c => new { c.Nome, c.Celular })
@@ -82,7 +101,6 @@ public class ProspeccaoController : ControllerBase
             var telLimpo = Regex.Replace(lead.Telefone ?? "", @"\D", "");
             var nomeLimpo = (lead.Nome ?? "").Trim();
 
-            // Verifica duplicidade por nome ou por celular
             bool jaExiste = clientesExistentes.Any(c => 
                 (!string.IsNullOrEmpty(telLimpo) && Regex.Replace(c.Celular ?? "", @"\D", "") == telLimpo) ||
                 string.Equals(c.Nome?.Trim(), nomeLimpo, StringComparison.OrdinalIgnoreCase)
@@ -104,7 +122,7 @@ public class ProspeccaoController : ControllerBase
                 Endereco = lead.Endereco ?? "",
                 Cidade = lead.Cidade ?? "",
                 Estado = lead.Estado ?? "SP",
-                Observacoes = $"Lead captado via Radar em {DateTime.Now:dd/MM/yyyy}. Categoria: {lead.Categoria}. Avaliação: {lead.Avaliacao?.ToString("0.0") ?? "N/A"}.",
+                Observacoes = $"Lead captado via Radar em {DateTime.Now:dd/MM/yyyy}. Fonte: {lead.Origem}. Categoria: {lead.Categoria}.",
                 Tags = tags,
                 NegocioId = dto.NegocioId
             };
@@ -126,116 +144,155 @@ public class ProspeccaoController : ControllerBase
         });
     }
 
-    private async Task<List<LeadComercioDto>> ExecutarBuscaComerciosAsync(string cidade, string termo)
+    private async Task<List<LeadComercioDto>> BuscarViaGooglePlacesAsync(string cidade, string termo, string apiKey)
     {
-        var resultados = new List<LeadComercioDto>();
-        var query = Uri.EscapeDataString($"{termo} {cidade}");
-        var url = $"https://html.duckduckgo.com/html/?q={query}";
-
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-
-            var response = await _httpClient.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-            {
-                var html = await response.Content.ReadAsStringAsync();
-                
-                // Extrai blocos de resultados web de estabelecimentos
-                var linkMatches = Regex.Matches(html, @"<a class=""result__snippet""[^>]*>(.*?)<\/a>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
-                var titleMatches = Regex.Matches(html, @"<a class=""result__url""[^>]*>(.*?)<\/a>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
-
-                // Busca telefones no padrão brasileiro: (XX) 9XXXX-XXXX ou (XX) XXXX-XXXX
-                var phoneMatches = Regex.Matches(html, @"\(?[1-9]{2}\)?\s*9?[0-9]{4}[-\s]?[0-9]{4}");
-
-                if (linkMatches.Count > 0)
-                {
-                    int max = Math.Min(12, linkMatches.Count);
-                    for (int i = 0; i < max; i++)
-                    {
-                        var snippet = Regex.Replace(linkMatches[i].Groups[1].Value, "<.*?>", "").Trim();
-                        var tel = i < phoneMatches.Count ? phoneMatches[i].Value : GerarTelefoneSimulado(cidade, i);
-                        
-                        var nomeEmpresa = $"{termo} {ExtrairSufixoEmpresa(i)} {cidade}";
-                        
-                        resultados.Add(new LeadComercioDto
-                        {
-                            Id = $"lead-{Guid.NewGuid()}",
-                            Nome = nomeEmpresa,
-                            Telefone = tel,
-                            Endereco = $"Rua Comercial, {120 + i * 35} - Centro",
-                            Bairro = "Centro",
-                            Cidade = cidade,
-                            Estado = "SP",
-                            Avaliacao = Math.Round(4.2 + (i % 8) * 0.1, 1),
-                            TotalAvaliacoes = 25 + i * 18,
-                            Categoria = termo,
-                            GoogleMapsUrl = $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nomeEmpresa + " " + cidade)}"
-                        });
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Segue para o fallback se a conexão falhar
-        }
-
-        if (resultados.Count == 0)
-        {
-            resultados = GerarLeadsFallback(cidade, termo);
-        }
-
-        return resultados;
-    }
-
-    private static List<LeadComercioDto> GerarLeadsFallback(string cidade, string termo)
-    {
-        var bairros = new[] { "Centro", "Jardim Paulista", "Vila Nova", "Bela Vista", "Alto da Boa Vista", "Parque das Flores", "Jardim América", "Vila Industrial" };
-        var prefixos = new[] { "Espaço", "Grupo", "Master", "Prime", "Central", "Império", "Boutique", "Studio", "Mega", "Elite" };
-
         var lista = new List<LeadComercioDto>();
-        for (int i = 0; i < 10; i++)
+        var url = "https://places.googleapis.com/v1/places:searchText";
+        var payload = new
         {
-            var bairro = bairros[i % bairros.Length];
-            var prefixo = prefixos[i % prefixos.Length];
-            var nome = $"{prefixo} {termo} de {cidade}";
+            textQuery = $"{termo} em {cidade}",
+            languageCode = "pt-BR"
+        };
 
-            lista.Add(new LeadComercioDto
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Add("X-Goog-Api-Key", apiKey);
+        req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.primaryTypeDisplayName");
+        req.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+        var resp = await _httpClient.SendAsync(req);
+        if (!resp.IsSuccessStatusCode) return lista;
+
+        var jsonStr = await resp.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(jsonStr);
+
+        if (doc.RootElement.TryGetProperty("places", out var placesElement) && placesElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var p in placesElement.EnumerateArray())
             {
-                Id = $"lead-gen-{i}-{DateTime.UtcNow.Ticks}",
-                Nome = nome,
-                Telefone = GerarTelefoneSimulado(cidade, i),
-                Endereco = $"Av. Comercial, {150 + i * 42} - {bairro}",
-                Bairro = bairro,
-                Cidade = cidade,
-                Estado = "SP",
-                Avaliacao = Math.Round(4.3 + (i % 7) * 0.1, 1),
-                TotalAvaliacoes = 32 + (i * 24),
-                Categoria = termo,
-                GoogleMapsUrl = $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}"
-            });
+                string id = p.TryGetProperty("id", out var idE) ? idE.GetString() ?? Guid.NewGuid().ToString() : Guid.NewGuid().ToString();
+                string nome = "";
+                if (p.TryGetProperty("displayName", out var dispName) && dispName.TryGetProperty("text", out var textE))
+                {
+                    nome = textE.GetString() ?? "";
+                }
+                if (string.IsNullOrWhiteSpace(nome)) continue;
+
+                string endereco = p.TryGetProperty("formattedAddress", out var addrE) ? addrE.GetString() ?? "" : "";
+                string telefone = p.TryGetProperty("nationalPhoneNumber", out var phoneE) ? phoneE.GetString() ?? "" : "";
+                double? rating = p.TryGetProperty("rating", out var ratE) ? ratE.GetDouble() : null;
+                int? userRatingsTotal = p.TryGetProperty("userRatingCount", out var countE) ? countE.GetInt32() : null;
+                string? website = p.TryGetProperty("websiteUri", out var webE) ? webE.GetString() : null;
+                string? mapsUrl = p.TryGetProperty("googleMapsUri", out var mapE) ? mapE.GetString() : null;
+                string categoria = termo;
+                if (p.TryGetProperty("primaryTypeDisplayName", out var catE) && catE.TryGetProperty("text", out var catText))
+                {
+                    categoria = catText.GetString() ?? termo;
+                }
+
+                lista.Add(new LeadComercioDto
+                {
+                    Id = id,
+                    Nome = nome,
+                    Telefone = telefone,
+                    Endereco = endereco,
+                    Cidade = cidade,
+                    Estado = "SP",
+                    Avaliacao = rating,
+                    TotalAvaliacoes = userRatingsTotal,
+                    Categoria = categoria,
+                    GoogleMapsUrl = mapsUrl ?? $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}",
+                    Site = website,
+                    Origem = "Google Maps"
+                });
+            }
         }
 
         return lista;
     }
 
-    private static string ExtrairSufixoEmpresa(int index)
+    private async Task<List<LeadComercioDto>> BuscarViaNominatimAsync(string cidade, string termo)
     {
-        var opcoes = new[] { "Premium", "Express", "Central", "Master", "Prime", "Original", "VIP", "Elite" };
-        return opcoes[index % opcoes.Length];
-    }
+        var lista = new List<LeadComercioDto>();
+        var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(termo + " " + cidade)}&format=json&addressdetails=1&extratags=1&limit=25";
 
-    private static string GerarTelefoneSimulado(string cidade, int idx)
-    {
-        var ddd = "19";
-        if (cidade.Contains("Paulo", StringComparison.OrdinalIgnoreCase)) ddd = "11";
-        else if (cidade.Contains("Ribeir", StringComparison.OrdinalIgnoreCase)) ddd = "16";
-        else if (cidade.Contains("Horizonte", StringComparison.OrdinalIgnoreCase)) ddd = "31";
-        else if (cidade.Contains("Janeiro", StringComparison.OrdinalIgnoreCase)) ddd = "21";
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Add("User-Agent", "AutonomaxRadar/1.0 (contato@autonomax.com.br)");
 
-        return $"({ddd}) 9{8100 + idx * 115:0000}-{1200 + idx * 77:0000}";
+        var resp = await _httpClient.SendAsync(req);
+        if (!resp.IsSuccessStatusCode) return lista;
+
+        var jsonStr = await resp.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(jsonStr);
+
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return lista;
+
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            string displayName = item.TryGetProperty("display_name", out var dn) ? dn.GetString() ?? "" : "";
+            string nome = item.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(nome))
+            {
+                nome = displayName.Split(',').FirstOrDefault()?.Trim() ?? "";
+            }
+            if (string.IsNullOrWhiteSpace(nome)) continue;
+
+            string rua = "";
+            string numero = "";
+            string bairro = "";
+            string cid = cidade;
+            string uf = "SP";
+
+            if (item.TryGetProperty("address", out var addr))
+            {
+                if (addr.TryGetProperty("road", out var r)) rua = r.GetString() ?? "";
+                if (string.IsNullOrEmpty(rua) && addr.TryGetProperty("pedestrian", out var ped)) rua = ped.GetString() ?? "";
+                if (addr.TryGetProperty("house_number", out var hn)) numero = hn.GetString() ?? "";
+                if (addr.TryGetProperty("suburb", out var sub)) bairro = sub.GetString() ?? "";
+                if (string.IsNullOrEmpty(bairro) && addr.TryGetProperty("neighbourhood", out var nei)) bairro = nei.GetString() ?? "";
+                if (addr.TryGetProperty("city", out var c)) cid = c.GetString() ?? cidade;
+                else if (addr.TryGetProperty("town", out var t)) cid = t.GetString() ?? cidade;
+                if (addr.TryGetProperty("state", out var s)) uf = s.GetString() ?? "SP";
+            }
+
+            string telefone = "";
+            string website = "";
+            if (item.TryGetProperty("extratags", out var extra))
+            {
+                if (extra.TryGetProperty("phone", out var p)) telefone = p.GetString() ?? "";
+                if (string.IsNullOrEmpty(telefone) && extra.TryGetProperty("contact:phone", out var cp)) telefone = cp.GetString() ?? "";
+                if (string.IsNullOrEmpty(telefone) && extra.TryGetProperty("contact:mobile", out var cm)) telefone = cm.GetString() ?? "";
+                if (string.IsNullOrEmpty(telefone) && extra.TryGetProperty("contact:whatsapp", out var cw)) telefone = cw.GetString() ?? "";
+                if (extra.TryGetProperty("website", out var w)) website = w.GetString() ?? "";
+                if (string.IsNullOrEmpty(website) && extra.TryGetProperty("contact:website", out var cw2)) website = cw2.GetString() ?? "";
+            }
+
+            var enderecoFormatado = string.Join(", ", new[] { rua + (string.IsNullOrEmpty(numero) ? "" : " " + numero), bairro, cid }
+                .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            if (string.IsNullOrWhiteSpace(enderecoFormatado))
+            {
+                enderecoFormatado = displayName;
+            }
+
+            lista.Add(new LeadComercioDto
+            {
+                Id = $"osm-{Guid.NewGuid()}",
+                Nome = nome,
+                Telefone = telefone,
+                Endereco = enderecoFormatado,
+                Bairro = bairro,
+                Cidade = cid,
+                Estado = uf,
+                Avaliacao = null,
+                TotalAvaliacoes = null,
+                Categoria = termo,
+                GoogleMapsUrl = $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + (string.IsNullOrEmpty(bairro) ? cid : bairro + " " + cid))}",
+                Site = website,
+                Origem = "OpenStreetMap"
+            });
+        }
+
+        return lista;
     }
 }
 
@@ -252,6 +309,8 @@ public class LeadComercioDto
     public int? TotalAvaliacoes { get; set; }
     public string? Categoria { get; set; }
     public string? GoogleMapsUrl { get; set; }
+    public string? Site { get; set; }
+    public string Origem { get; set; } = "OpenStreetMap";
     public bool Importado { get; set; } = false;
 }
 

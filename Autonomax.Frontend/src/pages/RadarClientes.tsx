@@ -4,7 +4,7 @@ import {
   Target, Search, MapPin, Phone, MessageSquare, Plus, 
   CheckCircle2, Download, ExternalLink, Star, 
   Sparkles, RefreshCw, AlertCircle, X,
-  CheckSquare, Square, Settings2
+  CheckSquare, Square, Settings2, KeyRound, Globe2
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -22,13 +22,14 @@ export interface LeadComercio {
   categoria?: string;
   site?: string;
   googleMapsUrl?: string;
+  origem?: string;
   importado?: boolean;
 }
 
 const SUGESTOES_SEGMENTOS = [
   { label: 'Pizzarias & Lanchonetes', query: 'pizzaria e lanchonete' },
   { label: 'Barbearias & Salões', query: 'barbearia e salao de beleza' },
-  { label: 'Pet Shops & Clínicas Vet', query: 'pet shop e clinica veterinaria' },
+  { label: 'Pet Shops & Veterinárias', query: 'pet shop e clinica veterinaria' },
   { label: 'Oficinas Mecânicas', query: 'oficina mecanica e auto center' },
   { label: 'Clínicas & Consultórios', query: 'clinica medica e odontologia' },
   { label: 'Lojas de Roupas & Varejo', query: 'loja de roupas e acessorios' },
@@ -46,9 +47,17 @@ export function RadarClientes() {
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
   const [mensagemErro, setMensagemErro] = useState<string | null>(null);
 
+  // Chave Google Places API (opcional)
+  const [googleApiKey, setGoogleApiKey] = useState(() => {
+    return localStorage.getItem('@Autonomax:googlePlacesApiKey') || '';
+  });
+  const [modalChaveGoogleAberto, setModalChaveGoogleAberto] = useState(false);
+  const [chaveInput, setChaveInput] = useState('');
+
+  // Template da mensagem de abordagem no WhatsApp
   const [modalMensagemAberto, setModalMensagemAberto] = useState(false);
   const [templateMensagem, setTemplateMensagem] = useState(
-    'Olá! Localizei seu comércio no Google e gostaria de apresentar como podemos colaborar com soluções para o seu negócio.'
+    'Olá! Localizei seu comércio e gostaria de apresentar como podemos colaborar com soluções para o seu negócio.'
   );
 
   const currentNegocioId = localStorage.getItem('@Autonomax:selectedNegocioId');
@@ -83,7 +92,10 @@ export function RadarClientes() {
         params: {
           cidade: cidade.trim(),
           termo: segmento.trim()
-        }
+        },
+        headers: googleApiKey.trim() ? {
+          'X-Google-Key': googleApiKey.trim()
+        } : undefined
       });
 
       const resultados: LeadComercio[] = response.data || [];
@@ -91,49 +103,29 @@ export function RadarClientes() {
       setBuscaRealizada(true);
 
       if (resultados.length === 0) {
-        setMensagemErro('Nenhum comércio encontrado para os termos informados. Tente uma palavra-chave mais ampla.');
+        setMensagemErro(`Nenhum comércio real encontrado para "${segmento}" em "${cidade}". Tente uma palavra-chave mais ampla.`);
       }
     } catch (err: any) {
-      console.warn("Falha no endpoint da API, aplicando fallback inteligente:", err);
-      // Fallback gracioso com demonstração realista caso a API local ainda esteja sendo compilada
-      gerarLeadsDemonstracao(cidade.trim(), segmento.trim());
+      console.error("Erro na busca de prospecção:", err);
+      setMensagemErro(err.response?.data?.mensagem || 'Erro ao conectar à base de dados. Verifique sua conexão e tente novamente.');
     } finally {
       setBuscando(false);
     }
   }
 
-  function gerarLeadsDemonstracao(cid: string, seg: string) {
-    const nomesExemplo = [
-      `${seg} Central de ${cid}`,
-      `Espaço & ${seg} Premium`,
-      `Grupo ${seg} Express`,
-      `Master ${seg} & Cia`,
-      `${seg} Brasil Original`,
-      `Império do ${seg}`,
-      `${seg} Bella Vista`,
-      `Centro de ${seg} & Soluções`
-    ];
-
-    const bairros = ['Centro', 'Jardim Paulista', 'Vila Nova', 'Bela Vista', 'Parque das Flores', 'Alto da Boa Vista'];
-
-    const fakeLeads: LeadComercio[] = nomesExemplo.map((nome, idx) => ({
-      id: `lead-${Date.now()}-${idx}`,
-      nome,
-      telefone: `(19) 9${Math.floor(8000 + Math.random() * 1999)}-${Math.floor(1000 + Math.random() * 8999)}`,
-      endereco: `Av. Principal, ${100 + idx * 45} - ${bairros[idx % bairros.length]}`,
-      bairro: bairros[idx % bairros.length],
-      cidade: cid,
-      estado: 'SP',
-      avaliacao: Number((4.2 + Math.random() * 0.8).toFixed(1)),
-      totalAvaliacoes: Math.floor(15 + Math.random() * 220),
-      categoria: seg,
-      googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nome + ' ' + cid)}`,
-      importado: false
-    }));
-
-    setLeads(fakeLeads);
-    setBuscaRealizada(true);
-    setMensagemSucesso('Busca realizada com sucesso!');
+  function handleSalvarChaveGoogle() {
+    const cleanKey = chaveInput.trim();
+    if (cleanKey) {
+      localStorage.setItem('@Autonomax:googlePlacesApiKey', cleanKey);
+      setGoogleApiKey(cleanKey);
+      setMensagemSucesso('Chave do Google Places salva com sucesso! O Radar agora utilizará os dados do Google Maps.');
+    } else {
+      localStorage.removeItem('@Autonomax:googlePlacesApiKey');
+      setGoogleApiKey('');
+      setMensagemSucesso('Chave removida. O Radar voltou a utilizar a base aberta gratuita do OpenStreetMap.');
+    }
+    setModalChaveGoogleAberto(false);
+    setTimeout(() => setMensagemSucesso(null), 4000);
   }
 
   function toggleSelecionarTodos() {
@@ -163,14 +155,13 @@ export function RadarClientes() {
         endereco: lead.endereco || '',
         cidade: lead.cidade || cidade,
         estado: lead.estado || 'SP',
-        observacoes: `Lead captado pelo Radar em ${new Date().toLocaleDateString('pt-BR')}. Categoria: ${lead.categoria || segmento}. Avaliação Google: ${lead.avaliacao || 'N/A'}.`,
+        observacoes: `Lead captado pelo Radar de Clientes. Categoria: ${lead.categoria || segmento}. Fonte: ${lead.origem || 'OpenStreetMap'}.`,
         tags: `Radar, Prospeccao, ${lead.categoria || segmento}, ${lead.cidade || cidade}`,
         negocioId: Number(currentNegocioId)
       };
 
       await api.post('/Clientes', clientePayload);
 
-      // Marca como importado localmente
       setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, importado: true } : l));
       setMensagemSucesso(`"${lead.nome}" importado com sucesso para Meus Clientes!`);
       setTimeout(() => setMensagemSucesso(null), 4000);
@@ -213,7 +204,7 @@ export function RadarClientes() {
             endereco: lead.endereco || '',
             cidade: lead.cidade || cidade,
             estado: lead.estado || 'SP',
-            observacoes: `Lead captado pelo Radar de Clientes. Categoria: ${lead.categoria || segmento}.`,
+            observacoes: `Lead captado pelo Radar de Clientes. Categoria: ${lead.categoria || segmento}. Fonte: ${lead.origem || 'OpenStreetMap'}.`,
             tags: `Radar, Prospeccao, ${lead.categoria || segmento}`,
             negocioId: Number(currentNegocioId)
           };
@@ -234,7 +225,7 @@ export function RadarClientes() {
   function handleAbrirWhatsApp(lead: LeadComercio) {
     const rawNumber = lead.telefone.replace(/\D/g, '');
     if (!rawNumber) {
-      alert('Telefone não disponível para este comércio.');
+      alert('Telefone não informado neste registro. Utilize o botão Google Maps para localizá-lo.');
       return;
     }
 
@@ -246,9 +237,9 @@ export function RadarClientes() {
 
   function handleExportarCSV() {
     if (!leads.length) return;
-    const cabecalho = 'Nome;Telefone;Endereço;Cidade;Avaliação;Total Avaliações;Categoria;Link Maps\n';
+    const cabecalho = 'Nome;Telefone;Endereço;Cidade;Avaliação;Total Avaliações;Categoria;Fonte;Link Maps\n';
     const linhas = leads.map(l => 
-      `"${l.nome}";"${l.telefone}";"${l.endereco}";"${l.cidade}";"${l.avaliacao || ''}";"${l.totalAvaliacoes || ''}";"${l.categoria || ''}";"${l.googleMapsUrl || ''}"`
+      `"${l.nome}";"${l.telefone || ''}";"${l.endereco}";"${l.cidade}";"${l.avaliacao || ''}";"${l.totalAvaliacoes || ''}";"${l.categoria || ''}";"${l.origem || ''}";"${l.googleMapsUrl || ''}"`
     ).join('\n');
 
     const blob = new Blob([cabecalho + linhas], { type: 'text/csv;charset=utf-8;' });
@@ -280,13 +271,33 @@ export function RadarClientes() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 font-medium mt-0.5">
-                  Descubra estabelecimentos e comércios locais para atrair novas vendas e clientes para sua carteira.
+                  Descubra estabelecimentos reais para atrair novos clientes para sua carteira.
                 </p>
               </div>
             </div>
 
             {/* Ações do Topo */}
             <div className="self-start md:self-auto flex items-center gap-2 flex-wrap">
+              
+              {/* Botão Chave Google */}
+              <button
+                type="button"
+                onClick={() => {
+                  setChaveInput(googleApiKey);
+                  setModalChaveGoogleAberto(true);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                  googleApiKey 
+                    ? 'bg-blue-950/40 text-blue-400 border-blue-900/60 hover:bg-blue-900/40'
+                    : 'bg-gray-950 hover:bg-gray-800 text-gray-300 hover:text-white border-gray-800'
+                }`}
+                title="Configurar chave opcional do Google Places"
+              >
+                <KeyRound size={14} className={googleApiKey ? 'text-blue-400' : 'text-gray-400'} />
+                <span>{googleApiKey ? 'Google Maps (Ativo)' : 'Chave Google (Opcional)'}</span>
+              </button>
+
+              {/* Botão Personalizar Mensagem */}
               <button
                 type="button"
                 onClick={() => setModalMensagemAberto(true)}
@@ -297,9 +308,10 @@ export function RadarClientes() {
                 <span>Mensagem WhatsApp</span>
               </button>
 
-              <div className="flex items-center gap-2 bg-emerald-950/40 text-emerald-400 border border-emerald-900/60 px-3 py-1.5 rounded-lg text-xs font-bold">
-                <CheckCircle2 size={16} />
-                <span>Sem Custo de API (100% Livre)</span>
+              {/* Indicador de Modo */}
+              <div className="flex items-center gap-1.5 bg-emerald-950/40 text-emerald-400 border border-emerald-900/60 px-3 py-1.5 rounded-lg text-xs font-bold">
+                <Globe2 size={14} />
+                <span>{googleApiKey ? 'Google Places API' : 'OpenStreetMap (100% Grátis)'}</span>
               </div>
             </div>
           </div>
@@ -407,19 +419,28 @@ export function RadarClientes() {
               {/* KPIs da Busca */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Comércios Encontrados</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Comércios Reais Encontrados</p>
                   <p className="text-2xl font-black text-cyan-400 mt-1">{leads.length}</p>
                 </div>
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Com Contato Direto</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Com Telefone Direto</p>
                   <p className="text-2xl font-black text-emerald-400 mt-1">{totalComTelefone}</p>
                 </div>
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Avaliação Média</p>
-                  <p className="text-2xl font-black text-yellow-400 mt-1 flex items-center gap-1">
-                    <Star size={20} className="fill-yellow-400" />
-                    <span>{mediaAvaliacoes > 0 ? mediaAvaliacoes : '---'}</span>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                    {googleApiKey ? 'Avaliação Média' : 'Fonte dos Dados'}
                   </p>
+                  {googleApiKey ? (
+                    <p className="text-2xl font-black text-yellow-400 mt-1 flex items-center gap-1">
+                      <Star size={18} className="fill-yellow-400" />
+                      <span>{mediaAvaliacoes > 0 ? mediaAvaliacoes : '---'}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm font-black text-white mt-2 truncate flex items-center gap-1.5">
+                      <Globe2 size={16} className="text-cyan-400 flex-shrink-0" />
+                      <span>OpenStreetMap</span>
+                    </p>
+                  )}
                 </div>
                 <div className="bg-gray-900 p-4 rounded-xl border border-gray-800">
                   <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">Selecionados</p>
@@ -503,6 +524,12 @@ export function RadarClientes() {
                                 {lead.nome}
                               </h3>
 
+                              {lead.origem && (
+                                <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-gray-950 border border-gray-800 text-gray-400">
+                                  {lead.origem}
+                                </span>
+                              )}
+
                               {lead.googleMapsUrl && (
                                 <a 
                                   href={lead.googleMapsUrl} 
@@ -528,10 +555,14 @@ export function RadarClientes() {
                             </p>
 
                             <div className="flex items-center gap-4 text-xs pt-0.5 flex-wrap">
-                              {lead.telefone && (
+                              {lead.telefone ? (
                                 <span className="text-gray-300 font-mono font-bold flex items-center gap-1">
-                                  <Phone size={12} className="text-gray-500" />
+                                  <Phone size={12} className="text-emerald-400" />
                                   {lead.telefone}
+                                </span>
+                              ) : (
+                                <span className="text-gray-500 italic text-[11px]">
+                                  Telefone não listado no mapa
                                 </span>
                               )}
 
@@ -539,7 +570,7 @@ export function RadarClientes() {
                                 <span className="flex items-center gap-1 text-yellow-400 font-bold">
                                   <Star size={12} className="fill-yellow-400" />
                                   <span>{lead.avaliacao}</span>
-                                  <span className="text-gray-500 text-[10px]">({lead.totalAvaliacoes || 0} reviews)</span>
+                                  <span className="text-gray-500 text-[10px]">({lead.totalAvaliacoes || 0} avaliações)</span>
                                 </span>
                               ) : null}
                             </div>
@@ -548,7 +579,7 @@ export function RadarClientes() {
 
                         {/* Lado Direito: Ações Diretas */}
                         <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
-                          {lead.telefone && (
+                          {lead.telefone ? (
                             <button
                               type="button"
                               onClick={() => handleAbrirWhatsApp(lead)}
@@ -556,8 +587,19 @@ export function RadarClientes() {
                               title="Iniciar conversa no WhatsApp com mensagem de apresentação"
                             >
                               <MessageSquare size={14} />
-                              <span className="hidden sm:inline">WhatsApp</span>
+                              <span>WhatsApp</span>
                             </button>
+                          ) : (
+                            <a
+                              href={lead.googleMapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 bg-blue-950/40 hover:bg-blue-900/40 text-blue-400 border border-blue-850/60 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors no-underline cursor-pointer"
+                              title="Abrir no Google Maps para ver telefone e horário de funcionamento"
+                            >
+                              <ExternalLink size={13} />
+                              <span>Ver no Maps</span>
+                            </a>
                           )}
 
                           <button
@@ -592,7 +634,7 @@ export function RadarClientes() {
               <div className="max-w-md mx-auto space-y-1">
                 <h3 className="text-base font-bold text-white">Nenhuma busca ativa</h3>
                 <p className="text-xs text-gray-400">
-                  Informe a cidade e o segmento desejado acima para escanear comércios e estabelecimentos locais.
+                  Informe a cidade e o segmento desejado acima para buscar estabelecimentos reais na base pública aberta.
                 </p>
               </div>
             </div>
@@ -636,6 +678,87 @@ export function RadarClientes() {
                   >
                     Salvar e Fechar
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Configuração da Chave do Google Places (Opcional) */}
+          {modalChaveGoogleAberto && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-blue-400 font-bold text-sm">
+                    <KeyRound size={18} />
+                    <span>Chave Google Places API (Opcional)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModalChaveGoogleAberto(false)}
+                    className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors bg-transparent border-none cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="space-y-2 text-xs text-gray-400">
+                  <p>
+                    Por padrão, o Radar utiliza a base pública e gratuita do <strong>OpenStreetMap</strong>.
+                  </p>
+                  <p>
+                    Se você ou sua empresa possuir uma chave da <strong>Google Places API</strong>, cole-a abaixo para puxar telefones, avaliações (⭐) e fotos diretamente da base oficial do Google Maps.
+                  </p>
+                  <div className="bg-gray-950 p-3 rounded-xl border border-gray-800 space-y-1 text-[11px] text-gray-300">
+                    <p className="font-bold text-emerald-400">💡 Como criar sua chave gratuita em 2 min:</p>
+                    <p>1. Acesse o <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline">Google Cloud Console</a>.</p>
+                    <p>2. Ative a biblioteca <strong>Places API (New)</strong>.</p>
+                    <p>3. Gere uma <strong>Chave de API</strong> e cole abaixo. Você tem $200 de crédito grátis todo mês!</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase text-gray-400">Chave de API do Google</label>
+                  <input
+                    type="text"
+                    value={chaveInput}
+                    onChange={(e) => setChaveInput(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-gray-100 placeholder-gray-600 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center pt-2">
+                  {googleApiKey ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChaveInput('');
+                        localStorage.removeItem('@Autonomax:googlePlacesApiKey');
+                        setGoogleApiKey('');
+                        setModalChaveGoogleAberto(false);
+                      }}
+                      className="text-xs text-rose-400 hover:underline bg-transparent border-none cursor-pointer"
+                    >
+                      Remover Chave
+                    </button>
+                  ) : <div />}
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalChaveGoogleAberto(false)}
+                      className="px-3 py-2 bg-gray-800 text-gray-300 hover:text-white font-bold text-xs rounded-xl cursor-pointer border-none"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSalvarChaveGoogle}
+                      className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer border-none"
+                    >
+                      Salvar Chave
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
