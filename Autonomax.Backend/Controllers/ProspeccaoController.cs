@@ -353,32 +353,74 @@ public class ProspeccaoController : ControllerBase
     {
         var lista = new List<LeadComercioDto>();
         string? ultimoErro = null;
+        string? nextPageToken = null;
+        int paginasConsultadas = 0;
+        const int maxPaginas = 3; // Limite global do Google Maps (até 3 páginas = 60 resultados máximos por consulta)
 
         try
         {
             var urlNew = "https://places.googleapis.com/v1/places:searchText";
-            var payload = new
+
+            while (paginasConsultadas < maxPaginas)
             {
-                textQuery = $"{termo} em {cidade}",
-                languageCode = "pt-BR"
-            };
+                if (paginasConsultadas > 0)
+                {
+                    // Pequena pausa recomendada para propagação do token no Google Places
+                    await Task.Delay(1000);
+                }
 
-            using var req = new HttpRequestMessage(HttpMethod.Post, urlNew);
-            req.Headers.Add("X-Goog-Api-Key", apiKey);
-            req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri");
-            req.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+                object payload = string.IsNullOrEmpty(nextPageToken)
+                    ? new
+                    {
+                        textQuery = $"{termo} em {cidade}",
+                        languageCode = "pt-BR",
+                        pageSize = 20
+                    }
+                    : new
+                    {
+                        textQuery = $"{termo} em {cidade}",
+                        languageCode = "pt-BR",
+                        pageSize = 20,
+                        pageToken = nextPageToken
+                    };
 
-            var resp = await _httpClient.SendAsync(req);
-            var jsonStr = await resp.Content.ReadAsStringAsync();
+                using var req = new HttpRequestMessage(HttpMethod.Post, urlNew);
+                req.Headers.Add("X-Goog-Api-Key", apiKey);
+                req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,nextPageToken");
+                req.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
 
-            if (resp.IsSuccessStatusCode)
-            {
+                var resp = await _httpClient.SendAsync(req);
+                var jsonStr = await resp.Content.ReadAsStringAsync();
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        using var docErr = JsonDocument.Parse(jsonStr);
+                        if (docErr.RootElement.TryGetProperty("error", out var errObj) && errObj.TryGetProperty("message", out var msgObj))
+                        {
+                            ultimoErro = msgObj.GetString();
+                        }
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(ultimoErro))
+                    {
+                        ultimoErro = $"Status {(int)resp.StatusCode} ({resp.ReasonPhrase}): {jsonStr}";
+                    }
+                    break;
+                }
+
                 using var doc = JsonDocument.Parse(jsonStr);
                 if (doc.RootElement.TryGetProperty("places", out var placesElement) && placesElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var p in placesElement.EnumerateArray())
                     {
                         string id = p.TryGetProperty("id", out var idE) ? idE.GetString() ?? Guid.NewGuid().ToString() : Guid.NewGuid().ToString();
+                        
+                        // Evita duplicatas se o Google repetir comércio entre páginas
+                        if (lista.Any(x => x.Id == id)) continue;
+
                         string nome = "";
                         if (p.TryGetProperty("displayName", out var dispName) && dispName.TryGetProperty("text", out var textE))
                         {
@@ -411,25 +453,24 @@ public class ProspeccaoController : ControllerBase
                     }
                 }
 
-                return (lista, null);
-            }
-            else
-            {
-                try
+                // Verifica se há token de próxima página
+                if (doc.RootElement.TryGetProperty("nextPageToken", out var tokenElement))
                 {
-                    using var docErr = JsonDocument.Parse(jsonStr);
-                    if (docErr.RootElement.TryGetProperty("error", out var errObj) && errObj.TryGetProperty("message", out var msgObj))
+                    nextPageToken = tokenElement.GetString();
+                    if (string.IsNullOrWhiteSpace(nextPageToken))
                     {
-                        ultimoErro = msgObj.GetString();
+                        break;
                     }
                 }
-                catch { }
-
-                if (string.IsNullOrWhiteSpace(ultimoErro))
+                else
                 {
-                    ultimoErro = $"Status {(int)resp.StatusCode} ({resp.ReasonPhrase}): {jsonStr}";
+                    break;
                 }
+
+                paginasConsultadas++;
             }
+
+            return (lista, null);
         }
         catch (Exception ex)
         {
@@ -475,7 +516,7 @@ public class ProspeccaoController : ControllerBase
     private async Task<List<LeadComercioDto>> ExecutarConsultaNominatimAsync(string query, string cidadeOriginal, string termoOriginal)
     {
         var lista = new List<LeadComercioDto>();
-        var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(query)}&format=json&addressdetails=1&extratags=1&limit=25";
+        var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(query)}&format=json&addressdetails=1&extratags=1&limit=50";
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Add("User-Agent", "AutonomaxRadar/1.0 (contato@autonomax.com.br)");

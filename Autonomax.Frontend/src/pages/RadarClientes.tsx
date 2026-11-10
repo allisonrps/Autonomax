@@ -639,6 +639,18 @@ export function RadarClientes() {
                     </div>
                   </div>
 
+                  {/* Dica de Prospecção */}
+                  {googleApiKey && (
+                    <div className="bg-cyan-950/20 border border-cyan-800/40 rounded-xl p-3 px-4 flex items-center justify-between gap-3 text-xs text-cyan-200/90">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-base">💡</span>
+                        <span>
+                          <strong>Dica de Prospecção:</strong> O Google Maps limita até 60 resultados por consulta de texto. Para mapear centenas de comércios na cidade, faça buscas com variações (ex: <em>"Açougue"</em>, <em>"Casa de Carnes"</em>, <em>"Boutique de Carnes"</em> ou <em>"Açougue Centro"</em>) e salve na <strong>Triagem</strong> — os já existentes são filtrados automaticamente!
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Lista dos Comércios Encontrados */}
                   <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden shadow-xl">
                     <div className="divide-y divide-gray-800/60">
