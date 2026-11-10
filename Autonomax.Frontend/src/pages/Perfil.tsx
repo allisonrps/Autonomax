@@ -3,7 +3,7 @@ import { Layout } from '../components/Layout';
 import { 
   Trash2, Edit3, X, Building2, 
   AlertTriangle, Rocket, ChevronDown, ChevronUp, Lock, 
-  ShieldCheck, Palette, Check, Upload, Sparkles, Loader2, Eraser
+  ShieldCheck, Palette, Check, Upload
 } from 'lucide-react';
 import api from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,8 +28,6 @@ export function Perfil() {
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [nomeEdicao, setNomeEdicao] = useState('');
   const [confirmarExclusao, setConfirmarExclusao] = useState<number | null>(null);
-  const [populandoId, setPopulandoId] = useState<number | null>(null);
-  const [limpandoId, setLimpandoId] = useState<number | null>(null);
   
   const [modalSenhaAberto, setModalSenhaAberto] = useState(false);
   const [senhaAntiga, setSenhaAntiga] = useState('');
@@ -67,71 +65,6 @@ export function Perfil() {
   async function handleDeleteNegocio(id: number) {
     try { await api.delete(`/Negocios/${id}`); setConfirmarExclusao(null); carregarNegocios(); } 
     catch (err) { alert("Erro ao excluir."); }
-  }
-
-  async function handlePopularDemonstracao(negocio: Negocio) {
-    const confirmou = window.confirm(
-      `Deseja preencher a unidade "${negocio.nome}" com dados de demonstração completos?\n\n` +
-      `✓ Saldo POSITIVO e saudável (faturamento bem superior às despesas)\n` +
-      `✓ Catálogo com 12 itens (serviços e produtos)\n` +
-      `✓ 15 Clientes com tags e cidades da região\n` +
-      `✓ 6 Fornecedores cadastrados\n` +
-      `✓ Mais de 600 lançamentos ao longo de 2026 com vendas registradas no dia de hoje\n\n` +
-      `Atenção: Os dados atuais desta unidade serão substituídos automaticamente, evitando duplicar!`
-    );
-    if (!confirmou) return;
-
-    try {
-      setPopulandoId(negocio.id);
-      const res = await api.post(`/Negocios/${negocio.id}/popular-demonstracao`);
-      alert(res.data?.mensagem || "Dados de demonstração gerados com sucesso!");
-      
-      // Recarrega os dados financeiros
-      setDetalhesFinanceiros(prev => {
-        const copy = { ...prev };
-        delete copy[negocio.id];
-        return copy;
-      });
-
-      if (negocioExpandido !== negocio.id) {
-        toggleExpandir(negocio.id);
-      } else {
-        const id = negocio.id;
-        const resTransacoes = await api.get(`/Transacoes/por-negocio/${id}`);
-        const transacoes = resTransacoes.data;
-        const receitas = transacoes.filter((t: any) => t.tipo === 'Entrada' && t.status === 'Pago').reduce((acc: number, t: any) => acc + t.valor, 0);
-        const pendentes = transacoes.filter((t: any) => t.tipo === 'Entrada' && t.status === 'Pendente').reduce((acc: number, t: any) => acc + t.valor, 0);
-        const despesas = transacoes.filter((t: any) => t.tipo === 'Saida' && t.status === 'Pago').reduce((acc: number, t: any) => acc + t.valor, 0);
-        setDetalhesFinanceiros(prev => ({ ...prev, [id]: { receitas, despesas, pendentes, liquido: receitas - despesas, carregando: false } }));
-      }
-    } catch (err: any) {
-      alert(err?.response?.data || "Erro ao popular dados de demonstração.");
-    } finally {
-      setPopulandoId(null);
-    }
-  }
-
-  async function handleLimparDados(negocio: Negocio) {
-    const confirmou = window.confirm(
-      `ATENÇÃO: Deseja apagar TODOS os dados da unidade "${negocio.nome}"?\n\n` +
-      `Isso removerá todas as transações, catálogo de produtos/serviços, clientes e fornecedores desta unidade, deixando-a 100% zerada (saldo R$ 0,00).\n\nA unidade continuará existindo normalmente.\n\nDeseja continuar?`
-    );
-    if (!confirmou) return;
-
-    try {
-      setLimpandoId(negocio.id);
-      const res = await api.post(`/Negocios/${negocio.id}/limpar-dados`);
-      alert(res.data?.mensagem || "Todos os dados foram apagados com sucesso!");
-
-      setDetalhesFinanceiros(prev => ({
-        ...prev,
-        [negocio.id]: { receitas: 0, despesas: 0, pendentes: 0, liquido: 0, carregando: false }
-      }));
-    } catch (err: any) {
-      alert(err?.response?.data?.mensagem || err?.response?.data || "Erro ao apagar dados da unidade.");
-    } finally {
-      setLimpandoId(null);
-    }
   }
 
   async function handleUploadLogo(negocio: Negocio, file: File) {
@@ -278,37 +211,7 @@ export function Perfil() {
                         </div>
 
                         {/* Botões de Ação Responsivos */}
-                        <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 pt-2 border-t border-gray-800/80 w-full">
-                          <button
-                            type="button"
-                            onClick={() => handlePopularDemonstracao(negocio)}
-                            disabled={populandoId === negocio.id || limpandoId === negocio.id}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-white px-2.5 sm:px-3.5 py-2 rounded-xl border border-emerald-800/60 hover:border-emerald-600 text-[10px] font-black uppercase transition-all cursor-pointer disabled:opacity-50"
-                            title="Preencher com catálogo, clientes, fornecedores e histórico de vendas positivo para demonstração"
-                          >
-                            {populandoId === negocio.id ? (
-                              <Loader2 size={13} className="text-emerald-400 animate-spin flex-shrink-0" />
-                            ) : (
-                              <Sparkles size={13} className="text-emerald-400 flex-shrink-0" />
-                            )}
-                            <span>{populandoId === negocio.id ? 'Gerando...' : 'Popular Demonstração'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleLimparDados(negocio)}
-                            disabled={populandoId === negocio.id || limpandoId === negocio.id}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 bg-amber-950/30 hover:bg-amber-900/40 text-amber-300 hover:text-amber-200 px-2.5 sm:px-3.5 py-2 rounded-xl border border-amber-800/50 hover:border-amber-700 text-[10px] font-black uppercase transition-all cursor-pointer disabled:opacity-50"
-                            title="Apagar todos os lançamentos, catálogo, clientes e parceiros desta unidade deixando-a zerada"
-                          >
-                            {limpandoId === negocio.id ? (
-                              <Loader2 size={13} className="text-amber-400 animate-spin flex-shrink-0" />
-                            ) : (
-                              <Eraser size={13} className="text-amber-400 flex-shrink-0" />
-                            )}
-                            <span>{limpandoId === negocio.id ? 'Limpando...' : 'Limpar Dados'}</span>
-                          </button>
-
+                        <div className="flex items-center justify-end gap-1.5 sm:gap-2 pt-2 border-t border-gray-800/80 w-full">
                           <button
                             type="button"
                             onClick={() => { setEditandoId(negocio.id); setNomeEdicao(negocio.nome); }}
