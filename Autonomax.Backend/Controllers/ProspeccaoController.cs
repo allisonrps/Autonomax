@@ -163,7 +163,6 @@ public class ProspeccaoController : ControllerBase
         var lista = new List<LeadComercioDto>();
         string? ultimoErro = null;
 
-        // 1. TENTATIVA COM PLACES API (NEW)
         try
         {
             var urlNew = "https://places.googleapis.com/v1/places:searchText";
@@ -175,7 +174,7 @@ public class ProspeccaoController : ControllerBase
 
             using var req = new HttpRequestMessage(HttpMethod.Post, urlNew);
             req.Headers.Add("X-Goog-Api-Key", apiKey);
-            req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.primaryTypeDisplayName");
+            req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri");
             req.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
 
             var resp = await _httpClient.SendAsync(req);
@@ -202,11 +201,6 @@ public class ProspeccaoController : ControllerBase
                         int? userRatingsTotal = p.TryGetProperty("userRatingCount", out var countE) ? countE.GetInt32() : null;
                         string? website = p.TryGetProperty("websiteUri", out var webE) ? webE.GetString() : null;
                         string? mapsUrl = p.TryGetProperty("googleMapsUri", out var mapE) ? mapE.GetString() : null;
-                        string categoria = termo;
-                        if (p.TryGetProperty("primaryTypeDisplayName", out var catE) && catE.TryGetProperty("text", out var catText))
-                        {
-                            categoria = catText.GetString() ?? termo;
-                        }
 
                         lista.Add(new LeadComercioDto
                         {
@@ -218,7 +212,7 @@ public class ProspeccaoController : ControllerBase
                             Estado = "SP",
                             Avaliacao = rating,
                             TotalAvaliacoes = userRatingsTotal,
-                            Categoria = categoria,
+                            Categoria = termo,
                             GoogleMapsUrl = mapsUrl ?? $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}",
                             Site = website,
                             Origem = "Google Maps"
@@ -226,7 +220,7 @@ public class ProspeccaoController : ControllerBase
                     }
                 }
 
-                if (lista.Count > 0) return (lista, null);
+                return (lista, null);
             }
             else
             {
@@ -239,72 +233,16 @@ public class ProspeccaoController : ControllerBase
                     }
                 }
                 catch { }
+
+                if (string.IsNullOrWhiteSpace(ultimoErro))
+                {
+                    ultimoErro = $"Status {(int)resp.StatusCode} ({resp.ReasonPhrase}): {jsonStr}";
+                }
             }
         }
         catch (Exception ex)
         {
             ultimoErro = ex.Message;
-        }
-
-        // 2. TENTATIVA COM PLACES API CLÁSSICA (TextSearch)
-        // Atende quem ativou a API clássica "Places API"
-        try
-        {
-            var urlClassic = $"https://maps.googleapis.com/maps/api/place/textsearch/json?query={Uri.EscapeDataString(termo + " em " + cidade)}&key={apiKey}&language=pt-BR";
-            using var reqClassic = new HttpRequestMessage(HttpMethod.Get, urlClassic);
-            var respClassic = await _httpClient.SendAsync(reqClassic);
-            var jsonStrClassic = await respClassic.Content.ReadAsStringAsync();
-
-            if (respClassic.IsSuccessStatusCode)
-            {
-                using var doc = JsonDocument.Parse(jsonStrClassic);
-                var root = doc.RootElement;
-                string status = root.TryGetProperty("status", out var stObj) ? stObj.GetString() ?? "" : "";
-
-                if (status == "OK" && root.TryGetProperty("results", out var resultsEl) && resultsEl.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var r in resultsEl.EnumerateArray())
-                    {
-                        string id = r.TryGetProperty("place_id", out var pid) ? pid.GetString() ?? Guid.NewGuid().ToString() : Guid.NewGuid().ToString();
-                        string nome = r.TryGetProperty("name", out var nObj) ? nObj.GetString() ?? "" : "";
-                        if (string.IsNullOrWhiteSpace(nome)) continue;
-
-                        string endereco = r.TryGetProperty("formatted_address", out var addr) ? addr.GetString() ?? "" : "";
-                        double? rating = r.TryGetProperty("rating", out var rat) ? rat.GetDouble() : null;
-                        int? userRatingsTotal = r.TryGetProperty("user_ratings_total", out var urt) ? urt.GetInt32() : null;
-
-                        lista.Add(new LeadComercioDto
-                        {
-                            Id = id,
-                            Nome = nome,
-                            Telefone = "",
-                            Endereco = endereco,
-                            Cidade = cidade,
-                            Estado = "SP",
-                            Avaliacao = rating,
-                            TotalAvaliacoes = userRatingsTotal,
-                            Categoria = termo,
-                            GoogleMapsUrl = $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}",
-                            Site = null,
-                            Origem = "Google Maps"
-                        });
-                    }
-
-                    if (lista.Count > 0) return (lista, null);
-                }
-                else if (status != "OK" && status != "ZERO_RESULTS")
-                {
-                    if (root.TryGetProperty("error_message", out var errMsg))
-                    {
-                        var msg = errMsg.GetString();
-                        if (!string.IsNullOrEmpty(msg)) ultimoErro = msg;
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            if (string.IsNullOrEmpty(ultimoErro)) ultimoErro = ex.Message;
         }
 
         return (lista, ultimoErro);
