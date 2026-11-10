@@ -5,7 +5,7 @@ import {
   CheckCircle2, Download, ExternalLink, Star, 
   Sparkles, RefreshCw, AlertCircle, X,
   CheckSquare, Square, KeyRound, Globe2,
-  ListFilter, UserCheck, Trash2, Image as ImageIcon, Upload
+  ListFilter, UserCheck, Trash2, Image as ImageIcon, Upload, Tag
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -77,6 +77,7 @@ export function RadarClientes() {
   const [leadsTriagem, setLeadsTriagem] = useState<LeadTriagemItem[]>([]);
   const [carregandoTriagem, setCarregandoTriagem] = useState(false);
   const [filtroStatusTriagem, setFiltroStatusTriagem] = useState<string>('Todos');
+  const [filtroCategoriaTriagem, setFiltroCategoriaTriagem] = useState<string>('Todas');
   const [termoBuscaTriagem, setTermoBuscaTriagem] = useState('');
 
   // Template da Mensagem e Imagem do WhatsApp
@@ -119,17 +120,34 @@ export function RadarClientes() {
     return Number((soma / comNota.length).toFixed(1));
   }, [leads]);
 
+  // Categorias únicas com contagem para as tags de filtro
+  const categoriasTriagemComContagem = useMemo(() => {
+    const mapa = new Map<string, number>();
+    leadsTriagem.forEach(l => {
+      const cat = (l.categoria || '').trim();
+      if (cat) {
+        mapa.set(cat, (mapa.get(cat) || 0) + 1);
+      }
+    });
+
+    return Array.from(mapa.entries())
+      .map(([nome, count]) => ({ nome, count }))
+      .sort((a, b) => b.count - a.count || a.nome.localeCompare(b.nome));
+  }, [leadsTriagem]);
+
   const leadsTriagemFiltrados = useMemo(() => {
     return leadsTriagem.filter(item => {
       const matchStatus = filtroStatusTriagem === 'Todos' || item.status === filtroStatusTriagem;
+      const matchCategoria = filtroCategoriaTriagem === 'Todas' || 
+        (item.categoria && item.categoria.trim().toLowerCase() === filtroCategoriaTriagem.trim().toLowerCase());
       const matchTexto = !termoBuscaTriagem.trim() || 
         item.nome.toLowerCase().includes(termoBuscaTriagem.toLowerCase()) ||
         (item.telefone && item.telefone.includes(termoBuscaTriagem)) ||
         item.cidade.toLowerCase().includes(termoBuscaTriagem.toLowerCase()) ||
         (item.categoria && item.categoria.toLowerCase().includes(termoBuscaTriagem.toLowerCase()));
-      return matchStatus && matchTexto;
+      return matchStatus && matchCategoria && matchTexto;
     });
-  }, [leadsTriagem, filtroStatusTriagem, termoBuscaTriagem]);
+  }, [leadsTriagem, filtroStatusTriagem, filtroCategoriaTriagem, termoBuscaTriagem]);
 
   // Contagem de leads em triagem ativos (não convertidos)
   const totalLeadsAtivos = useMemo(() => {
@@ -838,6 +856,56 @@ export function RadarClientes() {
                 </div>
               </div>
 
+              {/* Barra de Tags de Categorias */}
+              {categoriasTriagemComContagem.length > 0 && (
+                <div className="bg-gray-900/70 p-3.5 sm:p-4 rounded-2xl border border-gray-800/80 flex items-center gap-2 flex-wrap shadow-lg">
+                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-gray-400 mr-1 flex-shrink-0">
+                    <Tag size={13} className="text-amber-400" />
+                    <span>Categorias:</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setFiltroCategoriaTriagem('Todas')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                      filtroCategoriaTriagem === 'Todas'
+                        ? 'bg-amber-500 text-gray-950 border-amber-400 font-black shadow'
+                        : 'bg-gray-950 text-gray-400 border-gray-800 hover:text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    <span>Todas</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      filtroCategoriaTriagem === 'Todas' ? 'bg-gray-950/20 text-gray-950' : 'bg-gray-800 text-gray-400'
+                    }`}>
+                      {leadsTriagem.length}
+                    </span>
+                  </button>
+
+                  {categoriasTriagemComContagem.map((cat) => {
+                    const ativo = filtroCategoriaTriagem.toLowerCase() === cat.nome.toLowerCase();
+                    return (
+                      <button
+                        key={cat.nome}
+                        type="button"
+                        onClick={() => setFiltroCategoriaTriagem(ativo ? 'Todas' : cat.nome)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                          ativo
+                            ? 'bg-amber-500 text-gray-950 border-amber-400 font-black shadow'
+                            : 'bg-gray-950 text-gray-400 border-gray-800 hover:text-white hover:bg-gray-800'
+                        }`}
+                      >
+                        <span>{cat.nome}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                          ativo ? 'bg-gray-950/20 text-gray-950' : 'bg-gray-800 text-gray-400'
+                        }`}>
+                          {cat.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Lista dos Leads em Triagem */}
               {carregandoTriagem ? (
                 <div className="p-12 text-center text-gray-400 space-y-2">
@@ -909,9 +977,19 @@ export function RadarClientes() {
                             )}
 
                             {lead.categoria && (
-                              <span className="text-gray-400 text-[11px] bg-gray-950 px-2 py-0.5 rounded border border-gray-800">
-                                {lead.categoria}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setFiltroCategoriaTriagem(prev => prev.toLowerCase() === lead.categoria!.toLowerCase() ? 'Todas' : lead.categoria!)}
+                                title={`Filtrar por categoria: ${lead.categoria}`}
+                                className={`text-[11px] px-2 py-0.5 rounded border transition-colors cursor-pointer flex items-center gap-1 ${
+                                  filtroCategoriaTriagem.toLowerCase() === lead.categoria.toLowerCase()
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-600 font-bold'
+                                    : 'bg-gray-950 text-gray-400 border-gray-800 hover:text-amber-300 hover:border-gray-700'
+                                }`}
+                              >
+                                <Tag size={10} />
+                                <span>{lead.categoria}</span>
+                              </button>
                             )}
 
                             {lead.avaliacao ? (
