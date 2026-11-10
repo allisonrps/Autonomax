@@ -44,20 +44,21 @@ public class ProspeccaoController : ControllerBase
         var cidadeLimpa = cidade.Trim();
         var termoLimpo = termo.Trim();
 
-        // 1. Se o usuário enviou uma chave da Google Places API, consulta oficial no Google
+        string? avisoGoogle = null;
+
+        // 1. Se o usuário enviou uma chave da Google Places API, consulta no Google
         if (!string.IsNullOrWhiteSpace(googleKey))
         {
-            try
+            var (leadsGoogle, erroGoogle) = await BuscarViaGooglePlacesAsync(cidadeLimpa, termoLimpo, googleKey.Trim());
+            if (leadsGoogle.Count > 0)
             {
-                var leadsGoogle = await BuscarViaGooglePlacesAsync(cidadeLimpa, termoLimpo, googleKey.Trim());
-                if (leadsGoogle.Count > 0)
-                {
-                    return Ok(leadsGoogle);
-                }
+                return Ok(leadsGoogle);
             }
-            catch (Exception ex)
+
+            if (!string.IsNullOrEmpty(erroGoogle))
             {
-                Console.WriteLine($"Erro ao consultar Google Places: {ex.Message}");
+                avisoGoogle = erroGoogle;
+                Console.WriteLine($"[Radar] Aviso/Erro Google Places: {erroGoogle}");
             }
         }
 
@@ -65,13 +66,26 @@ public class ProspeccaoController : ControllerBase
         try
         {
             var leadsOsm = await BuscarViaNominatimAsync(cidadeLimpa, termoLimpo);
-            return Ok(leadsOsm);
+            if (leadsOsm.Count > 0)
+            {
+                return Ok(leadsOsm);
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Erro ao consultar OpenStreetMap: {ex.Message}");
-            return Ok(new List<LeadComercioDto>());
         }
+
+        // Se o usuário forneceu a chave do Google e ela foi recusada, avisa com precisão
+        if (!string.IsNullOrEmpty(avisoGoogle))
+        {
+            return BadRequest(new 
+            { 
+                mensagem = $"O Google Maps recusou a consulta: \"{avisoGoogle}\". Verifique se ativou a 'Places API' (ou 'Places API New') no Google Cloud Console e se há uma conta de faturamento (billing) vinculada." 
+            });
+        }
+
+        return Ok(new List<LeadComercioDto>());
     }
 
     [HttpPost("importar-lote")]
@@ -144,76 +158,195 @@ public class ProspeccaoController : ControllerBase
         });
     }
 
-    private async Task<List<LeadComercioDto>> BuscarViaGooglePlacesAsync(string cidade, string termo, string apiKey)
+    private async Task<(List<LeadComercioDto> Leads, string? Erro)> BuscarViaGooglePlacesAsync(string cidade, string termo, string apiKey)
     {
         var lista = new List<LeadComercioDto>();
-        var url = "https://places.googleapis.com/v1/places:searchText";
-        var payload = new
+        string? ultimoErro = null;
+
+        // 1. TENTATIVA COM PLACES API (NEW)
+        try
         {
-            textQuery = $"{termo} em {cidade}",
-            languageCode = "pt-BR"
-        };
-
-        using var req = new HttpRequestMessage(HttpMethod.Post, url);
-        req.Headers.Add("X-Goog-Api-Key", apiKey);
-        req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.primaryTypeDisplayName");
-        req.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-
-        var resp = await _httpClient.SendAsync(req);
-        if (!resp.IsSuccessStatusCode) return lista;
-
-        var jsonStr = await resp.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(jsonStr);
-
-        if (doc.RootElement.TryGetProperty("places", out var placesElement) && placesElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var p in placesElement.EnumerateArray())
+            var urlNew = "https://places.googleapis.com/v1/places:searchText";
+            var payload = new
             {
-                string id = p.TryGetProperty("id", out var idE) ? idE.GetString() ?? Guid.NewGuid().ToString() : Guid.NewGuid().ToString();
-                string nome = "";
-                if (p.TryGetProperty("displayName", out var dispName) && dispName.TryGetProperty("text", out var textE))
-                {
-                    nome = textE.GetString() ?? "";
-                }
-                if (string.IsNullOrWhiteSpace(nome)) continue;
+                textQuery = $"{termo} em {cidade}",
+                languageCode = "pt-BR"
+            };
 
-                string endereco = p.TryGetProperty("formattedAddress", out var addrE) ? addrE.GetString() ?? "" : "";
-                string telefone = p.TryGetProperty("nationalPhoneNumber", out var phoneE) ? phoneE.GetString() ?? "" : "";
-                double? rating = p.TryGetProperty("rating", out var ratE) ? ratE.GetDouble() : null;
-                int? userRatingsTotal = p.TryGetProperty("userRatingCount", out var countE) ? countE.GetInt32() : null;
-                string? website = p.TryGetProperty("websiteUri", out var webE) ? webE.GetString() : null;
-                string? mapsUrl = p.TryGetProperty("googleMapsUri", out var mapE) ? mapE.GetString() : null;
-                string categoria = termo;
-                if (p.TryGetProperty("primaryTypeDisplayName", out var catE) && catE.TryGetProperty("text", out var catText))
+            using var req = new HttpRequestMessage(HttpMethod.Post, urlNew);
+            req.Headers.Add("X-Goog-Api-Key", apiKey);
+            req.Headers.Add("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.primaryTypeDisplayName");
+            req.Content = new StringContent(JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
+
+            var resp = await _httpClient.SendAsync(req);
+            var jsonStr = await resp.Content.ReadAsStringAsync();
+
+            if (resp.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(jsonStr);
+                if (doc.RootElement.TryGetProperty("places", out var placesElement) && placesElement.ValueKind == JsonValueKind.Array)
                 {
-                    categoria = catText.GetString() ?? termo;
+                    foreach (var p in placesElement.EnumerateArray())
+                    {
+                        string id = p.TryGetProperty("id", out var idE) ? idE.GetString() ?? Guid.NewGuid().ToString() : Guid.NewGuid().ToString();
+                        string nome = "";
+                        if (p.TryGetProperty("displayName", out var dispName) && dispName.TryGetProperty("text", out var textE))
+                        {
+                            nome = textE.GetString() ?? "";
+                        }
+                        if (string.IsNullOrWhiteSpace(nome)) continue;
+
+                        string endereco = p.TryGetProperty("formattedAddress", out var addrE) ? addrE.GetString() ?? "" : "";
+                        string telefone = p.TryGetProperty("nationalPhoneNumber", out var phoneE) ? phoneE.GetString() ?? "" : "";
+                        double? rating = p.TryGetProperty("rating", out var ratE) ? ratE.GetDouble() : null;
+                        int? userRatingsTotal = p.TryGetProperty("userRatingCount", out var countE) ? countE.GetInt32() : null;
+                        string? website = p.TryGetProperty("websiteUri", out var webE) ? webE.GetString() : null;
+                        string? mapsUrl = p.TryGetProperty("googleMapsUri", out var mapE) ? mapE.GetString() : null;
+                        string categoria = termo;
+                        if (p.TryGetProperty("primaryTypeDisplayName", out var catE) && catE.TryGetProperty("text", out var catText))
+                        {
+                            categoria = catText.GetString() ?? termo;
+                        }
+
+                        lista.Add(new LeadComercioDto
+                        {
+                            Id = id,
+                            Nome = nome,
+                            Telefone = telefone,
+                            Endereco = endereco,
+                            Cidade = cidade,
+                            Estado = "SP",
+                            Avaliacao = rating,
+                            TotalAvaliacoes = userRatingsTotal,
+                            Categoria = categoria,
+                            GoogleMapsUrl = mapsUrl ?? $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}",
+                            Site = website,
+                            Origem = "Google Maps"
+                        });
+                    }
                 }
 
-                lista.Add(new LeadComercioDto
+                if (lista.Count > 0) return (lista, null);
+            }
+            else
+            {
+                try
                 {
-                    Id = id,
-                    Nome = nome,
-                    Telefone = telefone,
-                    Endereco = endereco,
-                    Cidade = cidade,
-                    Estado = "SP",
-                    Avaliacao = rating,
-                    TotalAvaliacoes = userRatingsTotal,
-                    Categoria = categoria,
-                    GoogleMapsUrl = mapsUrl ?? $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}",
-                    Site = website,
-                    Origem = "Google Maps"
-                });
+                    using var docErr = JsonDocument.Parse(jsonStr);
+                    if (docErr.RootElement.TryGetProperty("error", out var errObj) && errObj.TryGetProperty("message", out var msgObj))
+                    {
+                        ultimoErro = msgObj.GetString();
+                    }
+                }
+                catch { }
             }
         }
+        catch (Exception ex)
+        {
+            ultimoErro = ex.Message;
+        }
 
-        return lista;
+        // 2. TENTATIVA COM PLACES API CLÁSSICA (TextSearch)
+        // Atende quem ativou a API clássica "Places API"
+        try
+        {
+            var urlClassic = $"https://maps.googleapis.com/maps/api/place/textsearch/json?query={Uri.EscapeDataString(termo + " em " + cidade)}&key={apiKey}&language=pt-BR";
+            using var reqClassic = new HttpRequestMessage(HttpMethod.Get, urlClassic);
+            var respClassic = await _httpClient.SendAsync(reqClassic);
+            var jsonStrClassic = await respClassic.Content.ReadAsStringAsync();
+
+            if (respClassic.IsSuccessStatusCode)
+            {
+                using var doc = JsonDocument.Parse(jsonStrClassic);
+                var root = doc.RootElement;
+                string status = root.TryGetProperty("status", out var stObj) ? stObj.GetString() ?? "" : "";
+
+                if (status == "OK" && root.TryGetProperty("results", out var resultsEl) && resultsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var r in resultsEl.EnumerateArray())
+                    {
+                        string id = r.TryGetProperty("place_id", out var pid) ? pid.GetString() ?? Guid.NewGuid().ToString() : Guid.NewGuid().ToString();
+                        string nome = r.TryGetProperty("name", out var nObj) ? nObj.GetString() ?? "" : "";
+                        if (string.IsNullOrWhiteSpace(nome)) continue;
+
+                        string endereco = r.TryGetProperty("formatted_address", out var addr) ? addr.GetString() ?? "" : "";
+                        double? rating = r.TryGetProperty("rating", out var rat) ? rat.GetDouble() : null;
+                        int? userRatingsTotal = r.TryGetProperty("user_ratings_total", out var urt) ? urt.GetInt32() : null;
+
+                        lista.Add(new LeadComercioDto
+                        {
+                            Id = id,
+                            Nome = nome,
+                            Telefone = "",
+                            Endereco = endereco,
+                            Cidade = cidade,
+                            Estado = "SP",
+                            Avaliacao = rating,
+                            TotalAvaliacoes = userRatingsTotal,
+                            Categoria = termo,
+                            GoogleMapsUrl = $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + cidade)}",
+                            Site = null,
+                            Origem = "Google Maps"
+                        });
+                    }
+
+                    if (lista.Count > 0) return (lista, null);
+                }
+                else if (status != "OK" && status != "ZERO_RESULTS")
+                {
+                    if (root.TryGetProperty("error_message", out var errMsg))
+                    {
+                        var msg = errMsg.GetString();
+                        if (!string.IsNullOrEmpty(msg)) ultimoErro = msg;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (string.IsNullOrEmpty(ultimoErro)) ultimoErro = ex.Message;
+        }
+
+        return (lista, ultimoErro);
     }
 
     private async Task<List<LeadComercioDto>> BuscarViaNominatimAsync(string cidade, string termo)
     {
+        var lista = await ExecutarConsultaNominatimAsync($"{termo} {cidade}", cidade, termo);
+        if (lista.Count == 0)
+        {
+            var termoSemAcento = RemoverAcentos(termo);
+            if (termoSemAcento != termo)
+            {
+                lista = await ExecutarConsultaNominatimAsync($"{termoSemAcento} {cidade}", cidade, termo);
+            }
+        }
+        if (lista.Count == 0)
+        {
+            lista = await ExecutarConsultaNominatimAsync($"{cidade}, {termo}", cidade, termo);
+        }
+        return lista;
+    }
+
+    private static string RemoverAcentos(string texto)
+    {
+        var normalized = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder();
+        foreach (var c in normalized)
+        {
+            var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (uc != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(c);
+            }
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
+    }
+
+    private async Task<List<LeadComercioDto>> ExecutarConsultaNominatimAsync(string query, string cidadeOriginal, string termoOriginal)
+    {
         var lista = new List<LeadComercioDto>();
-        var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(termo + " " + cidade)}&format=json&addressdetails=1&extratags=1&limit=25";
+        var url = $"https://nominatim.openstreetmap.org/search?q={Uri.EscapeDataString(query)}&format=json&addressdetails=1&extratags=1&limit=25";
 
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Add("User-Agent", "AutonomaxRadar/1.0 (contato@autonomax.com.br)");
@@ -239,7 +372,7 @@ public class ProspeccaoController : ControllerBase
             string rua = "";
             string numero = "";
             string bairro = "";
-            string cid = cidade;
+            string cid = cidadeOriginal;
             string uf = "SP";
 
             if (item.TryGetProperty("address", out var addr))
@@ -249,8 +382,8 @@ public class ProspeccaoController : ControllerBase
                 if (addr.TryGetProperty("house_number", out var hn)) numero = hn.GetString() ?? "";
                 if (addr.TryGetProperty("suburb", out var sub)) bairro = sub.GetString() ?? "";
                 if (string.IsNullOrEmpty(bairro) && addr.TryGetProperty("neighbourhood", out var nei)) bairro = nei.GetString() ?? "";
-                if (addr.TryGetProperty("city", out var c)) cid = c.GetString() ?? cidade;
-                else if (addr.TryGetProperty("town", out var t)) cid = t.GetString() ?? cidade;
+                if (addr.TryGetProperty("city", out var c)) cid = c.GetString() ?? cidadeOriginal;
+                else if (addr.TryGetProperty("town", out var t)) cid = t.GetString() ?? cidadeOriginal;
                 if (addr.TryGetProperty("state", out var s)) uf = s.GetString() ?? "SP";
             }
 
@@ -285,7 +418,7 @@ public class ProspeccaoController : ControllerBase
                 Estado = uf,
                 Avaliacao = null,
                 TotalAvaliacoes = null,
-                Categoria = termo,
+                Categoria = termoOriginal,
                 GoogleMapsUrl = $"https://www.google.com/maps/search/?api=1&query={Uri.EscapeDataString(nome + " " + (string.IsNullOrEmpty(bairro) ? cid : bairro + " " + cid))}",
                 Site = website,
                 Origem = "OpenStreetMap"
