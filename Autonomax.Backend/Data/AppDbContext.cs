@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<LogSeguranca> LogsSeguranca { get; set; }
     public DbSet<Fornecedor> Fornecedores { get; set; }
     public DbSet<HistoricoPrecoProduto> HistoricoPrecosProdutos { get; set; }
+    public DbSet<LeadTriagem> LeadsTriagem { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -87,5 +88,9 @@ public class AppDbContext : DbContext
         // 8. Logs de Segurança: Auditoria por usuário e data
         modelBuilder.Entity<LogSeguranca>()
             .HasIndex(l => new { l.UsuarioId, l.Data });
+
+        // 9. Leads em Triagem do Radar
+        modelBuilder.Entity<LeadTriagem>()
+            .HasIndex(lt => lt.NegocioId);
     }
 }

@@ -158,6 +158,197 @@ public class ProspeccaoController : ControllerBase
         });
     }
 
+    [HttpGet("triagem/{negocioId}")]
+    public async Task<IActionResult> ObterTriagem(int negocioId)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(negocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
+
+        var leads = await _context.LeadsTriagem
+            .AsNoTracking()
+            .Where(l => l.NegocioId == negocioId)
+            .OrderByDescending(l => l.DataCaptura)
+            .ToListAsync();
+
+        return Ok(leads);
+    }
+
+    [HttpPost("salvar-triagem")]
+    public async Task<IActionResult> SalvarTriagem([FromBody] ImportarLoteDto dto)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue || !await _context.ValidarPosseNegocioAsync(dto.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado a este negócio." });
+        }
+
+        if (dto.Leads == null || dto.Leads.Count == 0)
+        {
+            return BadRequest(new { mensagem = "Nenhum lead informado para salvar na triagem." });
+        }
+
+        int salvos = 0;
+        int ignorados = 0;
+
+        var existentes = await _context.LeadsTriagem
+            .Where(l => l.NegocioId == dto.NegocioId)
+            .Select(l => new { l.Nome, l.Telefone })
+            .ToListAsync();
+
+        foreach (var lead in dto.Leads)
+        {
+            var telLimpo = Regex.Replace(lead.Telefone ?? "", @"\D", "");
+            var nomeLimpo = (lead.Nome ?? "").Trim();
+
+            bool jaExiste = existentes.Any(e =>
+                (!string.IsNullOrEmpty(telLimpo) && Regex.Replace(e.Telefone ?? "", @"\D", "") == telLimpo) ||
+                string.Equals(e.Nome.Trim(), nomeLimpo, StringComparison.OrdinalIgnoreCase)
+            );
+
+            if (jaExiste)
+            {
+                ignorados++;
+                continue;
+            }
+
+            var novoLead = new LeadTriagem
+            {
+                Nome = nomeLimpo,
+                Telefone = lead.Telefone,
+                Endereco = lead.Endereco,
+                Bairro = lead.Bairro,
+                Cidade = lead.Cidade,
+                Estado = lead.Estado ?? "SP",
+                Categoria = lead.Categoria,
+                GoogleMapsUrl = lead.GoogleMapsUrl,
+                Site = lead.Site,
+                Origem = lead.Origem ?? "Google Maps",
+                Avaliacao = lead.Avaliacao,
+                TotalAvaliacoes = lead.TotalAvaliacoes,
+                Status = "Novo",
+                Observacoes = $"Captado via Radar em {DateTime.Now:dd/MM/yyyy HH:mm}.",
+                DataCaptura = DateTime.UtcNow,
+                NegocioId = dto.NegocioId
+            };
+
+            _context.LeadsTriagem.Add(novoLead);
+            salvos++;
+        }
+
+        if (salvos > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(new
+        {
+            salvos,
+            ignorados,
+            mensagem = $"{salvos} comércios salvos na Triagem com sucesso! ({ignorados} já estavam salvos)"
+        });
+    }
+
+    [HttpPatch("triagem/{id}/status")]
+    public async Task<IActionResult> AtualizarStatusTriagem(int id, [FromBody] AtualizarStatusLeadDto dto)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
+
+        var lead = await _context.LeadsTriagem.FirstOrDefaultAsync(l => l.Id == id);
+        if (lead == null) return NotFound("Lead não encontrado.");
+
+        if (!await _context.ValidarPosseNegocioAsync(lead.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
+        lead.Status = dto.Status;
+        if (!string.IsNullOrWhiteSpace(dto.Observacoes))
+        {
+            lead.Observacoes = dto.Observacoes;
+        }
+
+        if (dto.Status == "Contatado" || dto.Status == "Negociando")
+        {
+            lead.DataUltimoContato = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(lead);
+    }
+
+    [HttpPost("triagem/{id}/converter")]
+    public async Task<IActionResult> ConverterLeadEmCliente(int id)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
+
+        var lead = await _context.LeadsTriagem.FirstOrDefaultAsync(l => l.Id == id);
+        if (lead == null) return NotFound("Lead não encontrado.");
+
+        if (!await _context.ValidarPosseNegocioAsync(lead.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
+        var telLimpo = Regex.Replace(lead.Telefone ?? "", @"\D", "");
+        var nomeLimpo = (lead.Nome ?? "").Trim();
+
+        // Verifica se já existe em Clientes
+        var jaCliente = await _context.Clientes.AnyAsync(c =>
+            c.NegocioId == lead.NegocioId &&
+            ((!string.IsNullOrEmpty(telLimpo) && c.Celular == telLimpo) || c.Nome.ToLower() == nomeLimpo.ToLower())
+        );
+
+        if (!jaCliente)
+        {
+            var tags = string.Join(", ", new[] { "Radar", "Convertido", lead.Categoria, lead.Cidade }
+                .Where(t => !string.IsNullOrWhiteSpace(t)));
+
+            var novoCliente = new Cliente
+            {
+                Nome = nomeLimpo,
+                Celular = telLimpo,
+                Endereco = lead.Endereco ?? "",
+                Cidade = lead.Cidade ?? "",
+                Estado = lead.Estado ?? "SP",
+                Observacoes = $"Convertido da Triagem do Radar em {DateTime.Now:dd/MM/yyyy}. {lead.Observacoes}",
+                Tags = tags,
+                NegocioId = lead.NegocioId
+            };
+
+            _context.Clientes.Add(novoCliente);
+        }
+
+        lead.Status = "Convertido";
+        await _context.SaveChangesAsync();
+
+        return Ok(new { mensagem = $"Lead '{lead.Nome}' convertido com sucesso em Cliente Oficial da sua carteira!" });
+    }
+
+    [HttpDelete("triagem/{id}")]
+    public async Task<IActionResult> ExcluirLeadTriagem(int id)
+    {
+        var usuarioId = this.ObterUsuarioIdAutenticado();
+        if (!usuarioId.HasValue) return Unauthorized();
+
+        var lead = await _context.LeadsTriagem.FirstOrDefaultAsync(l => l.Id == id);
+        if (lead == null) return NotFound("Lead não encontrado.");
+
+        if (!await _context.ValidarPosseNegocioAsync(lead.NegocioId, usuarioId.Value))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso negado." });
+        }
+
+        _context.LeadsTriagem.Remove(lead);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { mensagem = "Lead removido da triagem." });
+    }
+
     private async Task<(List<LeadComercioDto> Leads, string? Erro)> BuscarViaGooglePlacesAsync(string cidade, string termo, string apiKey)
     {
         var lista = new List<LeadComercioDto>();
@@ -389,4 +580,10 @@ public class ImportarLoteDto
 {
     public int NegocioId { get; set; }
     public List<LeadComercioDto> Leads { get; set; } = new();
+}
+
+public class AtualizarStatusLeadDto
+{
+    public string Status { get; set; } = "Novo";
+    public string? Observacoes { get; set; }
 }
