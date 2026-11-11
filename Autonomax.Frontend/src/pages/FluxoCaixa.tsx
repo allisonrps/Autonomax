@@ -461,8 +461,8 @@ export function FluxoCaixa() {
                       <ArrowUpRight size={13} />
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base font-black text-emerald-400 tracking-tight truncate" title={`Receitas: R$ ${totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                    R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className="text-sm sm:text-base font-black text-emerald-400 tracking-tight truncate" title={`Receitas: R$ ${totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    R$ {totalEntradas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -474,8 +474,8 @@ export function FluxoCaixa() {
                       <ArrowDownRight size={13} />
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base font-black text-red-400 tracking-tight truncate" title={`Despesas: R$ ${totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                    R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className="text-sm sm:text-base font-black text-red-400 tracking-tight truncate" title={`Despesas: R$ ${totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    R$ {totalSaidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -487,8 +487,8 @@ export function FluxoCaixa() {
                       <Tag size={13} />
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base font-black text-purple-400 tracking-tight truncate" title={`Descontos: R$ ${totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                    R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className="text-sm sm:text-base font-black text-purple-400 tracking-tight truncate" title={`Descontos: R$ ${totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    R$ {totalDescontos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -500,8 +500,8 @@ export function FluxoCaixa() {
                       <TrendingUp size={13} />
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base font-black text-blue-400 tracking-tight truncate" title={`Média Diária: R$ ${resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                    R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className="text-sm sm:text-base font-black text-blue-400 tracking-tight truncate" title={`Média Diária: R$ ${resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    R$ {resumoGanhosDiarios.mediaDiaria.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -513,8 +513,8 @@ export function FluxoCaixa() {
                       <Wallet size={13} />
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base font-black text-amber-400 tracking-tight truncate" title={`A Receber: R$ ${totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                    R$ {totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className="text-sm sm:text-base font-black text-amber-400 tracking-tight truncate" title={`A Receber: R$ ${totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    R$ {totalPendentes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -526,8 +526,8 @@ export function FluxoCaixa() {
                       <DollarSign size={13} />
                     </div>
                   </div>
-                  <p className="text-sm sm:text-base font-black text-white tracking-tight truncate" title={`Caixa Líquido: R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}>
-                    R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <p className="text-sm sm:text-base font-black text-white tracking-tight truncate" title={`Caixa Líquido: R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
+                    R$ {saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
